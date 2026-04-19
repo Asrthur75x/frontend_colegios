@@ -1,0 +1,56 @@
+---
+// HorarioTable.astro
+---
+
+<section
+    id="horario-container"
+    class="hidden translate-y-4 transform overflow-hidden rounded-2xl border border-[#757680]/20 bg-white shadow-sm opacity-0 transition-all duration-500"
+>
+    <div
+        class="flex items-center justify-between border-b border-[#757680]/20 bg-[#1A5AD7]/5 p-6"
+    >
+        <h2 class="text-2xl font-bold text-[#1A5AD7]">
+            Vista de Sección: <span class="text-[#6366F1]">A_1A</span>
+        </h2>
+        <span
+            class="rounded-full border border-[#1A5AD7]/20 bg-[#1A5AD7]/10 px-3 py-1 text-xs font-bold text-[#1A5AD7]"
+            >Optimizado</span
+        >
+    </div>
+
+    <div class="overflow-x-auto p-6">
+        <table class="min-w-max w-full border-collapse text-left">
+            <thead>
+                <tr>
+                    <th
+                        class="rounded-tl-lg border-b-2 border-white bg-[#64748B] p-4 font-semibold text-white shadow-sm"
+                        >Hora / Día</th
+                    >
+                    <th
+                        class="border-b-2 border-white bg-[#64748B] p-4 font-semibold text-white shadow-sm"
+                        >Lunes</th
+                    >
+                    <th
+                        class="border-b-2 border-white bg-[#64748B] p-4 font-semibold text-white shadow-sm"
+                        >Martes</th
+                    >
+                    <th
+                        class="border-b-2 border-white bg-[#64748B] p-4 font-semibold text-white shadow-sm"
+                        >Miércoles</th
+                    >
+                    <th
+                        class="border-b-2 border-white bg-[#64748B] p-4 font-semibold text-white shadow-sm"
+                        >Jueves</th
+                    >
+                    <th
+                        class="rounded-tr-lg border-b-2 border-white bg-[#64748B] p-4 font-semibold text-white shadow-sm"
+                        >Viernes</th
+                    >
+                </tr>
+            </thead>
+            <tbody id="tabla-body" class="bg-white">
+                <!-- Las filas se inyectan acá dinámicamente -->
+            </tbody>
+        </table>
+    </div>
+</section>

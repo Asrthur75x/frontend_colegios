@@ -1,0 +1,29 @@
+---
+import Sidebar from "../components/Sidebar.astro";
+import Topbar from "../components/Topbar.astro";
+import "../styles/global.css";
+---
+
+<!doctype html>
+<html lang="es">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Dashboard | HorariX</title>
+	</head>
+	<body
+		class="bg-[#F8FAFC] text-[#757680] font-sans antialiased h-screen overflow-hidden pt-16"
+	>
+		<Topbar />
+		<Sidebar />
+
+		<!-- El margen izquierdo de 64 equivale al w-64 (16rem/256px) del Sidebar fixado -->
+		<div
+			class="ml-64 flex flex-col h-[calc(100vh-4rem)] overflow-y-auto overflow-x-hidden"
+		>
+			<main class="p-8 flex-1">
+				<slot />
+			</main>
+		</div>
+	</body>
+</html>
