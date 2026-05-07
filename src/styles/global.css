@@ -1,3 +1,11 @@
 @import "tailwindcss";
 @source "../components";
 @source "../pages";
+
+@theme {
+  --color-hx-teal: #10CFAE;
+  --color-hx-pink: #F1A5B9;
+  --color-hx-blue: #51B4E8;
+  --color-hx-purple: #790EEC;
+  --color-hx-yellow: #F3C252;
+}
