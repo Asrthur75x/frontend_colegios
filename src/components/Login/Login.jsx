@@ -78,10 +78,10 @@ export default function Login() {
                 {/* Texto HORARIX vertical decorativo */}
                 <div style={{
                     position: 'absolute', left: 40,
-                    top: '50%', transform: 'translateY(-50%) rotate(-90deg)',
+                    top: '65%', transform: 'translateY(-50%) rotate(-90deg)',
                     transformOrigin: 'left center',
-                    fontSize: 120, fontWeight: 900,
-                    color: 'white', opacity: 0.08,
+                    fontSize: 100, fontWeight: 900,
+                    color: 'white', opacity: 0.15,
                     letterSpacing: '0.15em', whiteSpace: 'nowrap',
                     pointerEvents: 'none', userSelect: 'none',
                 }}>
@@ -104,8 +104,9 @@ export default function Login() {
                         }}>
                             <div className="w-full h-full border-[2px] border-white/40 rounded-full flex items-center justify-center relative animate-[spin_30s_linear_infinite]">
                                 <div className="absolute top-0 w-4 h-4 bg-white rounded-full shadow-[0_0_15px_rgba(255,255,255,0.8)]"></div>
-                                <div className="absolute bottom-0 w-3 h-3 bg-[#790EEC] rounded-full"></div>
-                                <div className="absolute left-0 w-2 h-2 bg-[#F1A5B9] rounded-full"></div>
+                                <div style={{ position: 'absolute', bottom: 0, width: 14, height: 14, borderRadius: '50%', background: '#790EEC', boxShadow: '0 0 10px #790EEC' }} />
+                                <div style={{ position: 'absolute', left: 0, width: 10, height: 10, borderRadius: '50%', background: '#F1A5B9', boxShadow: '0 0 8px #F1A5B9' }} />
+                                <div style={{ position: 'absolute', right: 0, width: 10, height: 10, borderRadius: '50%', background: '#F3C252', boxShadow: '0 0 8px #F3C252' }} />
                             </div>
                         </div>
                         {/* Ícono centrado */}
@@ -122,11 +123,18 @@ export default function Login() {
 
                     <p style={{
                         color: 'white', marginTop: 64,
-                        fontSize: 12, letterSpacing: '0.2em',
-                        fontWeight: 800, opacity: 0.9,
+                        fontSize: 17, letterSpacing: '0.2em',
+                        fontWeight: 800, opacity: 0.95,
                         textAlign: 'center', textTransform: 'uppercase',
                     }}>
                         PLATAFORMA HORARIX
+                    </p>
+                    <p style={{
+                        color: 'rgba(255,255,255,0.7)', marginTop: 10,
+                        fontSize: 15, letterSpacing: '0.03em',
+                        fontWeight: 500, textAlign: 'center',
+                    }}>
+                        Gestión de horarios académicos
                     </p>
                 </div>
             </div>
@@ -137,8 +145,13 @@ export default function Login() {
                 style={{
                     transform: isExiting ? 'translateX(110%)' : 'translateX(0)',
                     transition: 'transform 0.7s ease-in-out',
+                    overflow: 'hidden',
                 }}
             >
+                {/* Blobs de color en el panel derecho */}
+                <div style={{ position: 'absolute', top: '-60px', right: '-60px', width: 260, height: 260, background: '#790EEC', opacity: 0.10, borderRadius: '50%', filter: 'blur(60px)', pointerEvents: 'none' }} />
+                <div style={{ position: 'absolute', bottom: '-50px', left: '-50px', width: 240, height: 240, background: '#F3C252', opacity: 0.13, borderRadius: '50%', filter: 'blur(55px)', pointerEvents: 'none' }} />
+                <div style={{ position: 'absolute', bottom: '30%', right: '-30px', width: 180, height: 180, background: '#F1A5B9', opacity: 0.12, borderRadius: '50%', filter: 'blur(50px)', pointerEvents: 'none' }} />
                 <div style={{ width: '100%', maxWidth: 380, padding: '0 32px' }}>
                     <h2 className="text-4xl font-extrabold text-[#10CFAE] mb-12 text-center tracking-tight">
                         INICIAR SESIÓN
@@ -213,14 +226,6 @@ export default function Login() {
                             </button>
                         </div>
 
-                        <div className="flex justify-between items-center mt-6 text-sm px-2">
-                            <button type="button" className="text-[#10CFAE] font-bold opacity-80 hover:opacity-100 transition-opacity">
-                                Olvidé mi contraseña
-                            </button>
-                            <button type="button" className="text-[#10CFAE] font-bold opacity-80 hover:opacity-100 transition-opacity">
-                                Ayuda
-                            </button>
-                        </div>
                     </form>
                 </div>
             </div>
