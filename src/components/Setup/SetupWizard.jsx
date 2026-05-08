@@ -58,7 +58,7 @@ export default function SetupWizard() {
     const [mounted, setMounted] = useState(false);
     const [entered, setEntered] = useState(false);
 
-    const totalSteps = wizardData.turnos && wizardData.turnos.length > 1 ? 5 : 4;
+    const totalSteps = wizardData.turnos && wizardData.turnos.length > 1 ? 6 : 5;
 
     // Cargar desde sessionStorage solo en el cliente (después de montar)
     useEffect(() => {
@@ -408,17 +408,13 @@ export default function SetupWizard() {
                 }
             }
 
-            if (totalSteps === 5) {
+            if (totalSteps === 6) {
                 setSavedSteps(prev => prev.includes(4) ? prev : [...prev, 4]);
                 setStep(5);
             } else {
                 await autoAssignTurnoUnico();
-                if (typeof window !== 'undefined') {
-                    sessionStorage.removeItem('horarix_wizard_step');
-                    sessionStorage.removeItem('horarix_wizard_data');
-                    sessionStorage.removeItem('horarix_wizard_saved_steps');
-                }
-                window.location.href = '/dashboard';
+                setSavedSteps(prev => prev.includes(4) ? prev : [...prev, 4]);
+                setStep(5);
             }
         } catch (error) {
             console.error("Error al guardar configuración de secciones:", error);
@@ -533,12 +529,8 @@ export default function SetupWizard() {
                 }
             }
 
-            if (typeof window !== 'undefined') {
-                sessionStorage.removeItem('horarix_wizard_step');
-                sessionStorage.removeItem('horarix_wizard_data');
-                sessionStorage.removeItem('horarix_wizard_saved_steps');
-            }
-            window.location.href = '/dashboard';
+            setSavedSteps(prev => prev.includes(5) ? prev : [...prev, 5]);
+            setStep(6);
         } catch (error) {
             console.error("Error al guardar configuración de turnos:", error);
             setErrorMsg("Hubo un error guardando los datos del paso 5.");
@@ -645,13 +637,20 @@ export default function SetupWizard() {
             }
 
             if (savedSteps.includes(4)) {
-                if (totalSteps === 5) setStep(5);
+                setStep(5);
             } else {
                 saveStep4Data();
             }
-        } else if (step === 5) {
+        } else if (step === 5 && totalSteps === 6) {
             setErrorMsg('');
             saveStep5Data();
+        } else if (step === totalSteps) {
+            if (typeof window !== 'undefined') {
+                sessionStorage.removeItem('horarix_wizard_step');
+                sessionStorage.removeItem('horarix_wizard_data');
+                sessionStorage.removeItem('horarix_wizard_saved_steps');
+            }
+            window.location.href = '/areas';
         }
     };
 
@@ -800,7 +799,7 @@ export default function SetupWizard() {
                             textTransform: 'uppercase', marginBottom: 48, marginTop: 16,
                             transition: 'color 0.5s ease',
                         }}>
-                            PASO {step} DE {totalSteps} • {step === 1 ? 'DATOS INICIALES' : step === 2 ? 'DÍAS Y GRADOS' : step === 3 ? 'BLOQUES POR DÍA' : step === 4 ? 'SECCIONES' : 'TURNOS'}
+                            PASO {step} DE {totalSteps} • {step === 1 ? 'DATOS INICIALES' : step === 2 ? 'DÍAS Y GRADOS' : step === 3 ? 'BLOQUES POR DÍA' : step === 4 ? 'SECCIONES' : (step === 5 && totalSteps === 6) ? 'TURNOS' : '¡ÉXITO!'}
                         </div>
 
                         <div className="flex-grow flex flex-col justify-center w-full">
@@ -822,9 +821,20 @@ export default function SetupWizard() {
                                     <Paso4Secciones data={wizardData} setData={setWizardData} />
                                 </div>
                             )}
-                            {step === 5 && (
+                            {step === 5 && totalSteps === 6 && (
                                 <div className="animate-fade-in" style={{ animationDuration: '0.6s' }}>
                                     <Paso5Turnos data={wizardData} setData={setWizardData} />
+                                </div>
+                            )}
+                            {step === totalSteps && (
+                                <div className="flex flex-col items-center justify-center py-12 animate-fade-in" style={{ animationDuration: '0.8s' }}>
+                                    <div className="w-24 h-24 bg-[#10CFAE]/20 text-[#10CFAE] rounded-full flex items-center justify-center mb-8 shadow-[0_0_40px_rgba(16,207,174,0.4)]">
+                                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                                    </div>
+                                    <h2 className="text-3xl font-extrabold text-[#111827] tracking-tight mb-4 text-center">¡Estructura Configurada!</h2>
+                                    <p className="text-[#64748B] text-center max-w-md text-lg leading-relaxed">
+                                        Tu institución está lista. Ahora vamos al Dashboard para agregar tus <strong className="text-[#790EEC]">Áreas, Cursos y Profesores</strong> a tu propio ritmo.
+                                    </p>
                                 </div>
                             )}
                         </div>
@@ -870,7 +880,7 @@ export default function SetupWizard() {
                                         boxShadow: isSaving ? 'none' : (step === 1 ? '0 8px 20px -6px rgba(121,14,236,0.5)' : step === 2 ? '0 8px 20px -6px rgba(81,180,232,0.5)' : step === 3 ? '0 8px 20px -6px rgba(243,194,82,0.5)' : step === 4 ? '0 8px 20px -6px rgba(241,165,185,0.5)' : '0 8px 20px -6px rgba(16,207,174,0.5)'),
                                     }}
                                 >
-                                    {isSaving ? 'GUARDANDO...' : (step === totalSteps ? 'FINALIZAR' : 'CONTINUAR Y GUARDAR')}
+                                    {isSaving ? 'GUARDANDO...' : (step === totalSteps ? 'IR AL DASHBOARD' : 'CONTINUAR Y GUARDAR')}
                                 </button>
                             </div>
 

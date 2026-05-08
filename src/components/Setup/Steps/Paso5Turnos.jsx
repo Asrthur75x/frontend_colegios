@@ -4,6 +4,9 @@ import React, { useEffect, useState } from 'react';
  * seccionTurno data structure:
  *   Simple mode:   seccionTurno[sede][grado][seccion] = "Mañana"  (string)
  *   Advanced mode: seccionTurno[sede][grado][seccion] = { [diaId]: "Mañana", ... }  (object)
+ *
+ * gradoDiaConfig key: "grado-diaId" → bloques_dia (number)
+ * Only days with bloques_dia > 0 are relevant for a grade.
  */
 export default function Paso5Turnos({ data, setData }) {
     // Initialize with first turno for all sections (simple mode)
@@ -41,6 +44,18 @@ export default function Paso5Turnos({ data, setData }) {
     const gradosSedeActiva = data.secciones[activeSede] || {};
     const dias = data.dias || [];
 
+    /**
+     * Returns only the days that have at least 1 block configured for the given grade.
+     * Uses gradoDiaConfig keys like "grado-diaId".
+     */
+    const getDiasConBloques = (grado) => {
+        const config = data.gradoDiaConfig || {};
+        return dias.filter(dia => {
+            const key = `${grado}-${dia.id}`;
+            return (config[key] || 0) > 0;
+        });
+    };
+
     // --- Handlers ---
 
     // Set same turno for all days (simple mode)
@@ -59,11 +74,12 @@ export default function Paso5Turnos({ data, setData }) {
 
     // Set turno for a specific day (advanced mode)
     const handleTurnoPorDia = (grado, seccion, diaId, turno) => {
+        const diasConBloques = getDiasConBloques(grado);
         const current = data.seccionTurno[activeSede]?.[grado]?.[seccion];
-        // Build the per-day object. If it was a string, expand all days first.
+        // Build the per-day object. If it was a string, expand only the relevant days.
         const currentObj = typeof current === 'object' && current !== null
             ? current
-            : dias.reduce((acc, d) => ({ ...acc, [d.id]: current || data.turnos[0] }), {});
+            : diasConBloques.reduce((acc, d) => ({ ...acc, [d.id]: current || data.turnos[0] }), {});
 
         setData(prev => ({
             ...prev,
@@ -84,12 +100,13 @@ export default function Paso5Turnos({ data, setData }) {
     const toggleAdvanced = (grado, seccion) => {
         const key = `${grado}__${seccion}`;
         const isEntering = !advancedMode[key];
+        const diasConBloques = getDiasConBloques(grado);
 
         if (isEntering) {
-            // Convert current simple string to per-day object
+            // Convert current simple string to per-day object (only days with blocks)
             const current = data.seccionTurno[activeSede]?.[grado]?.[seccion];
             if (typeof current === 'string') {
-                const expanded = dias.reduce((acc, d) => ({ ...acc, [d.id]: current }), {});
+                const expanded = diasConBloques.reduce((acc, d) => ({ ...acc, [d.id]: current }), {});
                 setData(prev => ({
                     ...prev,
                     seccionTurno: {
@@ -130,7 +147,9 @@ export default function Paso5Turnos({ data, setData }) {
                 Asignación de Turnos
             </h2>
             <p className="text-slate-500 text-center mb-6 text-base max-w-[480px]">
-                Selecciona a qué turno pertenece cada sección. Puedes configurar por día si es necesario.
+                Selecciona a qué turno pertenece cada sección.{' '}
+                <span className="font-semibold text-slate-600">Si una sección cambia de turno según el día</span>
+                , usa el botón <span className="font-semibold text-[#10CFAE]">Variar por día</span>.
             </p>
 
             {/* SEDES tabs */}
@@ -138,11 +157,10 @@ export default function Paso5Turnos({ data, setData }) {
                 <div className="flex flex-wrap justify-center gap-2 mb-5 bg-slate-50 p-2 rounded-2xl border border-slate-100 w-full max-w-[700px]">
                     {sedes.map(sede => (
                         <button key={sede} onClick={() => setActiveSede(sede)}
-                            className={`cursor-pointer px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 ${
-                                activeSede === sede
+                            className={`cursor-pointer px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 ${activeSede === sede
                                 ? 'bg-[#10CFAE] text-white shadow-lg shadow-[#10CFAE]/30 scale-105'
                                 : 'bg-transparent text-slate-500 hover:bg-slate-200 hover:text-slate-700'
-                            }`}>
+                                }`}>
                             Sede {sede}
                         </button>
                     ))}
@@ -155,6 +173,11 @@ export default function Paso5Turnos({ data, setData }) {
                     const seccionesArray = gradosSedeActiva[grado] || [];
                     if (seccionesArray.length === 0) return null;
 
+                    // Days with blocks for this grade
+                    const diasConBloques = getDiasConBloques(grado);
+                    // Only show "Por día" button if there are 2+ days with blocks
+                    const puedeVariarPorDia = diasConBloques.length >= 2;
+
                     return (
                         <div key={grado}>
                             {/* Cabecera grado */}
@@ -163,6 +186,12 @@ export default function Paso5Turnos({ data, setData }) {
                                     {grado}°
                                 </div>
                                 <span className="font-bold text-slate-500 text-sm uppercase tracking-wider">Grado</span>
+                                {/* Days badge */}
+                                <span className="ml-auto text-xs text-slate-400 font-medium">
+                                    {diasConBloques.length === 0
+                                        ? 'Sin bloques'
+                                        : diasConBloques.map(d => d.nombre.slice(0, 3)).join(' · ')}
+                                </span>
                             </div>
 
                             {/* Tarjetas de secciones */}
@@ -175,70 +204,78 @@ export default function Paso5Turnos({ data, setData }) {
 
                                     return (
                                         <div key={seccion}
-                                            className={`bg-white border-2 rounded-2xl p-3 shadow-sm flex flex-col gap-3 transition-all duration-300 ${
-                                                isAdvanced ? 'border-[#10CFAE]/50 col-span-2 sm:col-span-3' : 'border-slate-100 items-center hover:border-[#10CFAE]/30'
-                                            }`}>
+                                            className={`bg-white border-2 rounded-2xl p-3 shadow-sm flex flex-col gap-3 transition-all duration-300 ${isAdvanced ? 'border-[#10CFAE]/50 col-span-2 sm:col-span-3' : 'border-slate-100 items-center hover:border-[#10CFAE]/30'
+                                                }`}>
 
                                             {/* Header de la tarjeta */}
-                                            <div className={`flex items-center ${isAdvanced ? 'justify-between' : 'flex-col gap-2 w-full'}`}>
+                                            <div className={`flex items-center ${isAdvanced ? 'justify-between' : 'flex-col gap-5 w-full'}`}>
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Sección</span>
                                                     <span className="text-xl font-black text-[#10CFAE]">{seccion}</span>
                                                 </div>
 
-                                                {/* Botón toggle modo avanzado */}
-                                                <button
-                                                    onClick={() => toggleAdvanced(grado, seccion)}
-                                                    className={`cursor-pointer flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider transition-colors px-2 py-1 rounded-lg ${
-                                                        isAdvanced
-                                                        ? 'text-[#10CFAE] bg-[#10CFAE]/10'
-                                                        : 'text-slate-400 hover:text-[#10CFAE] hover:bg-[#10CFAE]/5'
-                                                    }`}
-                                                    title={isAdvanced ? 'Volver a modo simple' : 'Configurar turno por día'}
-                                                >
-                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                                        <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-                                                    </svg>
-                                                    {isAdvanced ? 'Simple' : 'Por día'}
-                                                </button>
+                                                {/* MODO SIMPLE: un selector de turno para todos los días */}
+                                                {!isAdvanced && (
+                                                    <div className="flex flex-wrap justify-center gap-1.5 w-full">
+                                                        {data.turnos.map(turno => (
+                                                            <button key={turno}
+                                                                onClick={() => handleTurnoGlobal(grado, seccion, turno)}
+                                                                className={`cursor-pointer flex-1 min-w-0 px-2 py-2 rounded-lg text-xs font-bold transition-all border-2 ${turnoGlobal === turno
+                                                                    ? 'bg-[#10CFAE]/10 border-[#10CFAE] text-[#10CFAE]'
+                                                                    : 'bg-slate-50 border-transparent text-slate-400 hover:border-slate-200 hover:text-slate-600'
+                                                                    }`}>
+                                                                {turno}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+
+                                                {/* Botón toggle modo avanzado — solo si hay 2+ días con bloques */}
+                                                {puedeVariarPorDia && (
+                                                    <button
+                                                        onClick={() => toggleAdvanced(grado, seccion)}
+                                                        className={`cursor-pointer flex items-center gap-2 transition-all duration-200 rounded-xl border-2 ${isAdvanced
+                                                            ? 'px-3 py-1.5 text-white bg-[#10CFAE] border-[#10CFAE] shadow-md shadow-[#10CFAE]/30 hover:bg-[#0db89a]'
+                                                            : 'px-3 py-2 text-[#10CFAE] bg-[#10CFAE]/8 border-[#10CFAE]/40 hover:bg-[#10CFAE]/15 hover:border-[#10CFAE] shadow-sm'
+                                                            }`}
+                                                    >
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                                                            <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+                                                        </svg>
+                                                        {isAdvanced
+                                                            ? <span className="text-xs font-bold">✕</span>
+                                                            : <span className="text-[12px] font-black ">
+                                                                Variar por día
+                                                            </span>
+                                                        }
+                                                    </button>
+                                                )}
                                             </div>
 
-                                            {/* MODO SIMPLE: un selector de turno para todos los días */}
-                                            {!isAdvanced && (
-                                                <div className="flex flex-wrap justify-center gap-1.5 w-full">
-                                                    {data.turnos.map(turno => (
-                                                        <button key={turno}
-                                                            onClick={() => handleTurnoGlobal(grado, seccion, turno)}
-                                                            className={`cursor-pointer flex-1 min-w-0 px-2 py-2 rounded-lg text-xs font-bold transition-all border-2 ${
-                                                                turnoGlobal === turno
-                                                                ? 'bg-[#10CFAE]/10 border-[#10CFAE] text-[#10CFAE]'
-                                                                : 'bg-slate-50 border-transparent text-slate-400 hover:border-slate-200 hover:text-slate-600'
-                                                            }`}>
-                                                            {turno}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            )}
 
-                                            {/* MODO AVANZADO: un selector por cada día */}
+
+                                            {/* MODO AVANZADO: un selector por cada día con bloques */}
                                             {isAdvanced && (
                                                 <div className="flex flex-col gap-2 w-full">
-                                                    {dias.map(dia => {
+                                                    {diasConBloques.map(dia => {
                                                         const turnoDelDia = typeof valor === 'object' && valor !== null
                                                             ? (valor[dia.id] || data.turnos[0])
                                                             : (turnoGlobal);
+                                                        const bloquesDelDia = (data.gradoDiaConfig || {})[`${grado}-${dia.id}`] || 0;
                                                         return (
                                                             <div key={dia.id} className="flex items-center gap-3">
-                                                                <span className="text-xs font-bold text-slate-500 w-20 shrink-0">{dia.nombre}</span>
+                                                                <div className="flex flex-col w-24 shrink-0">
+                                                                    <span className="text-xs font-bold text-slate-600">{dia.nombre}</span>
+                                                                    <span className="text-[10px] text-slate-400">{bloquesDelDia} bloque{bloquesDelDia !== 1 ? 's' : ''}</span>
+                                                                </div>
                                                                 <div className="flex gap-1.5 flex-1">
                                                                     {data.turnos.map(turno => (
                                                                         <button key={turno}
                                                                             onClick={() => handleTurnoPorDia(grado, seccion, dia.id, turno)}
-                                                                            className={`cursor-pointer flex-1 py-1.5 rounded-lg text-xs font-bold transition-all border-2 ${
-                                                                                turnoDelDia === turno
+                                                                            className={`cursor-pointer flex-1 py-1.5 rounded-lg text-xs font-bold transition-all border-2 ${turnoDelDia === turno
                                                                                 ? 'bg-[#10CFAE]/10 border-[#10CFAE] text-[#10CFAE]'
                                                                                 : 'bg-slate-50 border-transparent text-slate-400 hover:border-slate-200 hover:text-slate-600'
-                                                                            }`}>
+                                                                                }`}>
                                                                             {turno}
                                                                         </button>
                                                                     ))}

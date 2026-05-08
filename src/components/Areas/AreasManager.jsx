@@ -2,6 +2,45 @@ import React, { useState, useEffect } from 'react';
 
 const API_BASE = 'http://localhost:8000/api';
 
+// --- Componente Tarjeta Carpeta (Folder Card) ---
+const AreaFolderCard = ({ area, onEdit, onDelete }) => {
+    return (
+        <div className="relative w-full h-[200px] group animate-fade-in" onClick={() => onEdit(area)}>
+            {/* Back Paper */}
+            <div className="absolute top-4 left-5 right-5 h-[120px] bg-white rounded-t-2xl shadow-[0_2px_10px_-4px_rgba(0,0,0,0.1)] border border-slate-100 p-5 transition-transform duration-500 group-hover:-translate-y-6 flex justify-between items-start z-0">
+                <div className="flex flex-col">
+                    <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-0.5">ID Registro</span>
+                    <span className="text-sm font-bold text-slate-500">#{area.id_area}</span>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-2 transition-opacity duration-300 relative z-30">
+                    <button onClick={(e) => { e.stopPropagation(); onEdit(area); }} className="cursor-pointer p-2 bg-slate-50 hover:bg-hx-purple/10 text-slate-400 hover:text-hx-purple rounded-xl transition-colors"><svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg></button>
+                    <button onClick={(e) => { e.stopPropagation(); onDelete(area.id_area); }} className="cursor-pointer p-2 bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-xl transition-colors"><svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+                </div>
+            </div>
+
+            {/* Folder Tab */}
+            <div className="absolute bottom-[110px] left-0 w-[55%] h-[28px] bg-hx-blue rounded-t-[16px] z-10">
+                {/* Inverse curve (using exact hex of hx-blue #51B4E8) */}
+                <div className="absolute -right-5 bottom-0 w-5 h-5 bg-transparent rounded-bl-[12px] shadow-[-10px_10px_0_0_#51B4E8]"></div>
+            </div>
+
+            {/* Folder Front Body */}
+            <div className="absolute bottom-0 left-0 right-0 h-[110px] bg-hx-blue rounded-b-[24px] rounded-tr-[24px] z-20 p-6 flex flex-col justify-end shadow-sm group-hover:shadow-[0_15px_30px_-10px_rgba(81,180,232,0.6)] transition-shadow duration-300">
+                <h3 className="text-xl font-black text-white truncate leading-tight">
+                    {area.nombre}
+                </h3>
+                <div className="flex justify-between items-end mt-2">
+                    <p className="text-sm font-bold text-white/80">
+                        {area.max_horas_dia} hrs max por día
+                    </p>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export default function AreasManager() {
     const [areas, setAreas] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -13,7 +52,7 @@ export default function AreasManager() {
     const [guardando, setGuardando] = useState(false);
 
     const [nuevaArea, setNuevaArea] = useState({
-        nombre_area: '',
+        nombre: '',
         max_horas_dia: ''
     });
 
@@ -41,7 +80,7 @@ export default function AreasManager() {
     const abrirModalNueva = () => {
         setIsEditing(false);
         setEditId(null);
-        setNuevaArea({ nombre_area: '', max_horas_dia: '' });
+        setNuevaArea({ nombre: '', max_horas_dia: '' });
         setIsModalOpen(true);
     };
 
@@ -50,17 +89,23 @@ export default function AreasManager() {
         setIsEditing(true);
         setEditId(area.id_area);
         setNuevaArea({
-            nombre_area: area.nombre_area,
+            nombre: area.nombre,
             max_horas_dia: area.max_horas_dia || 4
         });
         setIsModalOpen(true);
     };
 
-    // ── Eliminar (solo local por ahora, no hay DELETE endpoint) ──
-    const eliminarArea = (id) => {
+    // ── Eliminar (DELETE endpoint) ──
+    const eliminarArea = async (id) => {
         const confirmacion = window.confirm("¿Seguro que deseas eliminar esta área?");
         if (confirmacion) {
-            setAreas(areas.filter(a => a.id_area !== id));
+            try {
+                const res = await fetch(`${API_BASE}/areas/${id}`, { method: 'DELETE' });
+                if (!res.ok) throw new Error('Error al eliminar');
+                setAreas(areas.filter(a => a.id_area !== id));
+            } catch (err) {
+                alert(`Error: ${err.message}`);
+            }
         }
     };
 
@@ -71,18 +116,28 @@ export default function AreasManager() {
 
         try {
             if (isEditing) {
-                // Edición local (no hay PUT endpoint aún)
-                setAreas(areas.map(a => a.id_area === editId
-                    ? { ...a, nombre_area: nuevaArea.nombre_area, max_horas_dia: parseInt(nuevaArea.max_horas_dia) }
-                    : a
-                ));
+                // Edición (PUT endpoint)
+                const res = await fetch(`${API_BASE}/areas/${editId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        nombre: nuevaArea.nombre,
+                        max_horas_dia: parseInt(nuevaArea.max_horas_dia)
+                    })
+                });
+
+                if (!res.ok) {
+                    const errorData = await res.json().catch(() => ({}));
+                    throw new Error(errorData.detail || 'Error al actualizar el área');
+                }
+                await fetchAreas();
             } else {
                 // Crear nueva área via POST
                 const res = await fetch(`${API_BASE}/areas`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        nombre_area: nuevaArea.nombre_area,
+                        nombre: nuevaArea.nombre,
                         max_horas_dia: parseInt(nuevaArea.max_horas_dia)
                     })
                 });
@@ -107,88 +162,52 @@ export default function AreasManager() {
     return (
         <div className="w-full space-y-8 animate-fade-in relative">
 
-            {/* Header y Acción Principal */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-200 pb-6">
-                <div>
-                    <h1 className="text-3xl font-extrabold text-[#111827] tracking-tight">Áreas Académicas</h1>
-                    <p className="text-[#64748B] mt-2 text-sm max-w-xl">
-                        Registra y gestiona los departamentos y sus restricciones diarias de horario.
+            {/* Cabecera Superior (Banner + Espacio Derecho) */}
+            <div className="flex flex-col md:flex-row gap-6">
+                {/* Banner Principal (Izquierda) */}
+                <div className="md:w-2/3 bg-gradient-to-r from-hx-blue via-sky-400 to-sky-300 rounded-[24px] p-8 text-white shadow-md relative overflow-hidden flex flex-col justify-center min-h-[180px]">
+                    {/* Formas abstractas decorativas */}
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4"></div>
+                    <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/20 rounded-full blur-2xl translate-y-1/3 -translate-x-1/4"></div>
+                    <div className="absolute bottom-0 right-32 w-32 h-32 bg-hx-blue/40 rounded-full blur-xl translate-y-1/4"></div>
+
+                    <div className="relative z-10 flex justify-between items-start">
+                        <div className="max-w-md">
+                            <h2 className="text-2xl md:text-3xl font-black mb-2 tracking-tight drop-shadow-sm text-white">
+                                Gestión de Áreas
+                            </h2>
+                            <p className="text-white/90 text-[13px] font-medium mb-6 leading-relaxed max-w-sm drop-shadow-sm">
+                                Configura los departamentos educativos y establece sus restricciones diarias de horario para la institución.
+                            </p>
+
+                            <button
+                                onClick={abrirModalNueva}
+                                className="bg-white text-hx-blue hover:bg-slate-50 font-extrabold py-2.5 px-6 rounded-xl shadow-sm hover:shadow transition-all flex items-center gap-2 text-sm w-max">
+                                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
+                                Añadir Nueva Área
+                            </button>
+                        </div>
+
+                        {/* Logo decorativo estilo la imagen */}
+                        <div className="hidden sm:flex text-white/90 opacity-80 pt-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M2 12A10 10 0 0 1 12 2v20a10 10 0 0 1-10-10z"></path>
+                                <path d="M12 2a10 10 0 0 1 10 10h-20"></path>
+                                <path d="M12 22a10 10 0 0 1-10-10h20"></path>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Espacio Derecho Reservado */}
+                <div className="md:w-1/3 bg-white border-2 border-slate-200 border-dashed rounded-[24px] flex flex-col items-center justify-center p-8 min-h-[180px]">
+                    <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mb-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+                    </div>
+                    <p className="text-slate-400 font-extrabold text-sm">Espacio Reservado</p>
+                    <p className="text-slate-400/70 text-xs mt-1 text-center font-medium max-w-[160px]">
+                        Aquí irá el contenido que decidas llenar próximamente.
                     </p>
-                </div>
-                <button
-                    onClick={abrirModalNueva}
-                    className="cursor-pointer bg-[#1A5AD7] hover:bg-[#1A5AD7]/90 text-white font-bold py-2.5 px-5 rounded-xl shadow-sm hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2">
-                    <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
-                    Nueva Área
-                </button>
-            </div>
-
-            {/* Tarjetas de Resumen */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-
-                {/* Card 1 */}
-                <div className="p-6 rounded-[24px] bg-[#1A5AD7] text-white shadow-[0_10px_20px_-8px_rgba(26,90,215,0.4)] relative overflow-hidden">
-                    <div className="absolute -right-8 -top-8 w-32 h-32 bg-white opacity-[0.07] rounded-full"></div>
-                    <div className="flex justify-between items-start mb-6">
-                        <div className="flex items-start gap-4">
-                            <div className="text-white opacity-90 mt-1">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" /></svg>
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-lg leading-tight">Departamentos</h3>
-                                <p className="text-blue-100 text-xs mt-1.5 opacity-80 max-w-[140px] leading-relaxed">Áreas registradas en la institución</p>
-                            </div>
-                        </div>
-                        <div className="bg-white text-[#1A5AD7] flex flex-col items-center justify-center min-w-[50px] h-[50px] rounded-2xl shadow-sm">
-                            <span className="font-black text-xl leading-none">{areas.length}</span>
-                        </div>
-                    </div>
-                    <div className="mt-8 flex items-center text-xs font-semibold text-blue-100 opacity-80 uppercase tracking-widest">
-                        <span>Total Activos</span>
-                    </div>
-                </div>
-
-                {/* Card 2 */}
-                <div className="p-6 rounded-[24px] bg-[#1e40af] text-white shadow-[0_10px_20px_-8px_rgba(30,64,175,0.4)] relative overflow-hidden">
-                    <div className="absolute -right-8 -top-8 w-32 h-32 bg-white opacity-[0.07] rounded-full"></div>
-                    <div className="flex justify-between items-start mb-6">
-                        <div className="flex items-start gap-4">
-                            <div className="text-white opacity-90 mt-1">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-lg leading-tight">Carga Diaria</h3>
-                                <p className="text-blue-100 text-xs mt-1.5 opacity-80 max-w-[140px] leading-relaxed">Máxima suma de horas por día</p>
-                            </div>
-                        </div>
-                        <div className="bg-white text-[#1e40af] flex flex-col items-center justify-center min-w-[50px] h-[50px] rounded-2xl shadow-sm">
-                            <span className="font-black text-xl leading-none">{areas.reduce((acc, curr) => acc + (curr.max_horas_dia || 0), 0)}</span>
-                        </div>
-                    </div>
-                    <div className="mt-8 flex items-center text-xs font-semibold text-blue-100 opacity-80 uppercase tracking-widest">
-                        <span>Horas configuradas</span>
-                    </div>
-                </div>
-
-                {/* Card 3 */}
-                <div className="p-6 rounded-[24px] bg-[#3b82f6] text-white shadow-[0_10px_20px_-8px_rgba(59,130,246,0.4)] relative overflow-hidden">
-                    <div className="absolute -right-8 -bottom-8 w-40 h-40 bg-white opacity-[0.07] rounded-full"></div>
-                    <div className="flex justify-between items-start mb-6">
-                        <div className="flex items-start gap-4">
-                            <div className="text-white opacity-90 mt-1">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" /></svg>
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-lg leading-tight">Última Área</h3>
-                                <p className="text-blue-100 text-xs mt-1.5 opacity-80 max-w-[140px] leading-relaxed truncate pr-2" title={areas.length > 0 ? areas[areas.length - 1].nombre_area : "N/A"}>
-                                    {areas.length > 0 ? areas[areas.length - 1].nombre_area : "Sin áreas registradas"}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="mt-8 flex items-center text-xs font-semibold text-blue-100 opacity-80 uppercase tracking-widest">
-                        <span>Registro Reciente</span>
-                    </div>
                 </div>
             </div>
 
@@ -204,75 +223,32 @@ export default function AreasManager() {
             {/* Estado de Carga */}
             {loading && (
                 <div className="flex justify-center py-12">
-                    <div className="w-8 h-8 border-4 border-[#1A5AD7]/30 border-t-[#1A5AD7] rounded-full animate-spin"></div>
+                    <div className="w-8 h-8 border-4 border-hx-purple/30 border-t-hx-purple rounded-full animate-spin"></div>
                 </div>
             )}
 
-            {/* Lista de Áreas */}
+            {/* Grid de Áreas (Carpetas) */}
             {!loading && (
-                <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex flex-col relative z-10">
-                    <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-                        <h2 className="text-lg font-bold text-[#111827]">Directorio de Áreas</h2>
+                <div className="pt-4">
+                    <div className="flex items-center justify-between mb-8">
+                        <h2 className="text-xl font-black text-[#111827]">Carpetas de Áreas ({areas.length})</h2>
                     </div>
 
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="bg-[#1A5AD7]/5 text-[#1A5AD7] text-[10px] tracking-widest uppercase border-y border-[#1A5AD7]/10">
-                                    <th className="px-6 py-4 font-extrabold">ID</th>
-                                    <th className="px-6 py-4 font-extrabold w-1/2">Nombre del Área</th>
-                                    <th className="px-6 py-4 font-extrabold text-center">Máxima Carga (Día)</th>
-                                    <th className="px-6 py-4 font-extrabold text-right">Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {areas.length === 0 && (
-                                    <tr>
-                                        <td colSpan="4" className="text-center py-12 text-[#64748B] font-medium">Ninguna área registrada todavía.</td>
-                                    </tr>
-                                )}
-                                {areas.map((area) => (
-                                    <tr key={area.id_area} className="border-b border-slate-100 hover:bg-slate-50/80 transition-colors">
-                                        <td className="px-6 py-4">
-                                            <span className="inline-block bg-[#1A5AD7]/10 text-[#1A5AD7] text-[11px] px-3 py-1.5 rounded-lg font-bold tracking-widest uppercase border border-[#1A5AD7]/20">
-                                                {area.id_area}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <p className="text-[15px] font-bold text-[#111827]">{area.nombre_area}</p>
-                                        </td>
-                                        <td className="px-6 py-4 text-center">
-                                            <span className="bg-slate-100 text-slate-600 text-xs font-bold px-2.5 py-1 rounded-md">
-                                                {area.max_horas_dia} hrs
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center justify-end gap-2">
-                                                <button
-                                                    onClick={() => abrirModalEdicion(area)}
-                                                    className="text-[#64748B] hover:text-[#1A5AD7] p-2.5 hover:bg-[#1A5AD7]/10 rounded-xl transition-colors"
-                                                    title="Editar"
-                                                >
-                                                    <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                                    </svg>
-                                                </button>
-                                                <button
-                                                    onClick={() => eliminarArea(area.id_area)}
-                                                    className="text-[#64748B] hover:text-red-600 p-2.5 hover:bg-red-50 rounded-xl transition-colors"
-                                                    title="Eliminar"
-                                                >
-                                                    <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                    </svg>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                    {areas.length === 0 ? (
+                        <div className="bg-slate-50 border-2 border-slate-200 border-dashed rounded-[32px] p-16 text-center">
+                            <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
+                                <svg width="32" height="32" fill="none" stroke="#94a3b8" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                            </div>
+                            <h3 className="text-xl font-black text-slate-800">No hay áreas registradas</h3>
+                            <p className="text-slate-500 text-sm mt-2 max-w-md mx-auto">Comienza creando tu primera área académica usando el botón en la cabecera superior.</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-10">
+                            {areas.map(area => (
+                                <AreaFolderCard key={area.id_area} area={area} onEdit={abrirModalEdicion} onDelete={eliminarArea} />
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -298,9 +274,9 @@ export default function AreasManager() {
                                     required
                                     type="text"
                                     placeholder="Ej. Ciencias Exactas"
-                                    value={nuevaArea.nombre_area}
-                                    onChange={(e) => setNuevaArea({ ...nuevaArea, nombre_area: e.target.value })}
-                                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-[#1A5AD7] focus:ring-4 focus:ring-[#1A5AD7]/10 outline-none transition-all text-sm font-medium text-[#111827] placeholder:text-slate-300"
+                                    value={nuevaArea.nombre}
+                                    onChange={(e) => setNuevaArea({ ...nuevaArea, nombre: e.target.value })}
+                                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-hx-purple focus:ring-4 focus:ring-hx-purple/10 outline-none transition-all text-sm font-medium text-[#111827] placeholder:text-slate-300"
                                 />
                             </div>
 
@@ -314,7 +290,7 @@ export default function AreasManager() {
                                     placeholder="Ingresa las horas por día"
                                     value={nuevaArea.max_horas_dia}
                                     onChange={(e) => setNuevaArea({ ...nuevaArea, max_horas_dia: e.target.value })}
-                                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-[#1A5AD7] focus:ring-4 focus:ring-[#1A5AD7]/10 outline-none transition-all text-sm font-medium text-[#111827] placeholder:text-slate-300"
+                                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-hx-purple focus:ring-4 focus:ring-hx-purple/10 outline-none transition-all text-sm font-medium text-[#111827] placeholder:text-slate-300"
                                 />
                             </div>
 
@@ -329,7 +305,7 @@ export default function AreasManager() {
                                 <button
                                     type="submit"
                                     disabled={guardando}
-                                    className="cursor-pointer flex-1 py-3 px-4 bg-[#1A5AD7] hover:bg-[#1A5AD7]/90 text-white text-sm font-bold rounded-xl shadow-md hover:shadow-lg transition-all flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                                    className="cursor-pointer flex-1 py-3 px-4 bg-hx-purple hover:bg-hx-purple/90 text-white text-sm font-bold rounded-xl shadow-md hover:shadow-lg transition-all flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                                     {guardando ? (
                                         <>
                                             <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>

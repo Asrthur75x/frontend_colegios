@@ -90,19 +90,15 @@ export default function Paso4Secciones({ data, setData }) {
                     </div>
                 )}
 
-                {/* PANEL PRINCIPAL */}
-                <div className="w-full bg-white border-2 border-slate-100 rounded-[2rem] p-6 sm:p-8 shadow-xl relative overflow-hidden transition-all duration-300">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-[#F1A5B9]/10 rounded-full blur-[80px] pointer-events-none -translate-y-1/2 translate-x-1/2"></div>
-                    
-                    <div className="flex flex-col gap-5 relative z-10 max-h-[45vh] overflow-y-auto pr-2 pb-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-300">
+                <div className="w-full flex flex-col gap-4">
                         {data.grados.sort((a,b) => a-b).map(grado => {
                             const seleccionadas = currentSecciones[grado] || [];
                             
                             return (
-                                <div key={grado} className="bg-slate-50 border border-slate-100 rounded-2xl p-4 sm:p-5 flex flex-col hover:border-[#F1A5B9]/50 transition-colors gap-4">
+                                <div key={grado} className="bg-white border border-slate-100 rounded-2xl p-4 sm:p-5 flex flex-col hover:border-[#F1A5B9]/50 hover:shadow-md transition-all gap-4">
                                     {/* Cabecera del grado */}
                                     <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 shadow-sm flex items-center justify-center font-black text-lg text-slate-700">
+                                        <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 shadow-sm flex items-center justify-center font-black text-lg text-slate-700">
                                             {grado}°
                                         </div>
                                         <span className="font-bold text-slate-600">Grado</span>
@@ -183,8 +179,6 @@ export default function Paso4Secciones({ data, setData }) {
                             );
                         })}
                     </div>
-
-                </div>
             </div>
         </div>
     );

@@ -1,5 +1,5 @@
 ---
-import Sidebar from "../components/Sidebar.astro";
+import Sidebar from "../components/Sidebar.jsx";
 import Topbar from "../components/Topbar.astro";
 import "../styles/global.css";
 ---
@@ -12,14 +12,14 @@ import "../styles/global.css";
 		<title>Dashboard | HorariX</title>
 	</head>
 	<body
-		class="bg-[#F8FAFC] text-[#757680] font-sans antialiased h-screen overflow-hidden pt-16"
+		class="bg-hx-blue text-[#757680] font-sans antialiased h-screen overflow-hidden pt-20"
 	>
 		<Topbar />
-		<Sidebar />
+		<Sidebar client:load />
 
 		<!-- El margen izquierdo de 64 equivale al w-64 (16rem/256px) del Sidebar fixado -->
 		<div
-			class="ml-64 flex flex-col h-[calc(100vh-4rem)] overflow-y-auto overflow-x-hidden"
+			class="ml-64 bg-[#F8FAFC] flex flex-col h-[calc(100vh-5rem)] overflow-y-auto overflow-x-hidden"
 		>
 			<main class="p-8 flex-1">
 				<slot />

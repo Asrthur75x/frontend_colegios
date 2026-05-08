@@ -1,17 +1,47 @@
 ---
 // Topbar.astro
+const pathname = Astro.url.pathname;
+let pageTitle = "Dashboard";
+
+if (pathname.includes("/areas")) pageTitle = "Áreas Académicas";
+else if (pathname.includes("/cursos")) pageTitle = "Cursos";
+else if (pathname.includes("/profesores")) pageTitle = "Profesores";
+else if (pathname.includes("/aulas")) pageTitle = "Aulas";
+else if (pathname.includes("/grados")) pageTitle = "Grados";
 ---
 
 <header
-    class="h-16 w-full fixed top-0 left-0 bg-[#1A5AD7] rounded-b-[40px] shadow-md flex items-center justify-between px-8 z-50 text-white"
+    class="h-20 w-[calc(100%-16rem)] fixed top-0 left-64 bg-[#F8FAFC] rounded-tl-[32px] flex items-center justify-between px-10 z-40 text-[#111827]"
 >
-    <!-- Izquierda: Logo -->
-    <div class="flex-1 flex justify-start">
-        <h1
-            class="text-3xl font-black tracking-tight text-white drop-shadow-sm"
+    <!-- Izquierda: Hamburger & Título -->
+    <div class="flex-1 flex items-center gap-5 justify-start">
+        <button
+            class="text-slate-600 hover:text-[#111827] transition-colors mt-1 cursor-pointer"
         >
-            HorariX
-        </h1>
+            <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="26"
+                height="26"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                ><line x1="3" y1="12" x2="21" y2="12"></line><line
+                    x1="3"
+                    y1="6"
+                    x2="21"
+                    y2="6"></line><line x1="3" y1="18" x2="13" y2="18"
+                ></line></svg
+            >
+        </button>
+        <h2
+            class="text-2xl font-black tracking-tight text-[#111827]"
+            id="topbar-title"
+        >
+            {pageTitle}
+        </h2>
     </div>
 
     <!-- Centro: Navegación -->
@@ -20,68 +50,60 @@
             <!-- Elemento Activo -->
             <a
                 href="#"
-                class="bg-white/20 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-inner transition-all border border-white/10"
+                class="bg-white text-[#111827] px-5 py-2.5 rounded-2xl text-sm font-extrabold shadow-sm transition-all border border-slate-200 hover:shadow-md"
             >
                 Dashboard
             </a>
             <!-- Elementos Inactivos -->
             <a
                 href="#"
-                class="text-white/70 hover:text-white text-sm font-semibold relative group py-2.5 transition-colors"
+                class="text-slate-500 hover:text-[#111827] text-sm font-bold relative group py-2.5 transition-colors"
             >
                 Horarios
                 <span
-                    class="absolute bottom-0 left-1/2 w-0 h-[2.5px] bg-white transition-all duration-300 ease-out group-hover:w-full group-hover:left-0 rounded-full"
+                    class="absolute bottom-0 left-1/2 w-0 h-[3px] bg-hx-blue transition-all duration-300 ease-out group-hover:w-full group-hover:left-0 rounded-full"
                 ></span>
             </a>
         </nav>
     </div>
 
-    <!-- Derecha: Acciones -->
-    <div class="flex-1 flex items-center justify-end gap-5">
-        <button
-            class="text-white/80 hover:text-white transition-colors relative"
-        >
-            <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.5"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                ><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"
-                ></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg
+    <!-- Derecha: Acciones y Perfil -->
+    <div class="flex-1 flex items-center justify-end gap-6">
+        <div class="flex items-center gap-4">
+            <!-- Configuración -->
+            <button
+                class="relative w-11 h-11 bg-white rounded-full shadow-sm border border-slate-100 flex items-center justify-center text-slate-600 hover:text-[#111827] hover:shadow-md transition-all cursor-pointer hover:rotate-90 duration-300"
             >
-            <!-- Indicator punto rojo -->
-            <span
-                class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-400 rounded-full border-[1.5px] border-[#1A5AD7]"
-            ></span>
-        </button>
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                </svg>
+            </button>
+        </div>
 
-        <button class="text-white/80 hover:text-white transition-colors">
-            <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.5"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                ><path
-                    d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"
-                ></path><circle cx="12" cy="12" r="3"></circle></svg
-            >
-        </button>
+        <div class="w-px h-8 bg-slate-200 mx-2"></div>
 
-        <div class="h-6 w-px bg-white/30 mx-2"></div>
-
+        <!-- Perfil -->
         <div
-            class="w-9 h-9 rounded-full bg-white flex items-center justify-center text-[#1A5AD7] font-black text-sm shadow-md cursor-pointer hover:scale-105 transition-transform border-2 border-white/20"
+            class="flex items-center gap-3 cursor-pointer group hover:opacity-80 transition-opacity"
         >
-            U
+            <div
+                class="w-11 h-11 rounded-full bg-hx-blue text-white flex items-center justify-center font-black text-xl shadow-sm border-2 border-[#F8FAFC]"
+            >
+                <span id="user-initial">A</span>
+            </div>
         </div>
     </div>
 </header>
+
+<script>
+    // Script cliente para actualizar la inicial si hay datos en BD/Session
+    document.addEventListener("astro:page-load", () => {
+        // Ejemplo: Si el usuario tiene nombre guardado
+        const storedName = sessionStorage.getItem("admin_name") || "Admin";
+        const initialEl = document.getElementById("user-initial");
+        if (initialEl) {
+            initialEl.textContent = storedName.charAt(0).toUpperCase();
+        }
+    });
+</script>
