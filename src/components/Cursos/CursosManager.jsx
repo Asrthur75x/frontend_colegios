@@ -138,7 +138,7 @@ export default function CursosManager() {
                 </div>
                 <button
                     onClick={abrirModalNueva}
-                    className="cursor-pointer bg-[#1A5AD7] hover:bg-[#1A5AD7]/90 text-white font-bold py-2.5 px-5 rounded-xl shadow-sm hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2">
+                    className="cursor-pointer bg-[#790EEC] hover:bg-[#790EEC]/90 text-white font-bold py-2.5 px-5 rounded-xl shadow-sm hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2">
                     <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
                     Añadir Nuevo
                 </button>
@@ -155,7 +155,7 @@ export default function CursosManager() {
             {/* Estado de Carga */}
             {loading && cursos.length === 0 && (
                 <div className="flex justify-center py-12">
-                    <div className="w-8 h-8 border-4 border-[#1A5AD7]/30 border-t-[#1A5AD7] rounded-full animate-spin"></div>
+                    <div className="w-8 h-8 border-4 border-[#790EEC]/30 border-t-[#790EEC] rounded-full animate-spin"></div>
                 </div>
             )}
 
@@ -173,10 +173,10 @@ export default function CursosManager() {
                         const areaEncontrada = areas.find(a => a.id_area === curso.id_area);
 
                         return (
-                            <div key={localId} className="bg-white rounded-[24px] relative shadow-lg hover:shadow-xl transition-shadow border-[3px] border-[#1A5AD7] p-6 pt-8 mt-5 flex flex-col">
+                            <div key={localId} className="bg-white rounded-[24px] relative shadow-lg hover:shadow-xl transition-shadow border-[3px] border-[#790EEC] p-6 pt-8 mt-5 flex flex-col">
 
                                 {/* Pestaña/Ribbon flotante superior izquierda */}
-                                <div className="absolute -top-5 left-6 bg-[#1A5AD7] text-white w-14 h-[64px] rounded-b-2xl shadow-md flex items-center justify-center flex-col z-10 border-[3px] border-white">
+                                <div className="absolute -top-5 left-6 bg-[#790EEC] text-white w-14 h-[64px] rounded-b-2xl shadow-md flex items-center justify-center flex-col z-10 border-[3px] border-white">
                                     {/* Icono de curso (reemplaza el número 01, 02...) */}
                                     <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" /></svg>
                                 </div>
@@ -189,7 +189,7 @@ export default function CursosManager() {
 
                                     {/* Botones de acción minimalistas a la derecha (como el icono en la imagen de DATA 01) */}
                                     <div className="flex items-center gap-1 shrink-0">
-                                        <button onClick={() => abrirModalEdicion(curso)} className="cursor-pointer text-slate-400 hover:text-[#1A5AD7] p-1.5 rounded-lg hover:bg-blue-50 transition-colors" title="Editar">
+                                        <button onClick={() => abrirModalEdicion(curso)} className="cursor-pointer text-slate-400 hover:text-[#790EEC] p-1.5 rounded-lg hover:bg-purple-50 transition-colors" title="Editar">
                                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
                                         </button>
                                         <button onClick={() => eliminarCurso(localId)} className="cursor-pointer text-slate-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 transition-colors" title="Eliminar">
@@ -237,7 +237,7 @@ export default function CursosManager() {
                                     placeholder="Ej. Matemática Básica"
                                     value={nuevoCurso.nombre_curso}
                                     onChange={(e) => setNuevoCurso({ ...nuevoCurso, nombre_curso: e.target.value })}
-                                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-[#1A5AD7] focus:ring-4 focus:ring-[#1A5AD7]/10 outline-none transition-all text-sm font-medium text-[#111827] placeholder:text-slate-300"
+                                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-[#790EEC] focus:ring-4 focus:ring-[#790EEC]/10 outline-none transition-all text-sm font-medium text-[#111827] placeholder:text-slate-300"
                                 />
                             </div>
 
@@ -247,7 +247,7 @@ export default function CursosManager() {
                                     required
                                     value={nuevoCurso.id_area}
                                     onChange={(e) => setNuevoCurso({ ...nuevoCurso, id_area: e.target.value })}
-                                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-[#1A5AD7] focus:ring-4 focus:ring-[#1A5AD7]/10 outline-none transition-all text-sm font-medium text-[#111827] bg-white cursor-pointer"
+                                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-[#790EEC] focus:ring-4 focus:ring-[#790EEC]/10 outline-none transition-all text-sm font-medium text-[#111827] bg-white cursor-pointer"
                                 >
                                     <option value="" disabled>-- Selecciona un área --</option>
                                     {areas.map(area => (
@@ -269,7 +269,7 @@ export default function CursosManager() {
                                 <button
                                     type="submit"
                                     disabled={guardando}
-                                    className="cursor-pointer flex-1 py-3 px-4 bg-[#1A5AD7] hover:bg-[#1A5AD7]/90 text-white text-sm font-bold rounded-xl shadow-md hover:shadow-lg transition-all flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                                    className="cursor-pointer flex-1 py-3 px-4 bg-[#790EEC] hover:bg-[#790EEC]/90 text-white text-sm font-bold rounded-xl shadow-md hover:shadow-lg transition-all flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                                     {guardando ? (
                                         <>
                                             <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>

@@ -167,6 +167,21 @@ export default function SetupWizard() {
                                 }
                             }
 
+                            // Verificar si existe seccion-turno (Paso 5)
+                            const secTurnoRes = await fetch('http://127.0.0.1:8000/api/seccion-turno');
+                            if (secTurnoRes.ok) {
+                                const secTurnoDb = await secTurnoRes.json();
+                                if (secTurnoDb.length > 0) {
+                                    // Si existe, el wizard está completo.
+                                    window.location.href = '/dashboard';
+                                    return;
+                                } else if (finalStep === 4 && newWizardData.secciones) {
+                                    // Si existen secciones pero no seccion-turno, avanzamos al paso 5
+                                    newSavedSteps.push(4);
+                                    finalStep = 5;
+                                }
+                            }
+
                             setStep(finalStep);
                             setWizardData(newWizardData);
                             setSavedSteps(newSavedSteps);
@@ -646,11 +661,13 @@ export default function SetupWizard() {
             saveStep5Data();
         } else if (step === totalSteps) {
             if (typeof window !== 'undefined') {
-                sessionStorage.removeItem('horarix_wizard_step');
-                sessionStorage.removeItem('horarix_wizard_data');
-                sessionStorage.removeItem('horarix_wizard_saved_steps');
+                setTimeout(() => {
+                    sessionStorage.removeItem('horarix_wizard_step');
+                    sessionStorage.removeItem('horarix_wizard_data');
+                    sessionStorage.removeItem('horarix_wizard_saved_steps');
+                    window.location.href = '/dashboard';
+                }, 800);
             }
-            window.location.href = '/areas';
         }
     };
 

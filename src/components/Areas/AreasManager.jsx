@@ -103,6 +103,7 @@ export default function AreasManager() {
                 const res = await fetch(`${API_BASE}/areas/${id}`, { method: 'DELETE' });
                 if (!res.ok) throw new Error('Error al eliminar');
                 setAreas(areas.filter(a => a.id_area !== id));
+                window.dispatchEvent(new Event('horarix_data_updated'));
             } catch (err) {
                 alert(`Error: ${err.message}`);
             }
@@ -151,6 +152,7 @@ export default function AreasManager() {
                 await fetchAreas();
             }
 
+            window.dispatchEvent(new Event('horarix_data_updated'));
             setIsModalOpen(false);
         } catch (err) {
             alert(`Error: ${err.message}`);

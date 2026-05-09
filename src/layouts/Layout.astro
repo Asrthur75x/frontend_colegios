@@ -1,7 +1,10 @@
 ---
+import { ClientRouter } from 'astro:transitions';
 import Sidebar from "../components/Sidebar.jsx";
 import Topbar from "../components/Topbar.astro";
 import "../styles/global.css";
+
+const currentPath = Astro.url.pathname;
 ---
 
 <!doctype html>
@@ -10,16 +13,25 @@ import "../styles/global.css";
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>Dashboard | HorariX</title>
+		<script is:inline>
+			// Redirigir a login si no hay sesión activa
+			if (!localStorage.getItem("user")) {
+				window.location.href = "/login";
+			}
+		</script>
+        <ClientRouter />
 	</head>
 	<body
-		class="bg-hx-blue text-[#757680] font-sans antialiased h-screen overflow-hidden pt-20"
+		class="text-[#757680] font-sans antialiased h-screen overflow-hidden pt-20 transition-colors duration-500"
+        style={`background-color: ${currentPath.startsWith('/cursos') ? 'var(--color-hx-purple)' : 'var(--color-hx-blue)'};`}
 	>
 		<Topbar />
-		<Sidebar client:load />
+		<Sidebar client:load currentPath={currentPath} />
 
 		<!-- El margen izquierdo de 64 equivale al w-64 (16rem/256px) del Sidebar fixado -->
 		<div
-			class="ml-64 bg-[#F8FAFC] flex flex-col h-[calc(100vh-5rem)] overflow-y-auto overflow-x-hidden"
+			class="ml-64 flex flex-col h-[calc(100vh-5rem)] overflow-y-auto overflow-x-hidden"
+            style="background-color: #fff;"
 		>
 			<main class="p-8 flex-1">
 				<slot />
