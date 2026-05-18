@@ -23,7 +23,7 @@ const currentPath = Astro.url.pathname;
 	</head>
 	<body
 		class="text-[#757680] font-sans antialiased h-screen overflow-hidden pt-20 transition-colors duration-500"
-		style={`background-color: ${currentPath === "/" || currentPath.startsWith("/dashboard") ? "var(--color-hx-teal)" : currentPath.startsWith("/areas") || currentPath.startsWith("/cursos") || currentPath.startsWith("/planes") ? "var(--color-hx-purple)" : "var(--color-hx-blue)"};`}
+		style={`background-color: ${currentPath === "/" || currentPath.startsWith("/dashboard") ? "var(--color-hx-teal)" : currentPath.startsWith("/areas") || currentPath.startsWith("/cursos") || currentPath.startsWith("/planes") ? "var(--color-hx-purple)" : currentPath.startsWith("/profesores") || currentPath.startsWith("/carga-academica") || currentPath.startsWith("/tutorias") ? "var(--color-hx-blue)" : "var(--color-hx-blue)"};`}
 	>
 		<Topbar />
 		<Sidebar client:load currentPath={currentPath} />
