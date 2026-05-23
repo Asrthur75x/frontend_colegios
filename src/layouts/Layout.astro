@@ -1,10 +1,22 @@
 ---
 import { ClientRouter } from "astro:transitions";
 import Sidebar from "../components/Sidebar.jsx";
+import SidebarHorarios from "../components/SidebarHorarios.jsx";
 import Topbar from "../components/Topbar.astro";
 import "../styles/global.css";
 
 const currentPath = Astro.url.pathname;
+const isHorarios = currentPath.startsWith("/horarios");
+
+const bodyBg = currentPath === "/" || currentPath.startsWith("/dashboard")
+    ? "var(--color-hx-teal)"
+    : currentPath.startsWith("/areas") || currentPath.startsWith("/cursos") || currentPath.startsWith("/planes")
+        ? "var(--color-hx-purple)"
+        : currentPath.startsWith("/horarios")
+            ? "var(--color-hx-red)"
+            : currentPath.startsWith("/ajustes")
+                ? "var(--color-hx-yellow)"
+                : "var(--color-hx-blue)";
 ---
 
 <!doctype html>
@@ -14,7 +26,6 @@ const currentPath = Astro.url.pathname;
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>Dashboard | HorariX</title>
 		<script is:inline>
-			// Redirigir a login si no hay sesión activa
 			if (!localStorage.getItem("user")) {
 				window.location.href = "/login";
 			}
@@ -23,10 +34,14 @@ const currentPath = Astro.url.pathname;
 	</head>
 	<body
 		class="text-[#757680] font-sans antialiased h-screen overflow-hidden pt-20 transition-colors duration-500"
-		style={`background-color: ${currentPath === "/" || currentPath.startsWith("/dashboard") ? "var(--color-hx-teal)" : currentPath.startsWith("/areas") || currentPath.startsWith("/cursos") || currentPath.startsWith("/planes") ? "var(--color-hx-purple)" : currentPath.startsWith("/profesores") || currentPath.startsWith("/carga-academica") || currentPath.startsWith("/tutorias") ? "var(--color-hx-blue)" : "var(--color-hx-blue)"};`}
+		style={`background-color: ${bodyBg};`}
 	>
 		<Topbar />
-		<Sidebar client:load currentPath={currentPath} />
+
+		{isHorarios
+			? <SidebarHorarios client:load />
+			: <Sidebar client:load currentPath={currentPath} />
+		}
 
 		<!-- El margen izquierdo de 64 equivale al w-64 (16rem/256px) del Sidebar fixado -->
 		<div

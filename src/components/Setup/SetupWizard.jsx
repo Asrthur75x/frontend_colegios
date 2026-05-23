@@ -338,7 +338,7 @@ export default function SetupWizard() {
                     const realGrado = gradosDb.find(g => g.numero === gradoNum);
                     const realDia = diasDb.find(d => d.orden === diaIdLocal);
 
-                    if (realGrado && realDia) {
+                    if (realGrado && realDia && bloques > 0) {
                         const response = await fetch('http://127.0.0.1:8000/api/grado-dia-config', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },

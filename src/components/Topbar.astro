@@ -13,12 +13,25 @@ if (pathname.includes("/areas") || pathname.includes("/cursos") || pathname.incl
 
 const isHorarios = pathname.includes("/horarios");
 const isDashboard = !isHorarios && (pathname === "/" || pathname === "" || pathname.includes("/dashboard"));
+const isAjustes = pathname.startsWith("/ajustes");
+
+const sidebarColor = pathname === "/" || pathname.startsWith("/dashboard")
+    ? "var(--color-hx-teal)"
+    : pathname.startsWith("/areas") || pathname.startsWith("/cursos") || pathname.startsWith("/planes")
+        ? "var(--color-hx-purple)"
+        : pathname.startsWith("/horarios")
+            ? "var(--color-hx-red)"
+            : "var(--color-hx-blue)";
 ---
 
 <header
     class="h-20 w-[calc(100%-16rem)] fixed top-0 left-64 rounded-tl-[32px] flex items-center justify-between px-10 z-40 text-[#111827]"
     style="background-color: #fff;"
 >
+    <!-- Esquina decorativa: muestra el color del sidebar en la esquina top-left -->
+    <div
+        style={`position:absolute;top:0;left:0;width:32px;height:32px;background-color:transparent;border-bottom-right-radius:32px;box-shadow:-16px -16px 0 16px ${sidebarColor};pointer-events:none;`}
+    ></div>
     <!-- Izquierda: Hamburger & Título -->
     <div class="flex-1 flex items-center gap-5 justify-start">
         <button
@@ -90,8 +103,13 @@ const isDashboard = !isHorarios && (pathname === "/" || pathname === "" || pathn
     <div class="flex-1 flex items-center justify-end gap-6">
         <div class="flex items-center gap-4">
             <!-- Configuración -->
-            <button
-                class="relative w-11 h-11 bg-white rounded-full shadow-sm border border-slate-100 flex items-center justify-center text-slate-600 hover:text-[#111827] hover:shadow-md transition-all cursor-pointer hover:rotate-90 duration-300"
+            <a
+                href="/ajustes"
+                class={`relative w-11 h-11 bg-white rounded-full border flex items-center justify-center transition-all cursor-pointer hover:rotate-90 duration-300 ${
+                    isAjustes 
+                        ? "border-hx-yellow text-hx-yellow shadow-md shadow-hx-yellow/20" 
+                        : "shadow-sm border-slate-100 text-slate-600 hover:text-[#111827] hover:shadow-md"
+                }`}
             >
                 <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -109,7 +127,7 @@ const isDashboard = !isHorarios && (pathname === "/" || pathname === "" || pathn
                         d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
                     ></path>
                 </svg>
-            </button>
+            </a>
         </div>
 
         <div class="w-px h-8 bg-slate-200 mx-2"></div>
