@@ -110,6 +110,7 @@ export default function ProfesoresManager() {
     const [formPreferencia, setFormPreferencia] = useState([]); // array of { id_dia, id_turno, nro_bloque }
     const [esDisponibilidadTotal, setEsDisponibilidadTotal] = useState(false);
     const [modoPincel, setModoPincel] = useState('disponible'); // 'disponible' | 'preferido'
+    const [activeSede, setActiveSede] = useState(null); // Sede seleccionada en el Tab 3
 
     // List Management State
     const [searchTerm, setSearchTerm] = useState('');
@@ -232,12 +233,30 @@ export default function ProfesoresManager() {
         return () => controller.abort();
     }, []);
 
+    // Sincronizar activeSede con formSedes si se deselecciona o está vacío
+    useEffect(() => {
+        if (formSedes.length > 0 && (!activeSede || !formSedes.includes(activeSede))) {
+            setActiveSede(formSedes[0]);
+        } else if (formSedes.length === 0) {
+            setActiveSede(null);
+        }
+    }, [formSedes, activeSede]);
+
     // Helper para Sedes asignadas a un profesor
     const getSedesProfesor = (id_prof) => {
-        const ps = profesorSedes.filter(x => x.id_profesor === id_prof);
-        if (ps.length === 0) return 'Ninguna';
-        return ps.map(link => {
-            const s = sedes.find(sede => sede.id_sede === link.id_sede);
+        let ps = profesorSedes.filter(x => x.id_profesor === id_prof).map(x => x.id_sede);
+        if (ps.length === 0) {
+            // Fallback a disponibilidades si el endpoint de sedes falló/no existe
+            const disps = disponibilidades.filter(x => x.id_profesor === id_prof).map(x => x.id_sede);
+            const prefs = preferencias.filter(x => x.id_profesor === id_prof).map(x => x.id_sede);
+            ps = [...new Set([...disps, ...prefs])].filter(id => id != null);
+        }
+        
+        // Si sigue vacío, es un profesor "Libre" del sistema antiguo que no tenía sede atada
+        if (ps.length === 0) return 'Libre (Todas)';
+        
+        return ps.map(sid => {
+            const s = sedes.find(sede => sede.id_sede === sid);
             return s ? s.nombre_sede : 'Desconocida';
         }).join(', ');
     };
@@ -260,6 +279,7 @@ export default function ProfesoresManager() {
         setFormSedes([]);
         setFormDispo([]);
         setFormPreferencia([]);
+        setActiveSede(null);
         setEsDisponibilidadTotal(false);
         setActiveTab('perfil');
         setIsModalOpen(true);
@@ -272,10 +292,23 @@ export default function ProfesoresManager() {
         setNombreError('');
 
         // Cargar sedes actuales
-        const sedesActuales = profesorSedes
+        let sedesActuales = profesorSedes
             .filter(x => x.id_profesor === prof.id_profesor)
             .map(x => x.id_sede);
+            
+        if (sedesActuales.length === 0) {
+            const disps = disponibilidades.filter(x => x.id_profesor === prof.id_profesor).map(x => x.id_sede);
+            const prefs = preferencias.filter(x => x.id_profesor === prof.id_profesor).map(x => x.id_sede);
+            sedesActuales = [...new Set([...disps, ...prefs])].filter(id => id != null);
+        }
+        
+        // Si es un profesor antiguo libre sin sedes, asignarle todas por defecto para que las pueda ver/editar
+        if (sedesActuales.length === 0) {
+            sedesActuales = sedes.map(s => s.id_sede);
+        }
+        
         setFormSedes(sedesActuales);
+        if (sedesActuales.length > 0) setActiveSede(sedesActuales[0]);
 
         // Cargar dispo actual
         const dispoActual = disponibilidades
@@ -283,7 +316,8 @@ export default function ProfesoresManager() {
             .map(x => ({
                 id_dia: x.id_dia,
                 id_turno: x.id_turno,
-                nro_bloque: x.nro_bloque
+                nro_bloque: x.nro_bloque,
+                id_sede: x.id_sede
             }));
         setFormDispo(dispoActual);
 
@@ -293,7 +327,8 @@ export default function ProfesoresManager() {
             .map(x => ({
                 id_dia: x.id_dia,
                 id_turno: x.id_turno,
-                nro_bloque: x.nro_bloque
+                nro_bloque: x.nro_bloque,
+                id_sede: x.id_sede
             }));
         setFormPreferencia(prefActual);
 
@@ -311,7 +346,7 @@ export default function ProfesoresManager() {
             // Eliminar dependencias primero si el backend no hace cascade
             const linkSedes = profesorSedes.filter(x => x.id_profesor === id);
             for (let ls of linkSedes) {
-                await fetch(`${API_BASE}/profesor-sedes/${ls.id_profe_sedes}`, { method: 'DELETE' });
+                await fetch(`${API_BASE}/profesor-sedes/${ls.id_sede_profesor}`, { method: 'DELETE' });
             }
             const linkDispos = disponibilidades.filter(x => x.id_profesor === id);
             for (let ld of linkDispos) {
@@ -389,7 +424,7 @@ export default function ProfesoresManager() {
             // Eliminar actuales
             const actuales = profesorSedes.filter(x => x.id_profesor === editId);
             for (let a of actuales) {
-                await fetch(`${API_BASE}/profesor-sedes/${a.id_profe_sedes}`, { method: 'DELETE' });
+                await fetch(`${API_BASE}/profesor-sedes/${a.id_sede_profesor}`, { method: 'DELETE' });
             }
             // Insertar nuevas
             for (let sid of formSedes) {
@@ -400,6 +435,9 @@ export default function ProfesoresManager() {
                 });
             }
             await fetchDatos();
+            if (formSedes.length > 0 && (!activeSede || !formSedes.includes(activeSede))) {
+                setActiveSede(formSedes[0]);
+            }
             setActiveTab('disponibilidad');
         } catch (err) {
             alert(`Error: ${err.message}`);
@@ -410,53 +448,58 @@ export default function ProfesoresManager() {
 
     // ── Guardar Disponibilidad ──
     const toggleDispo = (id_dia, id_turno, nro_bloque) => {
-        const isDispo = formDispo.some(x => x.id_dia === id_dia && x.id_turno === id_turno && x.nro_bloque === nro_bloque);
-        const isPref = formPreferencia.some(x => x.id_dia === id_dia && x.id_turno === id_turno && x.nro_bloque === nro_bloque);
+        if (!activeSede) {
+            alert('Por favor selecciona una sede arriba primero.');
+            return;
+        }
+        const isDispo = formDispo.some(x => x.id_dia === id_dia && x.id_turno === id_turno && x.nro_bloque === nro_bloque && x.id_sede === activeSede);
+        const isPref = formPreferencia.some(x => x.id_dia === id_dia && x.id_turno === id_turno && x.nro_bloque === nro_bloque && x.id_sede === activeSede);
 
         if (modoPincel === 'disponible') {
             if (!isDispo) {
                 // Agregar a disponible
-                setFormDispo(prev => [...prev, { id_dia, id_turno, nro_bloque }]);
+                setFormDispo(prev => [...prev, { id_dia, id_turno, nro_bloque, id_sede: activeSede }]);
             } else {
                 // Quitar de disponible (y por ende de preferido)
-                setFormDispo(prev => prev.filter(x => !(x.id_dia === id_dia && x.id_turno === id_turno && x.nro_bloque === nro_bloque)));
-                setFormPreferencia(prev => prev.filter(x => !(x.id_dia === id_dia && x.id_turno === id_turno && x.nro_bloque === nro_bloque)));
+                setFormDispo(prev => prev.filter(x => !(x.id_dia === id_dia && x.id_turno === id_turno && x.nro_bloque === nro_bloque && x.id_sede === activeSede)));
+                setFormPreferencia(prev => prev.filter(x => !(x.id_dia === id_dia && x.id_turno === id_turno && x.nro_bloque === nro_bloque && x.id_sede === activeSede)));
             }
         } else {
             // Modo Preferido
             if (!isPref) {
                 // Agregar a ambas (un preferido DEBE estar disponible)
-                if (!isDispo) setFormDispo(prev => [...prev, { id_dia, id_turno, nro_bloque }]);
-                setFormPreferencia(prev => [...prev, { id_dia, id_turno, nro_bloque }]);
+                if (!isDispo) setFormDispo(prev => [...prev, { id_dia, id_turno, nro_bloque, id_sede: activeSede }]);
+                setFormPreferencia(prev => [...prev, { id_dia, id_turno, nro_bloque, id_sede: activeSede }]);
             } else {
                 // Quitar de preferido Y de disponible → vuelve a "No disponible"
-                setFormPreferencia(prev => prev.filter(x => !(x.id_dia === id_dia && x.id_turno === id_turno && x.nro_bloque === nro_bloque)));
-                setFormDispo(prev => prev.filter(x => !(x.id_dia === id_dia && x.id_turno === id_turno && x.nro_bloque === nro_bloque)));
+                setFormPreferencia(prev => prev.filter(x => !(x.id_dia === id_dia && x.id_turno === id_turno && x.nro_bloque === nro_bloque && x.id_sede === activeSede)));
+                setFormDispo(prev => prev.filter(x => !(x.id_dia === id_dia && x.id_turno === id_turno && x.nro_bloque === nro_bloque && x.id_sede === activeSede)));
             }
         }
     };
 
     const setDispoAll = (val) => {
+        if (!activeSede) return;
         if (val) {
             let all = [];
             dias.forEach(d => {
                 turnos.forEach(t => {
                     const bList = bloques.filter(x => x.id_turno === t.id_turno);
                     bList.forEach(b => {
-                        all.push({ id_dia: d.id_dia, id_turno: t.id_turno, nro_bloque: b.numero_bloque });
+                        all.push({ id_dia: d.id_dia, id_turno: t.id_turno, nro_bloque: b.numero_bloque, id_sede: activeSede });
                     });
                 });
             });
             if (modoPincel === 'preferido') {
-                setFormDispo(all);
-                setFormPreferencia(all);
+                setFormDispo(prev => [...prev.filter(x => x.id_sede !== activeSede), ...all]);
+                setFormPreferencia(prev => [...prev.filter(x => x.id_sede !== activeSede), ...all]);
             } else {
-                setFormDispo(all);
-                setFormPreferencia([]);
+                setFormDispo(prev => [...prev.filter(x => x.id_sede !== activeSede), ...all]);
+                setFormPreferencia(prev => prev.filter(x => x.id_sede !== activeSede));
             }
         } else {
-            setFormDispo([]);
-            setFormPreferencia([]);
+            setFormDispo(prev => prev.filter(x => x.id_sede !== activeSede));
+            setFormPreferencia(prev => prev.filter(x => x.id_sede !== activeSede));
         }
     };
 
@@ -474,7 +517,11 @@ export default function ProfesoresManager() {
                 await fetch(`${API_BASE}/profesor-preferencia/${a.id_preferencia}`, { method: 'DELETE' });
             }
 
-            if (!esDisponibilidadTotal) {
+            if (esDisponibilidadTotal) {
+                // El backend ahora maneja las sedes correctamente en profesor_sedes,
+                // así que si es "Libre", simplemente dejamos sus tablas de disponibilidad y preferencia vacías.
+                // No se necesita enviar ningún bloque de tiempo.
+            } else {
                 // Insertar nuevas
                 for (let d of formDispo) {
                     await fetch(`${API_BASE}/profesor-disponibilidad`, {
@@ -484,7 +531,8 @@ export default function ProfesoresManager() {
                             id_profesor: editId,
                             id_dia: d.id_dia,
                             id_turno: d.id_turno,
-                            nro_bloque: d.nro_bloque
+                            nro_bloque: d.nro_bloque,
+                            id_sede: d.id_sede
                         })
                     });
                 }
@@ -496,7 +544,8 @@ export default function ProfesoresManager() {
                             id_profesor: editId,
                             id_dia: p.id_dia,
                             id_turno: p.id_turno,
-                            nro_bloque: p.nro_bloque
+                            nro_bloque: p.nro_bloque,
+                            id_sede: p.id_sede
                         })
                     });
                 }
@@ -846,6 +895,25 @@ export default function ProfesoresManager() {
                                         </div>
 
                                         <div className={`transition-all duration-300 ${esDisponibilidadTotal ? 'opacity-30 pointer-events-none grayscale' : ''}`}>
+                                                {/* Tabs de Sedes seleccionadas */}
+                                                {formSedes.length > 0 && (
+                                                    <div className="flex gap-2 mb-4 bg-slate-100/50 p-2 rounded-2xl border border-slate-100">
+                                                        {formSedes.map(sid => {
+                                                            const sObj = sedes.find(s => s.id_sede === sid);
+                                                            if (!sObj) return null;
+                                                            return (
+                                                                <button
+                                                                    key={sid}
+                                                                    onClick={() => setActiveSede(sid)}
+                                                                    className={`px-6 py-2.5 rounded-xl font-extrabold text-sm transition-all ${activeSede === sid ? 'bg-hx-blue text-white shadow-md shadow-hx-blue/20' : 'bg-white text-slate-500 hover:text-hx-blue border border-slate-200 hover:border-hx-blue'}`}
+                                                                >
+                                                                    {sObj.nombre_sede}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+
                                                 <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
                                                     <div className="flex items-center gap-3">
                                                         <div className="w-9 h-9 bg-slate-200/50 rounded-xl flex items-center justify-center text-slate-500 shrink-0">
@@ -949,8 +1017,8 @@ export default function ProfesoresManager() {
                                                                                 {b.numero_bloque}
                                                                             </td>
                                                                             {dias.map(d => {
-                                                                                const isDispo = formDispo.some(x => x.id_dia === d.id_dia && x.id_turno === turno.id_turno && x.nro_bloque === b.numero_bloque);
-                                                                                const isPref = formPreferencia.some(x => x.id_dia === d.id_dia && x.id_turno === turno.id_turno && x.nro_bloque === b.numero_bloque);
+                                                                                const isDispo = formDispo.some(x => x.id_dia === d.id_dia && x.id_turno === turno.id_turno && x.nro_bloque === b.numero_bloque && x.id_sede === activeSede);
+                                                                                const isPref = formPreferencia.some(x => x.id_dia === d.id_dia && x.id_turno === turno.id_turno && x.nro_bloque === b.numero_bloque && x.id_sede === activeSede);
 
                                                                                 return (
                                                                                     <td

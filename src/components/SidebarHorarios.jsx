@@ -63,7 +63,7 @@ export default function SidebarHorarios() {
 
     return (
         <aside
-            className="w-64 flex flex-col justify-between fixed h-screen top-0 left-0 z-50 overflow-hidden shadow-2xl"
+            className="w-64 flex flex-col justify-between fixed h-screen top-0 left-0 z-50 overflow-hidden shadow-2xl transition-colors"
             style={{ backgroundColor: 'var(--color-hx-red)' }}
         >
             <div className="pt-6 pb-4 flex flex-col h-full overflow-y-auto">

@@ -56,12 +56,8 @@ export default function Sidebar({ currentPath: initialPath = '' }) {
         }
     };
 
-    // Color activo según ruta
-    const activeColor = (currentPath === '' || currentPath === '/' || currentPath.startsWith('/dashboard'))
-        ? 'var(--color-hx-teal)'
-        : (currentPath.startsWith('/areas') || currentPath.startsWith('/cursos') || currentPath.startsWith('/planes'))
-            ? 'var(--color-hx-purple)'
-            : 'var(--color-hx-blue)';
+    // Color activo (Dashboard morado, Ajustes amarillo)
+    const activeColor = currentPath.startsWith('/ajustes') ? 'var(--color-hx-yellow)' : 'var(--color-hx-purple)';
 
     const activeItemStyle = {
         backgroundColor: '#fff',
@@ -177,17 +173,14 @@ export default function Sidebar({ currentPath: initialPath = '' }) {
     return (
         <aside
             className="w-64 flex flex-col justify-between fixed h-screen top-0 left-0 z-50 overflow-hidden shadow-2xl transition-colors duration-500"
-            style={{ backgroundColor:
-                (currentPath === '' || currentPath === '/' || currentPath.startsWith('/dashboard')) ? 'var(--color-hx-teal)'
-                : (currentPath.startsWith('/areas') || currentPath.startsWith('/cursos') || currentPath.startsWith('/planes')) ? 'var(--color-hx-purple)'
-                : currentPath.startsWith('/ajustes') ? 'var(--color-hx-yellow)'
-                : 'var(--color-hx-blue)'
+            style={{ 
+                backgroundColor: currentPath.startsWith('/ajustes') ? 'var(--color-hx-yellow)' : 'rgba(121, 14, 236, 0.95)'
             }}
         >
             <div className="pt-6 pb-4 flex flex-col h-full overflow-y-auto">
                 {/* Logo */}
                 <div className="px-8 mb-8 flex items-center gap-3 flex-shrink-0">
-                    <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center font-black text-xl shadow-md" style={{ color: 'var(--color-hx-blue)' }}>H</div>
+                    <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center font-black text-xl shadow-md" style={{ color: currentPath.startsWith('/ajustes') ? 'var(--color-hx-yellow)' : 'var(--color-hx-purple)' }}>H</div>
                     <h1 className="text-2xl font-black tracking-tight text-white drop-shadow-sm">HorariX</h1>
                 </div>
 

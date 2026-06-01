@@ -34,7 +34,20 @@ export default function Login() {
             const data = await response.json();
             localStorage.setItem('user', JSON.stringify(data.user));
             setIsExiting(true);
-            setTimeout(() => { window.location.href = '/setup'; }, 700);
+
+            // Verificar si el setup ya fue completado
+            let destino = '/setup';
+            try {
+                const stRes = await fetch('http://127.0.0.1:8000/api/seccion-turno');
+                if (stRes.ok) {
+                    const stData = await stRes.json();
+                    if (stData.length > 0) {
+                        destino = '/dashboard';
+                    }
+                }
+            } catch (_) { /* Si falla, ir al setup por defecto */ }
+
+            setTimeout(() => { window.location.href = destino; }, 700);
 
         } catch (err) {
             setError(err.message);

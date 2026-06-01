@@ -8,15 +8,11 @@ import "../styles/global.css";
 const currentPath = Astro.url.pathname;
 const isHorarios = currentPath.startsWith("/horarios");
 
-const bodyBg = currentPath === "/" || currentPath.startsWith("/dashboard")
-    ? "var(--color-hx-teal)"
-    : currentPath.startsWith("/areas") || currentPath.startsWith("/cursos") || currentPath.startsWith("/planes")
-        ? "var(--color-hx-purple)"
-        : currentPath.startsWith("/horarios")
-            ? "var(--color-hx-red)"
-            : currentPath.startsWith("/ajustes")
-                ? "var(--color-hx-yellow)"
-                : "var(--color-hx-blue)";
+const bodyBg = currentPath.startsWith("/ajustes")
+    ? "var(--color-hx-yellow)"
+    : currentPath.startsWith("/horarios")
+        ? "var(--color-hx-red)"
+        : "rgba(121, 14, 236, 0.95)";
 ---
 
 <!doctype html>

@@ -15,13 +15,11 @@ const isHorarios = pathname.includes("/horarios");
 const isDashboard = !isHorarios && (pathname === "/" || pathname === "" || pathname.includes("/dashboard"));
 const isAjustes = pathname.startsWith("/ajustes");
 
-const sidebarColor = pathname === "/" || pathname.startsWith("/dashboard")
-    ? "var(--color-hx-teal)"
-    : pathname.startsWith("/areas") || pathname.startsWith("/cursos") || pathname.startsWith("/planes")
-        ? "var(--color-hx-purple)"
-        : pathname.startsWith("/horarios")
-            ? "var(--color-hx-red)"
-            : "var(--color-hx-blue)";
+const sidebarColor = pathname.startsWith("/ajustes") 
+    ? "var(--color-hx-yellow)"
+    : pathname.startsWith("/horarios")
+        ? "var(--color-hx-red)"
+        : "rgba(121, 14, 236, 0.95)";
 ---
 
 <header

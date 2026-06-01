@@ -131,8 +131,8 @@ export default function TutoriasManager() {
         const tutoriaExistente = getTutoriaDeSeccion(id_seccion);
         if (!tutoriaExistente || !window.confirm('¿Quitar el tutor de esta sección?')) return;
         try {
-            await fetch(`${API_BASE}/tutorias/${tutoriaExistente.id_tutotia}`, { method: 'DELETE' });
-            setTutorias(prev => prev.filter(t => t.id_tutotia !== tutoriaExistente.id_tutotia));
+            await fetch(`${API_BASE}/tutorias/${tutoriaExistente.id_tutoria}`, { method: 'DELETE' });
+            setTutorias(prev => prev.filter(t => t.id_tutoria !== tutoriaExistente.id_tutoria));
         } catch (err) { alert(`Error: ${err.message}`); }
     };
 
@@ -142,8 +142,8 @@ export default function TutoriasManager() {
         setGuardando(true);
         try {
             if (tutoriaExistente) {
-                await fetch(`${API_BASE}/tutorias/${tutoriaExistente.id_tutotia}`, { method: 'DELETE' });
-                setTutorias(prev => prev.filter(t => t.id_tutotia !== tutoriaExistente.id_tutotia));
+                await fetch(`${API_BASE}/tutorias/${tutoriaExistente.id_tutoria}`, { method: 'DELETE' });
+                setTutorias(prev => prev.filter(t => t.id_tutoria !== tutoriaExistente.id_tutoria));
                 if (tutoriaExistente.id_profesor === id_profesor) { setIsModalOpen(false); return; }
             }
             const res = await fetch(`${API_BASE}/tutorias`, {
