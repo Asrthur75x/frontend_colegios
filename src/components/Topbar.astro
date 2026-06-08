@@ -3,23 +3,34 @@
 const pathname = Astro.url.pathname;
 let pageTitle = "Dashboard";
 
-if (pathname.includes("/areas") || pathname.includes("/cursos") || pathname.includes("/planes")) {
+if (
+    pathname.includes("/areas") ||
+    pathname.includes("/cursos") ||
+    pathname.includes("/planes")
+) {
     pageTitle = "Módulo Académico";
-} else if (pathname.includes("/profesores") || pathname.includes("/carga-academica") || pathname.includes("/tutorias") || pathname.includes("/asignacion-cursos")) {
+} else if (
+    pathname.includes("/profesores") ||
+    pathname.includes("/carga-academica") ||
+    pathname.includes("/tutorias") ||
+    pathname.includes("/asignacion-cursos")
+) {
     pageTitle = "Módulo Docente";
 } else if (pathname.includes("/horarios")) {
     pageTitle = "Centro de Horarios";
 }
 
 const isHorarios = pathname.includes("/horarios");
-const isDashboard = !isHorarios && (pathname === "/" || pathname === "" || pathname.includes("/dashboard"));
+const isDashboard =
+    !isHorarios &&
+    (pathname === "/" || pathname === "" || pathname.includes("/dashboard"));
 const isAjustes = pathname.startsWith("/ajustes");
 
-const sidebarColor = pathname.startsWith("/ajustes") 
+const sidebarColor = pathname.startsWith("/ajustes")
     ? "var(--color-hx-yellow)"
     : pathname.startsWith("/horarios")
-        ? "var(--color-hx-red)"
-        : "rgba(121, 14, 236, 0.95)";
+      ? "var(--color-hx-red)"
+      : "rgba(121, 14, 236, 0.95)";
 ---
 
 <header
@@ -29,7 +40,8 @@ const sidebarColor = pathname.startsWith("/ajustes")
     <!-- Esquina decorativa: muestra el color del sidebar en la esquina top-left -->
     <div
         style={`position:absolute;top:0;left:0;width:32px;height:32px;background-color:transparent;border-bottom-right-radius:32px;box-shadow:-16px -16px 0 16px ${sidebarColor};pointer-events:none;`}
-    ></div>
+    >
+    </div>
     <!-- Izquierda: Hamburger & Título -->
     <div class="flex-1 flex items-center gap-5 justify-start">
         <button
@@ -81,18 +93,31 @@ const sidebarColor = pathname.startsWith("/ajustes")
                     ? "bg-white text-[#111827] px-5 py-2.5 rounded-2xl text-sm font-extrabold shadow-sm transition-all border border-slate-200 hover:shadow-md"
                     : "relative inline-flex items-center justify-center px-4 py-2 text-sm font-bold text-slate-500 hover:text-[#111827] transition-colors rounded-xl overflow-hidden group"}
             >
-                {!isHorarios && (
-                    <>
-                        <span id="horarios-spin-border" class="absolute inset-0 w-full h-full hidden pointer-events-none">
-                            <span class="absolute w-[200%] h-[200%] top-[-50%] left-[-50%] custom-spin-bg"></span>
-                        </span>
-                        <span id="horarios-inner-bg" class="absolute inset-[1.5px] bg-white rounded-[10px] hidden pointer-events-none"></span>
-                    </>
-                )}
+                {
+                    !isHorarios && (
+                        <>
+                            <span
+                                id="horarios-spin-border"
+                                class="absolute inset-0 w-full h-full hidden pointer-events-none"
+                            >
+                                <span class="absolute w-[200%] h-[200%] top-[-50%] left-[-50%] custom-spin-bg" />
+                            </span>
+                            <span
+                                id="horarios-inner-bg"
+                                class="absolute inset-[1.5px] bg-white rounded-[10px] hidden pointer-events-none"
+                            />
+                        </>
+                    )
+                }
                 <span class="relative z-10">Horarios</span>
-                {!isHorarios && (
-                    <span id="horarios-underline" class="absolute bottom-0 left-1/2 w-0 h-[3px] bg-hx-blue transition-all duration-300 ease-out group-hover:w-full group-hover:left-0 rounded-full"></span>
-                )}
+                {
+                    !isHorarios && (
+                        <span
+                            id="horarios-underline"
+                            class="absolute bottom-0 left-1/2 w-0 h-[3px] bg-hx-purple transition-all duration-300 ease-out group-hover:w-full group-hover:left-0 rounded-full"
+                        />
+                    )
+                }
             </a>
         </nav>
     </div>
@@ -104,8 +129,8 @@ const sidebarColor = pathname.startsWith("/ajustes")
             <a
                 href="/ajustes"
                 class={`relative w-11 h-11 bg-white rounded-full border flex items-center justify-center transition-all cursor-pointer hover:rotate-90 duration-300 ${
-                    isAjustes 
-                        ? "border-hx-yellow text-hx-yellow shadow-md shadow-hx-yellow/20" 
+                    isAjustes
+                        ? "border-hx-yellow text-hx-yellow shadow-md shadow-hx-yellow/20"
                         : "shadow-sm border-slate-100 text-slate-600 hover:text-[#111827] hover:shadow-md"
                 }`}
             >
@@ -135,7 +160,7 @@ const sidebarColor = pathname.startsWith("/ajustes")
             class="flex items-center gap-3 cursor-pointer group hover:opacity-80 transition-opacity"
         >
             <div
-                class="w-11 h-11 rounded-full bg-hx-blue text-white flex items-center justify-center font-black text-xl shadow-sm border-2 border-white"
+                class="w-11 h-11 rounded-full bg-hx-purple text-white flex items-center justify-center font-black text-xl shadow-sm border-2 border-white"
             >
                 <span id="user-initial">A</span>
             </div>

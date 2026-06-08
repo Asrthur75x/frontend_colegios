@@ -19,7 +19,7 @@ export default function AjustesManager() {
     const [grados, setGrados] = useState([]);
     const [gradoDiaConfig, setGradoDiaConfig] = useState([]);
     const [newGrado, setNewGrado] = useState('');
-    
+
     // --- State: Estructura ---
     const [secciones, setSecciones] = useState([]);
     const [seccionTurnos, setSeccionTurnos] = useState([]);
@@ -66,17 +66,17 @@ export default function AjustesManager() {
             }
             if (sedesRes.ok) setSedes(await sedesRes.json());
             if (turnosRes.ok) setTurnos(await turnosRes.json());
-            
+
             if (diasRes.ok) {
                 const dData = await diasRes.json();
                 setDias(dData.sort((a, b) => a.orden - b.orden));
             }
-            
+
             if (gradosRes.ok) {
                 const gData = await gradosRes.json();
                 setGrados(gData.sort((a, b) => a.numero - b.numero));
             }
-            
+
             if (configRes.ok) setGradoDiaConfig(await configRes.json());
             if (secRes.ok) setSecciones(await secRes.json());
             if (stRes.ok) setSeccionTurnos(await stRes.json());
@@ -122,11 +122,33 @@ export default function AjustesManager() {
         } catch (err) { showToast("Error al añadir sede."); }
     };
 
+    const handleUpdateSede = async (id) => {
+        if (!editSedeValue.trim()) return;
+        try {
+            const res = await fetch(`${API_BASE}/sedes/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nombre_sede: editSedeValue })
+            });
+            if (res.ok) {
+                setEditingSedeId(null);
+                fetchData();
+                showToast("Sede actualizada.");
+            } else {
+                showToast("Error al actualizar sede.");
+            }
+        } catch (err) { showToast("Error al actualizar sede."); }
+    };
+
     const handleDeleteSede = async (id) => {
         try {
-            await fetch(`${API_BASE}/sedes/${id}`, { method: 'DELETE' });
-            fetchData();
-            showToast("Sede eliminada.");
+            const res = await fetch(`${API_BASE}/sedes/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                fetchData();
+                showToast("Sede eliminada.");
+            } else {
+                showToast("No se puede eliminar (¿En uso?).");
+            }
         } catch (err) { showToast("Error al eliminar sede."); }
     };
 
@@ -146,11 +168,33 @@ export default function AjustesManager() {
         } catch (err) { showToast("Error al añadir turno."); }
     };
 
+    const handleUpdateTurno = async (id) => {
+        if (!editTurnoValue.trim()) return;
+        try {
+            const res = await fetch(`${API_BASE}/turnos/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nombre: editTurnoValue })
+            });
+            if (res.ok) {
+                setEditingTurnoId(null);
+                fetchData();
+                showToast("Turno actualizado.");
+            } else {
+                showToast("Error al actualizar turno.");
+            }
+        } catch (err) { showToast("Error al actualizar turno."); }
+    };
+
     const handleDeleteTurno = async (id) => {
         try {
-            await fetch(`${API_BASE}/turnos/${id}`, { method: 'DELETE' });
-            fetchData();
-            showToast("Turno eliminado.");
+            const res = await fetch(`${API_BASE}/turnos/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                fetchData();
+                showToast("Turno eliminado.");
+            } else {
+                showToast("No se puede eliminar (¿En uso?).");
+            }
         } catch (err) { showToast("Error al eliminar turno."); }
     };
 
@@ -218,7 +262,7 @@ export default function AjustesManager() {
             const res = await fetch(`${API_BASE}/secciones`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
+                body: JSON.stringify({
                     nombre: newSeccionNombre,
                     id_grado: parseInt(newSeccionGrado),
                     id_sede: parseInt(newSeccionSede)
@@ -259,7 +303,7 @@ export default function AjustesManager() {
             await fetch(`${API_BASE}/seccion-turno`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
+                body: JSON.stringify({
                     id_seccion: parseInt(selectedSeccionId),
                     id_turno: parseInt(selectedTurnoId),
                     id_dia: primerDiaId
@@ -289,11 +333,10 @@ export default function AjustesManager() {
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
-                            className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm ${
-                                activeTab === tab.id 
-                                    ? 'bg-hx-yellow text-slate-800 shadow-md shadow-hx-yellow/20' 
-                                    : 'bg-white text-slate-500 hover:bg-slate-50 border border-transparent'
-                            }`}
+                            className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm ${activeTab === tab.id
+                                ? 'bg-hx-yellow text-slate-800 shadow-md shadow-hx-yellow/20'
+                                : 'bg-white text-slate-500 hover:bg-slate-50 border border-transparent'
+                                }`}
                         >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                 <path d={tab.icon}></path>
@@ -322,10 +365,10 @@ export default function AjustesManager() {
                                 <div className="flex-1">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Nombre de la Institución</label>
                                     {isEditingColegio ? (
-                                        <input 
-                                            type="text" 
-                                            value={colegio.nombre_colegio} 
-                                            onChange={e => setColegio({...colegio, nombre_colegio: e.target.value})}
+                                        <input
+                                            type="text"
+                                            value={colegio.nombre_colegio}
+                                            onChange={e => setColegio({ ...colegio, nombre_colegio: e.target.value })}
                                             className="w-full bg-slate-50 border border-slate-200 text-slate-700 text-sm font-bold rounded-xl px-4 py-3 outline-none focus:border-hx-yellow"
                                         />
                                     ) : (
@@ -347,11 +390,11 @@ export default function AjustesManager() {
                             <div className="bg-white p-6 rounded-[24px] shadow-sm border border-slate-100">
                                 <h3 className="text-lg font-black text-slate-800 mb-4">Gestión de Sedes</h3>
                                 <div className="flex gap-2 mb-4">
-                                    <input 
+                                    <input
                                         type="text" placeholder="Nueva Sede..." value={newSede} onChange={e => setNewSede(e.target.value)}
                                         className="flex-1 bg-slate-50 border border-slate-200 text-sm font-bold rounded-xl px-4 py-2 outline-none focus:border-hx-yellow"
                                     />
-                                    <button onClick={handleAddSede} className="px-4 py-2 bg-slate-800 text-white font-bold text-sm rounded-xl">Add</button>
+                                    <button onClick={handleAddSede} className="px-4 py-2 bg-[var(--color-hx-yellow)] text-slate-800 cursor-pointer font-bold text-sm rounded-xl">Agregar</button>
                                 </div>
                                 <ul className="space-y-2">
                                     {sedes.map(s => (
@@ -368,13 +411,13 @@ export default function AjustesManager() {
                                             )}
                                             <div className="flex gap-1">
                                                 {editingSedeId === s.id_sede ? (
-                                                    <button onClick={() => { setEditingSedeId(null); showToast("Sede actualizada (visual)"); }} className="text-hx-yellow hover:text-yellow-600 p-1 font-bold text-xs bg-yellow-50 rounded px-2">Guardar</button>
+                                                    <button onClick={() => handleUpdateSede(s.id_sede)} className="text-hx-yellow hover:text-yellow-600 p-1 font-bold text-xs bg-yellow-50 rounded px-2">Guardar</button>
                                                 ) : (
-                                                    <button onClick={() => { setEditingSedeId(s.id_sede); setEditSedeValue(s.nombre_sede); }} className="text-slate-400 hover:text-slate-600 p-1">
+                                                    <button onClick={() => { setEditingSedeId(s.id_sede); setEditSedeValue(s.nombre_sede); }} className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
                                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                                                     </button>
                                                 )}
-                                                <button onClick={() => handleDeleteSede(s.id_sede)} className="text-red-500 hover:text-red-700 p-1">
+                                                <button onClick={() => handleDeleteSede(s.id_sede)} className="text-red-500 hover:text-red-700 p-1 cursor-pointer">
                                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"></path></svg>
                                                 </button>
                                             </div>
@@ -387,11 +430,11 @@ export default function AjustesManager() {
                             <div className="bg-white p-6 rounded-[24px] shadow-sm border border-slate-100">
                                 <h3 className="text-lg font-black text-slate-800 mb-4">Gestión de Turnos</h3>
                                 <div className="flex gap-2 mb-4">
-                                    <input 
+                                    <input
                                         type="text" placeholder="Nuevo Turno..." value={newTurno} onChange={e => setNewTurno(e.target.value)}
                                         className="flex-1 bg-slate-50 border border-slate-200 text-sm font-bold rounded-xl px-4 py-2 outline-none focus:border-hx-yellow"
                                     />
-                                    <button onClick={handleAddTurno} className="px-4 py-2 bg-slate-800 text-white font-bold text-sm rounded-xl">Add</button>
+                                    <button onClick={handleAddTurno} className="px-4 py-2 bg-[var(--color-hx-yellow)] text-slate-800 font-bold text-sm rounded-xl cursor-pointer">Agregar</button>
                                 </div>
                                 <ul className="space-y-2">
                                     {turnos.map(t => (
@@ -408,13 +451,13 @@ export default function AjustesManager() {
                                             )}
                                             <div className="flex gap-1">
                                                 {editingTurnoId === t.id_turno ? (
-                                                    <button onClick={() => { setEditingTurnoId(null); showToast("Turno actualizado (visual)"); }} className="text-hx-yellow hover:text-yellow-600 p-1 font-bold text-xs bg-yellow-50 rounded px-2">Guardar</button>
+                                                    <button onClick={() => handleUpdateTurno(t.id_turno)} className="text-hx-yellow hover:text-yellow-600 p-1 font-bold text-xs bg-yellow-50 rounded px-2">Guardar</button>
                                                 ) : (
-                                                    <button onClick={() => { setEditingTurnoId(t.id_turno); setEditTurnoValue(t.nombre); }} className="text-slate-400 hover:text-slate-600 p-1">
+                                                    <button onClick={() => { setEditingTurnoId(t.id_turno); setEditTurnoValue(t.nombre); }} className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
                                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                                                     </button>
                                                 )}
-                                                <button onClick={() => handleDeleteTurno(t.id_turno)} className="text-red-500 hover:text-red-700 p-1">
+                                                <button onClick={() => handleDeleteTurno(t.id_turno)} className="text-red-500 hover:text-red-700 p-1 cursor-pointer">
                                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"></path></svg>
                                                 </button>
                                             </div>
@@ -432,7 +475,7 @@ export default function AjustesManager() {
                         <div className="bg-white p-6 rounded-[24px] shadow-sm border border-slate-100">
                             <h3 className="text-lg font-black text-slate-800 mb-4">Configuración de Grados y Días</h3>
                             <div className="flex gap-2 mb-6 max-w-sm">
-                                <input 
+                                <input
                                     type="number" placeholder="Número de Grado (Ej: 1)" value={newGrado} onChange={e => setNewGrado(e.target.value)}
                                     className="flex-1 bg-slate-50 border border-slate-200 text-sm font-bold rounded-xl px-4 py-2 outline-none focus:border-hx-yellow"
                                 />
@@ -446,7 +489,7 @@ export default function AjustesManager() {
                                             <th className="pb-3 text-left text-[11px] font-black text-slate-400 uppercase tracking-widest">Grado</th>
                                             {dias.map(d => (
                                                 <th key={d.id_dia} className="pb-3 text-center text-[11px] font-black text-slate-400 uppercase tracking-widest">
-                                                    {d.nombre_dia.slice(0,3)}
+                                                    {d.nombre_dia.slice(0, 3)}
                                                 </th>
                                             ))}
                                             <th className="pb-3 text-right"></th>
@@ -461,7 +504,7 @@ export default function AjustesManager() {
                                                     const bloques = conf ? conf.bloques_dia : 0;
                                                     return (
                                                         <td key={d.id_dia} className="py-4 px-2 text-center">
-                                                            <input 
+                                                            <input
                                                                 type="number" min="0" max="15"
                                                                 value={bloques}
                                                                 onChange={(e) => handleUpdateGradoDiaConfig(g.id_grado, d.id_dia, parseInt(e.target.value) || 0)}
@@ -501,7 +544,7 @@ export default function AjustesManager() {
                                     <option value="">Seleccione Sede</option>
                                     {sedes.map(s => <option key={s.id_sede} value={s.id_sede}>{s.nombre_sede}</option>)}
                                 </select>
-                                <input 
+                                <input
                                     type="text" placeholder="Nombre (Ej: A, B, 1A)" value={newSeccionNombre} onChange={e => setNewSeccionNombre(e.target.value)}
                                     className="bg-slate-50 border border-slate-200 text-slate-700 text-sm font-bold rounded-xl px-4 py-2 outline-none w-48"
                                 />

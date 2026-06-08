@@ -7,6 +7,14 @@ export default function DashboardManager() {
     const [colegio, setColegio] = useState(null);
     const [horarioCount, setHorarioCount] = useState(0);
     const [loading, setLoading] = useState(true);
+    const [profList, setProfList] = useState([]);
+    const [cursosList, setCursosList] = useState([]);
+    const [profCurso, setProfCurso] = useState([]);
+    const [sedesList, setSedesList] = useState([]);
+    const [sedeProfesor, setSedeProfesor] = useState([]);
+    const [areasList, setAreasList] = useState([]);
+    const [activeTab, setActiveTab] = useState(null);
+    const [currentPage, setCurrentPage] = useState(1);
 
     useEffect(() => {
         const load = async () => {
@@ -20,6 +28,19 @@ export default function DashboardManager() {
                 if (colRes.ok) { const d = await colRes.json(); setColegio(Array.isArray(d) && d[0] ? d[0] : null); }
                 const hRes = await fetch(`${API}/horario-final`);
                 if (hRes.ok) { const d = await hRes.json(); setHorarioCount(Array.isArray(d) ? d.length : 0); }
+                const [pRes, cRes, pcRes, spRes, aRes] = await Promise.all([
+                    fetch(`${API}/profesores`).then(r => r.ok ? r.json() : []),
+                    fetch(`${API}/cursos`).then(r => r.ok ? r.json() : []),
+                    fetch(`${API}/profesor-curso`).then(r => r.ok ? r.json() : []),
+                    fetch(`${API}/profesor-sedes`).then(r => r.ok ? r.json() : []),
+                    fetch(`${API}/areas`).then(r => r.ok ? r.json() : []),
+                ]);
+                setSedesList(Array.isArray(responses[3]) ? responses[3] : []);
+                setProfList(Array.isArray(pRes) ? pRes : []);
+                setCursosList(Array.isArray(cRes) ? cRes : []);
+                setProfCurso(Array.isArray(pcRes) ? pcRes : []);
+                setSedeProfesor(Array.isArray(spRes) ? spRes : []);
+                setAreasList(Array.isArray(aRes) ? aRes : []);
             } catch (e) { console.error(e); }
             setLoading(false);
         };
@@ -46,13 +67,57 @@ export default function DashboardManager() {
         </div>
     );
 
+    const activeSedeId = activeTab || (sedesList.length > 0 ? sedesList[0].id_sede : null);
+    let displayProfs = profList;
+
+    if (sedesList.length > 0 && activeSedeId) {
+        const profIdsInSede = sedeProfesor.filter(sp => sp.id_sede === activeSedeId).map(sp => sp.id_profesor);
+        if (sedeProfesor.length > 0) {
+            displayProfs = profList.filter(p => profIdsInSede.includes(p.id_profesor));
+        }
+    }
+
+    const maxToShow = 6;
+    const totalPages = Math.ceil(displayProfs.length / maxToShow);
+    const startIndex = (currentPage - 1) * maxToShow;
+    const paginatedProfs = displayProfs.slice(startIndex, startIndex + maxToShow);
+
+    // Calculate areas data for vertical bar chart
+    const cursosPorAreaRaw = areasList.map(area => ({
+        name: area.nombre,
+        count: cursosList.filter(c => c.id_area === area.id_area).length
+    })).filter(a => a.count > 0).sort((a, b) => b.count - a.count);
+
+    const chartColors = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#6366f1', '#14b8a6', '#f43f5e'];
+
+    const cursosPorArea = cursosPorAreaRaw.map((area, index) => ({
+        ...area,
+        color: chartColors[index % chartColors.length]
+    }));
+
+    // Lógica para progreso de preparación global del sistema
+    let progresoBase = 0;
+    if (colegio) progresoBase += 10;
+    if (sedesList.length > 0) progresoBase += 10;
+    if (stats.grados > 0) progresoBase += 10;
+    if (stats.secciones > 0) progresoBase += 10;
+    if (areasList.length > 0) progresoBase += 10;
+    if (profList.length > 0) progresoBase += 10;
+
+    const cursosAsignados = new Set(profCurso.map(pc => pc.id_curso)).size;
+    const totalCursos = cursosList.length;
+    // El 40% final del progreso recae en la asignación de profesores a cursos
+    const porcentajeAsignacion = totalCursos > 0 ? (cursosAsignados / totalCursos) * 40 : 0;
+
+    const progresoHorarios = Math.min(100, Math.round(progresoBase + porcentajeAsignacion));
+
     return (
         <div className="w-full max-w-[1440px] mx-auto pb-4">            {/* ═══ ENVOLTORIO PRINCIPAL: Dos Columnas Maestras ═══ */}
             <div className="flex flex-col xl:flex-row gap-8">
-                
+
                 {/* ── COLUMNA IZQUIERDA (Contenido Principal) ── */}
                 <div className="flex-1 flex flex-col gap-8">
-                    
+
                     {/* 1. BANNER PRINCIPAL */}
                     <div className="relative overflow-hidden rounded-[24px] bg-[var(--color-hx-purple)]/10 flex flex-col md:flex-row items-center justify-between p-8 md:p-10 shadow-sm border border-[var(--color-hx-purple)]/70">
                         {/* Text Content */}
@@ -83,7 +148,7 @@ export default function DashboardManager() {
                             <svg width="100%" height="100%" viewBox="0 0 340 220" className="relative z-10 drop-shadow-xl">
                                 {/* Sun */}
                                 <circle cx="280" cy="50" r="24" fill="#fef08a" className="animate-pulse" style={{ animationDuration: '4s' }} />
-                                
+
                                 {/* Floating Clouds */}
                                 <g>
                                     <animateTransform attributeName="transform" type="translate" values="0,0; 10,0; 0,0" dur="8s" repeatCount="indefinite" />
@@ -100,18 +165,18 @@ export default function DashboardManager() {
                                 <circle cx="170" cy="70" r="14" fill="white" />
                                 <path d="M170 70 L170 62" stroke="#334155" strokeWidth="2" strokeLinecap="round" />
                                 <path d="M170 70 L176 73" stroke="#334155" strokeWidth="2" strokeLinecap="round" />
-                                
+
                                 {/* Main Building */}
                                 <rect x="90" y="100" width="160" height="100" rx="4" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="2" />
                                 <rect x="85" y="90" width="170" height="10" rx="4" fill="#f43f5e" />
-                                
+
                                 {/* Building Details */}
                                 <rect x="120" y="100" width="100" height="10" fill="#e2e8f0" />
-                                
+
                                 {/* Door */}
                                 <path d="M150 200 L150 150 A 20 20 0 0 1 190 150 L190 200 Z" fill="#8b5cf6" />
                                 <rect x="169" y="150" width="2" height="50" fill="#6d28d9" />
-                                
+
                                 {/* Windows */}
                                 <rect x="105" y="115" width="25" height="30" rx="2" fill="#bae6fd" />
                                 <rect x="210" y="115" width="25" height="30" rx="2" fill="#bae6fd" />
@@ -173,19 +238,184 @@ export default function DashboardManager() {
                         </div>
                     </div>
 
-                    {/* Espacio reservado para más contenido principal */}
-                    <div className="flex-1 rounded-[24px] border-2 border-dashed border-slate-200 bg-slate-50 flex items-center justify-center p-8 mt-2 min-h-[200px]">
-                        <p className="text-slate-400 font-medium">Futuras tablas o gráficos del dashboard</p>
+                    {/* Contenedor Inferior: Progreso de Llenado + Mapa de Áreas */}
+                    <div className="flex flex-col md:flex-row gap-6 w-full">
+
+                        {/* 1. Progreso de Llenado (Izquierda) */}
+                        <div className="bg-white rounded-[24px] p-8 border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex-[1] flex flex-col justify-center min-w-[300px]">
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center border border-blue-100/50">
+                                    <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><path d="M22 4L12 14.01l-3-3" /></svg>
+                                </div>
+                                <div>
+                                    <h3 className="text-slate-800 font-black text-[18px] tracking-tight">Preparación del Sistema</h3>
+                                    <p className="text-slate-500 text-[13px] mt-0.5">Estado global de configuración</p>
+                                </div>
+                            </div>
+
+                            <div className="mt-2">
+                                <div className="flex justify-between items-end mb-3">
+                                    <span className="text-4xl font-black text-slate-800 tracking-tighter">{progresoHorarios}%</span>
+                                    <span className="text-slate-500 text-[13px] font-semibold">Completado</span>
+                                </div>
+                                {/* Progress Bar Container */}
+                                <div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden shadow-inner relative">
+                                    {/* Animated Progress Fill */}
+                                    <div
+                                        className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-1000 ease-out relative"
+                                        style={{ width: `${progresoHorarios}%` }}
+                                    >
+                                        <div className="absolute inset-0 bg-white/20 w-full animate-pulse"></div>
+                                    </div>
+                                </div>
+                                <p className="text-slate-400 text-[12px] font-medium mt-4 text-center">
+                                    {progresoHorarios === 100
+                                        ? '¡Sistema 100% listo para generar horarios!'
+                                        : 'Añade más datos básicos y asigna docentes para llegar al 100%.'}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* 2. Mapa de Áreas (Derecha) */}
+                        <div className="bg-white rounded-[24px] p-8 border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex-[1.3] flex flex-col">
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-500 flex items-center justify-center border border-purple-100/50">
+                                    <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" /></svg>
+                                </div>
+                                <div>
+                                    <h3 className="text-slate-800 font-black text-[18px] tracking-tight">Mapa de Áreas</h3>
+                                    <p className="text-slate-500 text-[13px] mt-0.5">Cantidad de cursos por área</p>
+                                </div>
+                            </div>
+
+                            {cursosPorArea.length === 0 ? (
+                                <div className="flex-1 flex items-center justify-center text-slate-400 text-sm font-medium">No hay datos</div>
+                            ) : (
+                                <div className="flex flex-wrap gap-2.5 content-start flex-1 overflow-y-auto custom-scrollbar pr-2 h-[120px]">
+                                    {cursosPorArea.map((area, index) => (
+                                        <div
+                                            key={index}
+                                            className="flex items-center gap-2 bg-slate-50/50 border border-slate-100/80 rounded-lg px-3 py-2 hover:bg-white hover:shadow-sm hover:border-slate-200 transition-all"
+                                        >
+                                            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 shadow-sm" style={{ backgroundColor: area.color }}></span>
+                                            <span className="text-slate-600 text-[13px] font-bold leading-tight">{area.name}</span>
+                                            <span className="text-slate-400 text-[12px] font-black ml-1 bg-slate-100 px-1.5 py-0.5 rounded-md">
+                                                {area.count}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                 </div>
 
-                {/* ── COLUMNA DERECHA (Aside Completo hasta abajo) ── */}
+                {/* ── COLUMNA DERECHA (Directorio Docente) ── */}
                 <div className="w-full xl:w-[340px] flex-shrink-0">
-                    <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-[24px] p-8 h-full flex flex-col items-center justify-center min-h-[600px] text-center">
-                        <svg className="w-12 h-12 text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
-                        <h3 className="text-slate-500 font-bold text-lg mb-2">Espacio para Anuncios</h3>
-                        <p className="text-slate-400 text-sm">Más adelante se agregará el contenido correspondiente a esta sección.</p>
+                    <div className="bg-white rounded-[24px] h-full flex flex-col overflow-hidden border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.09)] min-h-[500px]">
+                        {/* Header */}
+                        <div className="px-6 pt-7 pb-5 flex items-center justify-between border-b border-slate-50 relative overflow-hidden">
+                            <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-purple-50/80 via-white to-blue-50/50"></div>
+                            <div className="flex items-center gap-3 relative z-10">
+                                <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white shadow-[0_2px_10px_rgb(0,0,0,0.05)] text-[var(--color-hx-purple)] border border-[var(--color-hx-purple)]/20">
+                                    <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+                                </div>
+                                <h3 className="text-slate-800 font-black text-[18px] tracking-tight">Docentes</h3>
+                            </div>
+                            <div className="relative z-10">
+                                <span className="bg-white border border-[var(--color-hx-purple)]/20 text-[var(--color-hx-purple)] text-[12px] font-bold px-3 py-1.5 rounded-full shadow-sm">
+                                    {displayProfs.length} docente{displayProfs.length !== 1 ? 's' : ''}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Tabs for Sedes (if multiple) */}
+                        {sedesList.length >= 2 && (
+                            <div className="px-6 py-4 bg-slate-50/30 border-b border-slate-50">
+                                <div className="bg-slate-200/60 p-1.5 rounded-2xl flex gap-1 relative shadow-inner border border-[var(--color-hx-purple)]">
+                                    {sedesList.map(sede => {
+                                        const isActive = activeTab === sede.id_sede || (!activeTab && sedesList[0].id_sede === sede.id_sede);
+                                        const countInSede = sedeProfesor.length > 0
+                                            ? sedeProfesor.filter(sp => sp.id_sede === sede.id_sede).length
+                                            : profList.length;
+
+                                        return (
+                                            <button
+                                                key={sede.id_sede}
+                                                onClick={() => { setActiveTab(sede.id_sede); setCurrentPage(1); }}
+                                                className={`flex-1 text-[13px] font-bold py-2 rounded-xl transition-all duration-300 cursor-pointer flex items-center justify-center gap-1.5 ${isActive ? 'bg-[var(--color-hx-purple)]/60 text-white shadow-[0_2px_10px_rgb(0,0,0,0.06)]' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
+                                            >
+                                                {sede.nombre_sede}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* List */}
+                        <div className="flex-1 px-4 overflow-y-auto pb-6 pt-3" style={{ scrollbarWidth: 'thin', scrollbarColor: '#e2e8f0 transparent' }}>
+                            {displayProfs.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-10 opacity-50">
+                                    <svg width="40" height="40" fill="none" stroke="currentColor" strokeWidth="1.5" className="mb-3 text-slate-400"><circle cx="12" cy="12" r="10" /><path d="M16 16s-1.5-2-4-2-4 2-4 2" /><line x1="9" y1="9" x2="9.01" y2="9" /><line x1="15" y1="9" x2="15.01" y2="9" /></svg>
+                                    <p className="text-slate-500 text-sm font-medium">No hay docentes</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-1.5 h-full flex flex-col relative">
+                                    <div className="flex-1 space-y-1.5 min-h-[480px]">
+                                        {paginatedProfs.map((prof) => {
+                                            const initials = (prof.nombre_profesor || '?').substring(0, 2).toUpperCase();
+                                            const profCursosCount = profCurso.filter(pc => pc.id_profesor === prof.id_profesor).length;
+
+                                            return (
+                                                <div key={prof.id_profesor} className="rounded-2xl p-2.5 flex items-center gap-3.5 bg-transparent hover:bg-slate-50 transition-all border border-transparent hover:border-slate-100 group cursor-default">
+                                                    {/* Avatar */}
+                                                    <div className="w-[42px] h-[42px] rounded-full flex items-center justify-center font-black text-[14px] flex-shrink-0 bg-[var(--color-hx-purple)]/10 text-[var(--color-hx-purple)] shadow-sm">
+                                                        {initials}
+                                                    </div>
+                                                    {/* Info */}
+                                                    <div className="flex-1 min-w-0 flex items-center justify-between gap-3">
+                                                        <p className="text-slate-800 font-bold text-[14px] truncate leading-tight group-hover:text-[var(--color-hx-purple)] transition-colors">
+                                                            {prof.nombre_profesor}
+                                                        </p>
+                                                        <div className="flex items-center gap-1.5 flex-shrink-0 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100 group-hover:bg-white group-hover:border-slate-200 transition-colors">
+                                                            <span className={`w-1.5 h-1.5 rounded-full ${profCursosCount > 0 ? 'bg-emerald-400' : 'bg-slate-300'}`}></span>
+                                                            <p className="text-slate-500 text-[11px] font-bold">
+                                                                {profCursosCount > 0 ? `${profCursosCount} curso${profCursosCount !== 1 ? 's' : ''}` : 'Ninguno'}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* Pagination Controls */}
+                                    {totalPages > 1 && (
+                                        <div className="flex items-center justify-between p-2 border border-slate-100 bg-white shadow-sm rounded-2xl mt-auto absolute bottom-0 left-0 right-0">
+                                            <button
+                                                disabled={currentPage === 1}
+                                                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                                className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-600 hover:bg-slate-100 hover:text-[var(--color-hx-purple)] disabled:opacity-30 disabled:hover:bg-transparent transition-all cursor-pointer shadow-sm border border-slate-100 bg-slate-50"
+                                            >
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+                                            </button>
+                                            <span className="text-[15px] font-bold text-slate-600">
+                                                {currentPage} <span className="font-medium text-slate-400">de</span> {totalPages}
+                                            </span>
+                                            <button
+                                                disabled={currentPage === totalPages}
+                                                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                                className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-600 hover:bg-slate-100 hover:text-[var(--color-hx-purple)] disabled:opacity-30 disabled:hover:bg-transparent transition-all cursor-pointer shadow-sm border border-slate-100 bg-slate-50"
+                                            >
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>

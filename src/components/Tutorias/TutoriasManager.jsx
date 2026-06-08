@@ -14,7 +14,7 @@ const GRADO_COLORS = [
 ];
 
 // Tarjeta con diseño exacto a la referencia (Carpeta oscura con borde negro y fondo degradado)
-const SeccionCard = ({ sec, tutor, gradoColor, onAsignar, onQuitar }) => {
+const SeccionCard = ({ sec, tutor, gradoColor, sedeNombre, onAsignar, onQuitar }) => {
     const sinTutor = !tutor;
 
     return (
@@ -25,27 +25,28 @@ const SeccionCard = ({ sec, tutor, gradoColor, onAsignar, onQuitar }) => {
                     <h3 className="text-slate-700 font-bold text-[14px]">
                         Grado {sec.id_grado ? `${sec.id_grado}°` : 'N/A'}
                     </h3>
-                    <p className="text-slate-400 text-[12px] mt-0.5">
-                        {sec.nombre ? 'Sección Académica' : 'Sin nombrar'}
+                    <p className="text-slate-400 text-[12px] mt-0.5 font-medium flex items-center gap-1">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                        {sedeNombre || 'Sede Principal'}
                     </p>
                 </div>
-                <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-[15px] shadow-sm text-white"
+                <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-[15px] shadow-sm text-white shrink-0"
                     style={{ backgroundColor: sinTutor ? '#f43f5e' : gradoColor }}>
-                    {sinTutor ? '!' : tutor.nombre_profesor.charAt(0)}
+                    {sinTutor ? '!' : tutor.nombre_profesor.charAt(0).toUpperCase()}
                 </div>
             </div>
 
             {/* Middle row */}
             <div className="px-5 py-4 flex-1">
-                <h2 className="text-slate-800 font-black text-[20px]">
+                <h2 className="text-slate-800 font-black text-[20px] truncate pr-2">
                     Sección {sec.nombre || sec.id_seccion.toString().padStart(2, '0')}
                 </h2>
                 <div className="flex items-center gap-2 mt-1">
-                    <p className="text-slate-500 text-[14px] font-medium">
+                    <p className="text-slate-500 text-[14px] font-medium truncate">
                         {sinTutor ? 'Sin asignar' : tutor.nombre_profesor}
                     </p>
                     {!sinTutor && (
-                        <span className="bg-slate-100 text-slate-500 text-[10px] font-bold px-1.5 py-0.5 rounded">
+                        <span className="bg-slate-100 text-slate-500 text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0">
                             TUTOR
                         </span>
                     )}
@@ -66,7 +67,7 @@ const SeccionCard = ({ sec, tutor, gradoColor, onAsignar, onQuitar }) => {
             {!sinTutor && (
                 <button
                     onClick={(e) => { e.stopPropagation(); onQuitar(sec.id_seccion); }}
-                    className="absolute top-4 right-16 w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-red-500 hover:border-red-200 flex items-center justify-center transition-colors shadow-sm opacity-0 group-hover:opacity-100"
+                    className="absolute top-4 right-16 w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-red-500 hover:border-red-200 flex items-center justify-center transition-colors shadow-sm opacity-0 group-hover:opacity-100 cursor-pointer"
                     title="Quitar tutor"
                 >
                     <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -83,6 +84,7 @@ export default function TutoriasManager() {
     const [grados, setGrados] = useState([]);
     const [profesores, setProfesores] = useState([]);
     const [tutorias, setTutorias] = useState([]);
+    const [sedes, setSedes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
@@ -94,16 +96,18 @@ export default function TutoriasManager() {
     const fetchDatos = async (signal) => {
         try {
             setLoading(true);
-            const [resSec, resGrad, resProf, resTut] = await Promise.all([
+            const [resSec, resGrad, resProf, resTut, resSedes] = await Promise.all([
                 fetch(`${API_BASE}/secciones`, { signal }).catch(() => ({ ok: false, json: () => [] })),
                 fetch(`${API_BASE}/grados`, { signal }).catch(() => ({ ok: false, json: () => [] })),
                 fetch(`${API_BASE}/profesores`, { signal }).catch(() => ({ ok: false, json: () => [] })),
                 fetch(`${API_BASE}/tutorias`, { signal }).catch(() => ({ ok: false, json: () => [] })),
+                fetch(`${API_BASE}/sedes`, { signal }).catch(() => ({ ok: false, json: () => [] })),
             ]);
             if (resSec.ok) setSecciones(await resSec.json());
             if (resGrad.ok) setGrados(await resGrad.json());
             if (resProf.ok) setProfesores(await resProf.json());
             if (resTut.ok) setTutorias(await resTut.json());
+            if (resSedes.ok) setSedes(await resSedes.json());
             setError(null);
         } catch (err) {
             if (err.name === 'AbortError') return;
@@ -218,13 +222,7 @@ export default function TutoriasManager() {
                         const gradoColor = GRADO_COLORS[index % GRADO_COLORS.length];
                         const seccionesDelGrado = seccionesFiltradas
                             .filter(s => s.id_grado === grado.id_grado)
-                            .sort((a, b) => {
-                                const aSinTutor = !getTutorDeSeccion(a.id_seccion);
-                                const bSinTutor = !getTutorDeSeccion(b.id_seccion);
-                                if (aSinTutor && !bSinTutor) return -1;
-                                if (!aSinTutor && bSinTutor) return 1;
-                                return a.id_seccion - b.id_seccion;
-                            });
+                            .sort((a, b) => a.id_seccion - b.id_seccion);
 
                         if (seccionesDelGrado.length === 0) return null;
 
@@ -241,16 +239,21 @@ export default function TutoriasManager() {
                                     <div className="flex-1 h-[2px] bg-slate-200"></div>
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                    {seccionesDelGrado.map(sec => (
-                                        <SeccionCard
-                                            key={sec.id_seccion}
-                                            sec={sec}
-                                            tutor={getTutorDeSeccion(sec.id_seccion)}
-                                            gradoColor={gradoColor}
-                                            onAsignar={abrirModal}
-                                            onQuitar={handleQuitarTutor}
-                                        />
-                                    ))}
+                                    {seccionesDelGrado.map(sec => {
+                                        const sedeObj = sedes.find(s => s.id_sede === sec.id_sede);
+                                        const sedeNombre = sedeObj ? (sedeObj.nombre_sede || sedeObj.nombre) : 'Sede Principal';
+                                        return (
+                                            <SeccionCard
+                                                key={sec.id_seccion}
+                                                sec={sec}
+                                                tutor={getTutorDeSeccion(sec.id_seccion)}
+                                                gradoColor={gradoColor}
+                                                sedeNombre={sedeNombre}
+                                                onAsignar={abrirModal}
+                                                onQuitar={handleQuitarTutor}
+                                            />
+                                        );
+                                    })}
                                 </div>
                             </div>
                         );
@@ -260,13 +263,7 @@ export default function TutoriasManager() {
                     {(() => {
                         const sinGrado = seccionesFiltradas
                             .filter(s => !s.id_grado)
-                            .sort((a, b) => {
-                                const aSinTutor = !getTutorDeSeccion(a.id_seccion);
-                                const bSinTutor = !getTutorDeSeccion(b.id_seccion);
-                                if (aSinTutor && !bSinTutor) return -1;
-                                if (!aSinTutor && bSinTutor) return 1;
-                                return a.id_seccion - b.id_seccion;
-                            });
+                            .sort((a, b) => a.id_seccion - b.id_seccion);
 
                         if (sinGrado.length === 0) return null;
 
@@ -280,16 +277,21 @@ export default function TutoriasManager() {
                                     <div className="flex-1 h-[2px] bg-slate-200"></div>
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                    {sinGrado.map(sec => (
-                                        <SeccionCard
-                                            key={sec.id_seccion}
-                                            sec={sec}
-                                            tutor={getTutorDeSeccion(sec.id_seccion)}
-                                            gradoColor="#94a3b8"
-                                            onAsignar={abrirModal}
-                                            onQuitar={handleQuitarTutor}
-                                        />
-                                    ))}
+                                    {sinGrado.map(sec => {
+                                        const sedeObj = sedes.find(s => s.id_sede === sec.id_sede);
+                                        const sedeNombre = sedeObj ? (sedeObj.nombre_sede || sedeObj.nombre) : 'Sede Principal';
+                                        return (
+                                            <SeccionCard
+                                                key={sec.id_seccion}
+                                                sec={sec}
+                                                tutor={getTutorDeSeccion(sec.id_seccion)}
+                                                gradoColor="#94a3b8"
+                                                sedeNombre={sedeNombre}
+                                                onAsignar={abrirModal}
+                                                onQuitar={handleQuitarTutor}
+                                            />
+                                        );
+                                    })}
                                 </div>
                             </div>
                         );

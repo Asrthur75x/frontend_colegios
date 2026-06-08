@@ -260,31 +260,39 @@ export default function PlanesManager() {
         <div className="w-full space-y-8 animate-fade-in relative pb-10">
             {/* Cabecera Superior (Restaurada al estilo morado) */}
             <div className="flex flex-col md:flex-row gap-6 mb-8">
-                <div className="md:w-2/3 bg-gradient-to-r from-hx-purple via-purple-500 to-indigo-500 rounded-[24px] p-8 text-white shadow-md relative overflow-hidden flex flex-col justify-center min-h-[160px]">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4"></div>
-                    <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/20 rounded-full blur-2xl translate-y-1/3 -translate-x-1/4"></div>
-
-                    <div className="relative z-10 flex justify-between items-start">
+                <div className="md:w-2/3 bg-[var(--color-hx-purple)]/10 rounded-[24px] p-8 shadow-md relative overflow-hidden flex flex-col justify-center min-h-[180px] border border-[var(--color-hx-purple)]/70">
+                    <div className="relative z-10 flex flex-col md:flex-row justify-between items-center md:items-start gap-6">
                         <div className="max-w-md">
-                            <h2 className="text-2xl md:text-3xl font-black mb-2 tracking-tight drop-shadow-sm text-white">
+                            <h2 className="text-3xl md:text-4xl font-black text-slate-800 tracking-tight leading-tight mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
                                 Planes de Estudio
                             </h2>
-                            <p className="text-white/90 text-[13px] font-medium mb-6 leading-relaxed max-w-sm drop-shadow-sm">
+                            <p className="text-slate-500 text-[13px] font-medium mb-6 leading-relaxed max-w-sm drop-shadow-sm">
                                 Configura la malla curricular y asigna la carga horaria para cada curso según el grado.
                             </p>
 
                             <button
                                 onClick={() => abrirModalNueva()}
-                                className="bg-white text-hx-purple hover:bg-slate-50 font-extrabold py-2.5 px-6 rounded-xl shadow-sm hover:shadow transition-all flex items-center gap-2 text-sm w-max cursor-pointer">
+                                className="bg-hx-purple text-white hover:bg-hx-purple/80 font-extrabold py-2.5 px-6 rounded-xl shadow-[0_4px_12px_rgba(121,14,236,0.3)] hover:shadow-[0_6px_16px_rgba(121,14,236,0.4)] hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2 text-sm w-max cursor-pointer">
                                 <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
                                 Añadir a la Malla
                             </button>
                         </div>
+
+                        {/* Imagen Ilustrativa a la derecha */}
+                        <div className="hidden sm:flex relative w-32 h-32 md:w-45 md:h-45 flex-shrink-0 items-center justify-center -mt-2 md:mr-16">
+                            {/* Brillo suave de fondo para resaltar */}
+                            <div className="absolute inset-0 bg-white/40 rounded-full blur-2xl"></div>
+                            <img
+                                src="/class.svg"
+                                alt="Ilustración"
+                                className="relative z-10 w-full h-full object-contain drop-shadow-[0_10px_15px_rgba(0,0,0,0.1)] hover:scale-105 transition-transform duration-500"
+                            />
+                        </div>
                     </div>
                 </div>
 
-                <div className="md:w-1/3 bg-white border border-slate-200 rounded-[24px] p-6 min-h-[160px] flex flex-col">
-                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-4">Estado de la Malla</p>
+                <div className="md:w-1/3 bg-white border border-slate-200 rounded-[24px] p-4 min-h-[160px] flex flex-col">
+                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Estado de la Malla</p>
                     <div className="flex flex-col gap-3 flex-1">
                         {/* Primera fila: 2 columnas */}
                         <div className="grid grid-cols-2 gap-3 flex-1">
@@ -316,7 +324,7 @@ export default function PlanesManager() {
                     {planesPorGrado.length > 0 && (
                         <div className="bg-white border border-slate-200 rounded-2xl px-5 py-4 flex items-center gap-3 flex-wrap shadow-sm">
                             <div className="flex items-center gap-2 text-slate-500 mr-1">
-                                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>
                                 <span className="text-[11px] font-black uppercase tracking-wider">Filtrar por grado</span>
                             </div>
                             <div className="w-px h-5 bg-slate-200"></div>
@@ -361,82 +369,82 @@ export default function PlanesManager() {
                         planesPorGrado
                             .filter(g => gradoFiltro === null || g.id_grado === gradoFiltro)
                             .map((grado) => (
-                            <div key={grado.id_grado} id={`grado-${grado.id_grado}`} className="bg-slate-50 rounded-3xl p-6 sm:p-8 border border-slate-100">
+                                <div key={grado.id_grado} id={`grado-${grado.id_grado}`} className="bg-slate-50 rounded-3xl p-6 sm:p-8 border border-slate-100">
 
-                                {/* Encabezado del Grado — Banner informativo */}
-                                <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6 pb-5 border-b border-slate-200/70">
+                                    {/* Encabezado del Grado — Banner informativo */}
+                                    <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6 pb-5 border-b border-slate-200/70">
 
-                                    {/* Izquierda: Número de grado grande */}
-                                    <div className="flex items-center gap-4 flex-1">
-                                        <div className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-md" style={{ background: 'linear-gradient(135deg, #7c3aed, #4f46e5)', color: '#ffffff' }}>
-                                            <span className="font-black text-2xl leading-none" style={{ color: '#ffffff' }}>{grado.numero}</span>
+                                        {/* Izquierda: Número de grado grande */}
+                                        <div className="flex items-center gap-4 flex-1">
+                                            <div className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-md" style={{ background: 'linear-gradient(135deg, #7c3aed, #4f46e5)', color: '#ffffff' }}>
+                                                <span className="font-black text-2xl leading-none" style={{ color: '#ffffff' }}>{grado.numero}</span>
+                                            </div>
+                                            <div>
+                                                <h3 className="font-black text-slate-800 text-xl leading-tight">Grado {grado.numero}</h3>
+                                                <p className="text-slate-400 text-[12px] font-medium mt-0.5">{grado.planes.length} cursos en la malla</p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <h3 className="font-black text-slate-800 text-xl leading-tight">Grado {grado.numero}</h3>
-                                            <p className="text-slate-400 text-[12px] font-medium mt-0.5">{grado.planes.length} cursos en la malla</p>
-                                        </div>
-                                    </div>
 
-                                    {/* Derecha: Indicador de capacidad visual */}
-                                    <div className="flex flex-col items-end gap-2 min-w-[180px]">
-                                        {/* Número grande con etiqueta */}
-                                        <div className="flex items-baseline gap-1.5">
-                                            <span className="font-black text-3xl leading-none" style={{ color: grado.slotsUsados > grado.slotsMaximos ? '#ef4444' : grado.slotsUsados === grado.slotsMaximos && grado.slotsMaximos > 0 ? '#16a34a' : '#1e293b' }}>
-                                                {grado.slotsUsados}
+                                        {/* Derecha: Indicador de capacidad visual */}
+                                        <div className="flex flex-col items-end gap-2 min-w-[180px]">
+                                            {/* Número grande con etiqueta */}
+                                            <div className="flex items-baseline gap-1.5">
+                                                <span className="font-black text-3xl leading-none" style={{ color: grado.slotsUsados > grado.slotsMaximos ? '#ef4444' : grado.slotsUsados === grado.slotsMaximos && grado.slotsMaximos > 0 ? '#16a34a' : '#1e293b' }}>
+                                                    {grado.slotsUsados}
+                                                </span>
+                                                <span className="text-slate-400 font-bold text-sm">/ {grado.slotsMaximos} slots</span>
+                                            </div>
+                                            {/* Barra */}
+                                            <div className="w-full h-2.5 rounded-full" style={{ backgroundColor: '#e2e8f0' }}>
+                                                <div
+                                                    className="h-full rounded-full transition-all duration-500"
+                                                    style={{
+                                                        width: `${Math.min(grado.slotsMaximos > 0 ? (grado.slotsUsados / grado.slotsMaximos) * 100 : 0, 100)}%`,
+                                                        backgroundColor: grado.slotsUsados > grado.slotsMaximos ? '#ef4444' : grado.slotsUsados === grado.slotsMaximos && grado.slotsMaximos > 0 ? '#10b981' : '#1e293b'
+                                                    }}
+                                                ></div>
+                                            </div>
+                                            {/* Etiqueta de estado */}
+                                            <span className="text-[11px] font-bold" style={{ color: grado.slotsUsados > grado.slotsMaximos ? '#ef4444' : grado.slotsUsados === grado.slotsMaximos && grado.slotsMaximos > 0 ? '#16a34a' : '#94a3b8' }}>
+                                                {grado.slotsMaximos > 0
+                                                    ? grado.slotsUsados > grado.slotsMaximos
+                                                        ? '⚠ Capacidad excedida'
+                                                        : grado.slotsUsados === grado.slotsMaximos
+                                                            ? '✓ Malla completa'
+                                                            : `${grado.slotsMaximos - grado.slotsUsados} slots disponibles`
+                                                    : 'Sin slots configurados'}
                                             </span>
-                                            <span className="text-slate-400 font-bold text-sm">/ {grado.slotsMaximos} slots</span>
                                         </div>
-                                        {/* Barra */}
-                                        <div className="w-full h-2.5 rounded-full" style={{ backgroundColor: '#e2e8f0' }}>
-                                            <div
-                                                className="h-full rounded-full transition-all duration-500"
-                                                style={{
-                                                    width: `${Math.min(grado.slotsMaximos > 0 ? (grado.slotsUsados / grado.slotsMaximos) * 100 : 0, 100)}%`,
-                                                    backgroundColor: grado.slotsUsados > grado.slotsMaximos ? '#ef4444' : grado.slotsUsados === grado.slotsMaximos && grado.slotsMaximos > 0 ? '#10b981' : '#1e293b'
-                                                }}
-                                            ></div>
-                                        </div>
-                                        {/* Etiqueta de estado */}
-                                        <span className="text-[11px] font-bold" style={{ color: grado.slotsUsados > grado.slotsMaximos ? '#ef4444' : grado.slotsUsados === grado.slotsMaximos && grado.slotsMaximos > 0 ? '#16a34a' : '#94a3b8' }}>
-                                            {grado.slotsMaximos > 0
-                                                ? grado.slotsUsados > grado.slotsMaximos
-                                                    ? '⚠ Capacidad excedida'
-                                                    : grado.slotsUsados === grado.slotsMaximos
-                                                        ? '✓ Malla completa'
-                                                        : `${grado.slotsMaximos - grado.slotsUsados} slots disponibles`
-                                                : 'Sin slots configurados'}
-                                        </span>
+                                    </div>
+
+                                    {/* Contenedor de las Tarjetas */}
+                                    <div>
+                                        {grado.planes.length === 0 ? (
+                                            <div className="text-center py-8">
+                                                <p className="text-slate-400 font-medium text-sm">No hay cursos asignados en este grado.</p>
+                                            </div>
+                                        ) : (
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                                                {grado.planes.map((plan, i) => {
+                                                    const cursoIndex = cursos.findIndex(c => c.id_curso === plan.id_curso);
+                                                    const curso = cursos[cursoIndex >= 0 ? cursoIndex : 0];
+                                                    return (
+                                                        <PlanCard
+                                                            key={plan.id_plan || `temp-${i}`}
+                                                            plan={plan}
+                                                            curso={curso}
+                                                            cursoIndex={cursoIndex >= 0 ? cursoIndex : i}
+                                                            maxHorasGrado={grado.slotsMaximos}
+                                                            onEdit={abrirModalEdicion}
+                                                            onDelete={eliminarPlan}
+                                                        />
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
-
-                                {/* Contenedor de las Tarjetas */}
-                                <div>
-                                    {grado.planes.length === 0 ? (
-                                        <div className="text-center py-8">
-                                            <p className="text-slate-400 font-medium text-sm">No hay cursos asignados en este grado.</p>
-                                        </div>
-                                    ) : (
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-                                            {grado.planes.map((plan, i) => {
-                                                const cursoIndex = cursos.findIndex(c => c.id_curso === plan.id_curso);
-                                                const curso = cursos[cursoIndex >= 0 ? cursoIndex : 0];
-                                                return (
-                                                    <PlanCard
-                                                        key={plan.id_plan || `temp-${i}`}
-                                                        plan={plan}
-                                                        curso={curso}
-                                                        cursoIndex={cursoIndex >= 0 ? cursoIndex : i}
-                                                        maxHorasGrado={grado.slotsMaximos}
-                                                        onEdit={abrirModalEdicion}
-                                                        onDelete={eliminarPlan}
-                                                    />
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        ))
+                            ))
                     )}
                 </div>
             )}
@@ -457,11 +465,11 @@ export default function PlanesManager() {
                                 <p className="text-[12px] mt-0.5" style={{ color: 'rgba(255,255,255,0.7)' }}>
                                     {isEditing ? 'Modifica los datos de esta asignación'
                                         : modalStep === 1 ? 'Selecciona el grado al que quieres añadir'
-                                        : 'Haz clic en los cursos y ajusta sus horas semanales'}
+                                            : 'Haz clic en los cursos y ajusta sus horas semanales'}
                                 </p>
                             </div>
                             <button onClick={() => setIsModalOpen(false)} className="relative z-10 cursor-pointer w-8 h-8 rounded-full flex items-center justify-center transition-all" style={{ backgroundColor: 'rgba(255,255,255,0.2)', color: '#fff' }}>
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                             </button>
                         </div>
 
@@ -484,7 +492,7 @@ export default function PlanesManager() {
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Horas Semanales</label>
-                                    <input required type="number" min="1" max="40" placeholder="Ej. 5" value={nuevoPlan.horas_semanales} onChange={e => setNuevoPlan({ ...nuevoPlan, horas_semanales: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none text-sm font-medium"/>
+                                    <input required type="number" min="1" max="40" placeholder="Ej. 5" value={nuevoPlan.horas_semanales} onChange={e => setNuevoPlan({ ...nuevoPlan, horas_semanales: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none text-sm font-medium" />
                                 </div>
                                 <div className="flex gap-3 pt-2">
                                     <button type="button" onClick={() => setIsModalOpen(false)} className="cursor-pointer flex-1 py-3 text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all">Cancelar</button>
@@ -492,7 +500,7 @@ export default function PlanesManager() {
                                 </div>
                             </form>
 
-                        /* PASO 1: Elegir Grado */
+                            /* PASO 1: Elegir Grado */
                         ) : modalStep === 1 ? (
                             <div className="p-6">
                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -525,7 +533,7 @@ export default function PlanesManager() {
                                                     </div>
                                                     <div className="mt-3 flex items-center justify-between">
                                                         <span className="text-[11px] font-semibold" style={{ color: isFull ? '#16a34a' : '#94a3b8' }}>{isFull ? '✓ Completo' : `${slots - used} disponibles`}</span>
-                                                        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#7c3aed" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                                                        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#7c3aed" strokeWidth="2.5"><polyline points="9 18 15 12 9 6" /></svg>
                                                     </div>
                                                 </div>
                                             </button>
@@ -534,7 +542,7 @@ export default function PlanesManager() {
                                 </div>
                             </div>
 
-                        /* PASO 2: Seleccionar cursos en lote */
+                            /* PASO 2: Seleccionar cursos en lote */
                         ) : (() => {
                             const yaAsignados = planes.filter(p => p.id_grado === modalGradoId).map(p => p.id_curso);
                             const maxSlots = getMaxSlotsForGrado(modalGradoId);
@@ -576,7 +584,7 @@ export default function PlanesManager() {
                                     {/* Barra de capacidad */}
                                     <div className="px-6 py-3 bg-slate-50 border-b border-slate-100 flex items-center gap-4">
                                         <button onClick={() => setModalStep(1)} className="cursor-pointer text-slate-400 hover:text-slate-700 text-[12px] font-bold flex items-center gap-1">
-                                            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+                                            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6" /></svg>
                                             Cambiar grado
                                         </button>
                                         <div className="flex-1">
@@ -593,7 +601,7 @@ export default function PlanesManager() {
                                     {/* Aviso de capacidad llena */}
                                     {totalTras > maxSlots && maxSlots > 0 && (
                                         <div className="mx-5 mt-0 mb-1 px-4 py-3 rounded-2xl flex items-center gap-3" style={{ backgroundColor: '#fef2f2', border: '1.5px solid #fecaca' }}>
-                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
                                             <div>
                                                 <p className="text-[12px] font-black" style={{ color: '#dc2626' }}>Capacidad {totalTras > maxSlots ? 'excedida' : 'completa'}</p>
                                                 <p className="text-[11px] font-medium" style={{ color: '#ef4444' }}>
@@ -609,8 +617,8 @@ export default function PlanesManager() {
                                         {cursos.map(c => {
                                             const estaAsignado = yaAsignados.includes(c.id_curso);
                                             const seleccionado = seleccion[c.id_curso] !== undefined;
-                                            const COLOR_MAP = ['#e53e3e','#dd6b20','#d69e2e','#38a169','#3182ce','#805ad5','#d53f8c','#00b5d8','#667eea','#f6ad55'];
-                                            const BG_MAP =    ['#fff5f5','#fffaf0','#fffff0','#f0fff4','#ebf8ff','#faf5ff','#fff5f7','#e6fffa','#ebf4ff','#fffbeb'];
+                                            const COLOR_MAP = ['#e53e3e', '#dd6b20', '#d69e2e', '#38a169', '#3182ce', '#805ad5', '#d53f8c', '#00b5d8', '#667eea', '#f6ad55'];
+                                            const BG_MAP = ['#fff5f5', '#fffaf0', '#fffff0', '#f0fff4', '#ebf8ff', '#faf5ff', '#fff5f7', '#e6fffa', '#ebf4ff', '#fffbeb'];
                                             const color = COLOR_MAP[c.id_curso % COLOR_MAP.length];
                                             const bgTint = BG_MAP[c.id_curso % BG_MAP.length];
 
@@ -646,7 +654,7 @@ export default function PlanesManager() {
                                                         <div className="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center text-white text-sm font-black shadow-sm" style={{ backgroundColor: seleccionado ? '#7c3aed' : color }}>{c.nombre_curso.charAt(0)}</div>
                                                         <p className="flex-1 text-[13px] font-bold leading-snug min-w-0" style={{ color: seleccionado ? '#5b21b6' : '#374151' }}>{c.nombre_curso}</p>
                                                         <div className="w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center" style={{ backgroundColor: seleccionado ? '#7c3aed' : '#e2e8f0' }}>
-                                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={seleccionado ? '#fff' : '#94a3b8'} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={seleccionado ? '#fff' : '#94a3b8'} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
                                                         </div>
                                                     </div>
                                                     {/* Fila de horas (solo si seleccionado) */}
@@ -659,7 +667,7 @@ export default function PlanesManager() {
                                                             <button
                                                                 onClick={() => {
                                                                     const actual = parseInt(seleccion[c.id_curso]) || 1;
-                                                                    const otrasHoras = Object.entries(seleccion).filter(([k]) => parseInt(k) !== c.id_curso).reduce((a,[,v]) => a + (parseInt(v)||0), 0);
+                                                                    const otrasHoras = Object.entries(seleccion).filter(([k]) => parseInt(k) !== c.id_curso).reduce((a, [, v]) => a + (parseInt(v) || 0), 0);
                                                                     if (usedSlots + otrasHoras + actual + 1 > maxSlots) return;
                                                                     setSeleccion(s => ({ ...s, [c.id_curso]: actual + 1 }));
                                                                 }}

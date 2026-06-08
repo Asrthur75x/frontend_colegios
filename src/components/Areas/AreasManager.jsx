@@ -2,10 +2,33 @@ import React, { useState, useEffect } from 'react';
 
 const API_BASE = 'http://localhost:8000/api';
 
+// --- Colores Dinámicos para las Carpetas ---
+const FOLDER_COLORS = [
+    { bg: '#8b5cf6', shadow: 'rgba(139,92,246,0.5)' }, // Violet
+    { bg: '#3b82f6', shadow: 'rgba(59,130,246,0.5)' }, // Blue
+    { bg: '#10b981', shadow: 'rgba(16,185,129,0.5)' }, // Emerald
+    { bg: '#f43f5e', shadow: 'rgba(244,63,94,0.5)' }, // Rose
+    { bg: '#f59e0b', shadow: 'rgba(245,158,11,0.5)' }, // Amber
+    { bg: '#06b6d4', shadow: 'rgba(6,182,212,0.5)' }, // Cyan
+    { bg: '#ec4899', shadow: 'rgba(236,72,153,0.5)' }, // Pink
+    { bg: '#14b8a6', shadow: 'rgba(20,184,166,0.5)' }, // Teal
+];
+
 // --- Componente Tarjeta Carpeta (Folder Card) ---
-const AreaFolderCard = ({ area, onEdit, onDelete }) => {
+const AreaFolderCard = ({ area, onEdit, onDelete, index }) => {
+    // Determinar color en base al índice o ID
+    const colorIdx = (index !== undefined ? index : (area.id_area || 0)) % FOLDER_COLORS.length;
+    const color = FOLDER_COLORS[colorIdx];
+
     return (
-        <div className="relative w-full h-[200px] group animate-fade-in" onClick={() => onEdit(area)}>
+        <div
+            className="relative w-full h-[200px] group animate-fade-in"
+            onClick={() => onEdit(area)}
+            style={{
+                '--folder-bg': color.bg,
+                '--folder-shadow': color.shadow
+            }}
+        >
             {/* Back Paper */}
             <div className="absolute top-4 left-5 right-5 h-[120px] bg-white rounded-t-2xl shadow-[0_2px_10px_-4px_rgba(0,0,0,0.1)] border border-slate-100 p-5 transition-transform duration-500 group-hover:-translate-y-6 flex justify-between items-start z-0">
                 <div className="flex flex-col">
@@ -15,24 +38,24 @@ const AreaFolderCard = ({ area, onEdit, onDelete }) => {
 
                 {/* Actions */}
                 <div className="flex gap-2 transition-opacity duration-300 relative z-30">
-                    <button onClick={(e) => { e.stopPropagation(); onEdit(area); }} className="cursor-pointer p-2 bg-slate-50 hover:bg-hx-purple/10 text-slate-400 hover:text-hx-purple rounded-xl transition-colors"><svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg></button>
+                    <button onClick={(e) => { e.stopPropagation(); onEdit(area); }} className="cursor-pointer p-2 bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-xl transition-colors"><svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg></button>
                     <button onClick={(e) => { e.stopPropagation(); onDelete(area.id_area); }} className="cursor-pointer p-2 bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-xl transition-colors"><svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
                 </div>
             </div>
 
             {/* Folder Tab */}
-            <div className="absolute bottom-[110px] left-0 w-[55%] h-[28px] bg-hx-purple rounded-t-[16px] z-10">
-                {/* Inverse curve (using exact hex of hx-purple #790EEC) */}
-                <div className="absolute -right-5 bottom-0 w-5 h-5 bg-transparent rounded-bl-[12px] shadow-[-10px_10px_0_0_#790EEC]"></div>
+            <div className="absolute bottom-[110px] left-0 w-[55%] h-[28px] rounded-t-[16px] z-10 bg-[var(--folder-bg)] transition-colors duration-300">
+                {/* Inverse curve */}
+                <div className="absolute -right-5 bottom-0 w-5 h-5 bg-transparent rounded-bl-[12px] shadow-[-10px_10px_0_0_var(--folder-bg)] transition-shadow duration-300"></div>
             </div>
 
             {/* Folder Front Body */}
-            <div className="absolute bottom-0 left-0 right-0 h-[110px] bg-hx-purple rounded-b-[24px] rounded-tr-[24px] z-20 p-6 flex flex-col justify-end shadow-sm group-hover:shadow-[0_15px_30px_-10px_rgba(121,14,236,0.6)] transition-shadow duration-300">
-                <h3 className="text-xl font-black text-white truncate leading-tight">
+            <div className="absolute bottom-0 left-0 right-0 h-[110px] rounded-b-[24px] rounded-tr-[24px] z-20 p-6 flex flex-col justify-end shadow-sm group-hover:shadow-[0_15px_30px_-10px_var(--folder-shadow)] transition-all duration-300 bg-[var(--folder-bg)]">
+                <h3 className="text-xl font-black text-white truncate leading-tight drop-shadow-sm">
                     {area.nombre}
                 </h3>
                 <div className="flex justify-between items-end mt-2">
-                    <p className="text-sm font-bold text-white/80">
+                    <p className="text-sm font-bold text-white/90 drop-shadow-sm">
                         {area.max_horas_dia} hrs max por día
                     </p>
                 </div>
@@ -55,6 +78,12 @@ export default function AreasManager() {
         nombre: '',
         max_horas_dia: ''
     });
+
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const filteredAreas = areas.filter(area =>
+        area.nombre.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
     // ── Cargar áreas del backend al montar ──
     const fetchAreas = async () => {
@@ -167,49 +196,69 @@ export default function AreasManager() {
             {/* Cabecera Superior (Banner + Espacio Derecho) */}
             <div className="flex flex-col md:flex-row gap-6">
                 {/* Banner Principal (Izquierda) */}
-                <div className="md:w-2/3 bg-gradient-to-r from-hx-purple via-purple-600 to-indigo-600 rounded-[24px] p-8 text-white shadow-md relative overflow-hidden flex flex-col justify-center min-h-[180px]">
+                <div className="md:w-2/3 bg-[var(--color-hx-purple)]/10 rounded-[24px] p-8 shadow-md relative overflow-hidden flex flex-col justify-center min-h-[180px] border border-[var(--color-hx-purple)]/70">
                     {/* Formas abstractas decorativas */}
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4"></div>
-                    <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/20 rounded-full blur-2xl translate-y-1/3 -translate-x-1/4"></div>
-                    <div className="absolute bottom-0 right-32 w-32 h-32 bg-hx-purple/40 rounded-full blur-xl translate-y-1/4"></div>
 
-                    <div className="relative z-10 flex justify-between items-start">
+
+                    <div className="relative z-10 flex flex-col md:flex-row justify-between items-center md:items-start gap-6">
                         <div className="max-w-md">
-                            <h2 className="text-2xl md:text-3xl font-black mb-2 tracking-tight drop-shadow-sm text-white">
+                            <h2 className="text-3xl md:text-4xl font-black text-slate-800 tracking-tight leading-tight mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
                                 Gestión de Áreas
                             </h2>
-                            <p className="text-white/90 text-[13px] font-medium mb-6 leading-relaxed max-w-sm drop-shadow-sm">
-                                Configura los departamentos educativos y establece sus restricciones diarias de horario para la institución.
+                            <p className="text-slate-500 text-[13px] font-medium mb-6 leading-relaxed max-w-sm drop-shadow-sm">
+                                Crea las áreas de tu colegio y define cuántas horas de clase tendrán al día como máximo.
                             </p>
 
                             <button
                                 onClick={abrirModalNueva}
-                                className="bg-white text-hx-purple hover:bg-slate-50 font-extrabold py-2.5 px-6 rounded-xl shadow-sm hover:shadow transition-all flex items-center gap-2 text-sm w-max">
+                                className="bg-hx-purple text-white hover:bg-hx-purple/80 font-extrabold py-2.5 px-6 rounded-xl shadow-[0_4px_12px_rgba(121,14,236,0.3)] hover:shadow-[0_6px_16px_rgba(121,14,236,0.4)] hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2 text-sm w-max cursor-pointer">
                                 <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
                                 Añadir Nueva Área
                             </button>
                         </div>
 
-                        {/* Logo decorativo estilo la imagen */}
-                        <div className="hidden sm:flex text-white/90 opacity-80 pt-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M2 12A10 10 0 0 1 12 2v20a10 10 0 0 1-10-10z"></path>
-                                <path d="M12 2a10 10 0 0 1 10 10h-20"></path>
-                                <path d="M12 22a10 10 0 0 1-10-10h20"></path>
-                            </svg>
+                        {/* Imagen Ilustrativa a la derecha (movida más a la izquierda) */}
+                        <div className="hidden sm:flex relative w-32 h-32 md:w-45 md:h-45 flex-shrink-0 items-center justify-center -mt-2 md:mr-16">
+                            {/* Brillo suave de fondo para resaltar */}
+                            <div className="absolute inset-0 bg-white/40 rounded-full blur-2xl"></div>
+                            <img
+                                src="/teacher.svg"
+                                alt="Ilustración"
+                                className="relative z-10 w-full h-full object-contain drop-shadow-[0_10px_15px_rgba(0,0,0,0.1)] hover:scale-105 transition-transform duration-500"
+                            />
                         </div>
                     </div>
                 </div>
 
-                {/* Espacio Derecho Reservado */}
-                <div className="md:w-1/3 bg-white border-2 border-slate-200 border-dashed rounded-[24px] flex flex-col items-center justify-center p-8 min-h-[180px]">
-                    <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mb-3">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+                {/* Panel de Información (Derecha) */}
+                <div className="md:w-1/3 bg-white border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[24px] flex flex-col p-6 min-h-[180px] relative overflow-hidden">
+                    {/* Indicador superior */}
+                    <div className="flex justify-between items-start mb-4">
+                        <div>
+                            <p className="text-slate-400 text-[11px] font-black uppercase tracking-widest mb-1">Total Áreas</p>
+                            <div className="flex items-baseline gap-2">
+                                <h3 className="text-4xl font-black text-slate-800 tracking-tighter">{areas.length}</h3>
+                                <span className="text-slate-400 text-sm font-bold">registradas</span>
+                            </div>
+
+                        </div>
+                        <div className="w-12 h-12 rounded-[14px] bg-hx-purple/10 text-hx-purple flex items-center justify-center border border-hx-purple/20 shadow-sm">
+                            <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                        </div>
                     </div>
-                    <p className="text-slate-400 font-extrabold text-sm">Espacio Reservado</p>
-                    <p className="text-slate-400/70 text-xs mt-1 text-center font-medium max-w-[160px]">
-                        Aquí irá el contenido que decidas llenar próximamente.
-                    </p>
+
+                    {/* Tip Práctico */}
+                    <div className="mt-auto bg-amber-50 rounded-xl p-3.5 border border-amber-100/60 flex gap-3 items-start">
+                        <div className="text-amber-500 bg-white p-1 rounded-lg shadow-sm border border-amber-100 mt-0.5 flex-shrink-0">
+                            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
+                        </div>
+                        <div>
+                            <p className="text-amber-800 text-[12px] font-bold mb-0.5">Un buen tip</p>
+                            <p className="text-amber-700/80 text-[11px] font-medium leading-relaxed">
+                                Limitar las horas sirve para que los alumnos no tengan "solo matemáticas" el mismo día. ¡Mantiene las clases variadas!
+                            </p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -232,8 +281,36 @@ export default function AreasManager() {
             {/* Grid de Áreas (Carpetas) */}
             {!loading && (
                 <div className="pt-4">
-                    <div className="flex items-center justify-between mb-8">
-                        <h2 className="text-xl font-black text-[#111827]">Carpetas de Áreas ({areas.length})</h2>
+                    {/* Toolbar en una sola línea */}
+                    <div className="flex items-center justify-between mb-8 bg-white py-2 px-4 rounded-[20px] border border-slate-100 shadow-sm h-16 w-full overflow-hidden gap-4">
+                        {/* Izquierda: Título */}
+                        <div className="flex-shrink-0 flex items-center gap-3">
+                            <div className="w-10 h-10 bg-hx-purple/10 rounded-xl flex items-center justify-center text-hx-purple">
+                                <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                            </div>
+                            <h2 className="text-[20px] font-black text-slate-800 tracking-tight whitespace-nowrap">Áreas</h2>
+                        </div>
+
+                        {/* Derecha: Buscador Pill */}
+                        <div className="w-full max-w-md">
+                            <div className="relative group flex items-center bg-white rounded-full p-1.5 border-2 border-slate-200 focus-within:border-hx-purple transition-all h-12 w-full">
+                                <input
+                                    type="text"
+                                    placeholder="Buscar área por nombre..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="flex-1 bg-transparent pl-6 pr-3 py-1 outline-none text-[14px] font-medium text-slate-700 placeholder:text-slate-400 h-full w-full"
+                                />
+                                {searchTerm && (
+                                    <button onClick={() => setSearchTerm('')} className="mr-2 text-slate-400 hover:text-red-500 transition-colors p-1.5 rounded-full hover:bg-red-50 flex-shrink-0">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                                    </button>
+                                )}
+                                <div className="w-9 h-9 rounded-full bg-hx-purple flex items-center justify-center text-white flex-shrink-0 shadow-sm mr-0.5">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     {areas.length === 0 ? (
@@ -244,10 +321,18 @@ export default function AreasManager() {
                             <h3 className="text-xl font-black text-slate-800">No hay áreas registradas</h3>
                             <p className="text-slate-500 text-sm mt-2 max-w-md mx-auto">Comienza creando tu primera área académica usando el botón en la cabecera superior.</p>
                         </div>
+                    ) : filteredAreas.length === 0 ? (
+                        <div className="bg-slate-50 border-2 border-slate-200 border-dashed rounded-[32px] p-16 text-center">
+                            <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
+                                <svg width="32" height="32" fill="none" stroke="#94a3b8" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                            </div>
+                            <h3 className="text-xl font-black text-slate-800">No se encontraron áreas</h3>
+                            <p className="text-slate-500 text-sm mt-2 max-w-md mx-auto">No hay ningún resultado que coincida con tu búsqueda.</p>
+                        </div>
                     ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-10">
-                            {areas.map(area => (
-                                <AreaFolderCard key={area.id_area} area={area} onEdit={abrirModalEdicion} onDelete={eliminarArea} />
+                            {filteredAreas.map((area, index) => (
+                                <AreaFolderCard key={area.id_area} area={area} index={index} onEdit={abrirModalEdicion} onDelete={eliminarArea} />
                             ))}
                         </div>
                     )}
