@@ -94,6 +94,7 @@ export default function PlanesManager() {
     const [cursos, setCursos] = useState([]);
     const [grados, setGrados] = useState([]);
     const [gradoDiaConfig, setGradoDiaConfig] = useState([]);
+    const [bloquesReservados, setBloquesReservados] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [gradoFiltro, setGradoFiltro] = useState(null); // null = mostrar todos
@@ -112,17 +113,19 @@ export default function PlanesManager() {
     const fetchDatos = async (signal) => {
         try {
             setLoading(true);
-            const [resPlanes, resCursos, resGrados, resConfig] = await Promise.all([
+            const [resPlanes, resCursos, resGrados, resConfig, resReservas] = await Promise.all([
                 fetch(`${API_BASE}/planes`, { signal }).catch(() => ({ ok: false, json: () => [] })),
                 fetch(`${API_BASE}/cursos`, { signal }).catch(() => ({ ok: false, json: () => [] })),
                 fetch(`${API_BASE}/grados`, { signal }).catch(() => ({ ok: false, json: () => [] })),
                 fetch(`${API_BASE}/grado-dia-config`, { signal }).catch(() => ({ ok: false, json: () => [] })),
+                fetch(`${API_BASE}/bloque-reservado`, { signal }).catch(() => ({ ok: false, json: () => [] })),
             ]);
 
             if (resPlanes.ok) setPlanes(await resPlanes.json());
             if (resCursos.ok) setCursos(await resCursos.json());
             if (resGrados.ok) setGrados(await resGrados.json());
             if (resConfig.ok) setGradoDiaConfig(await resConfig.json());
+            if (resReservas.ok) setBloquesReservados(await resReservas.json());
 
             setError(null);
         } catch (err) {
@@ -141,7 +144,24 @@ export default function PlanesManager() {
 
     const getMaxSlotsForGrado = (id_grado) => {
         const configs = gradoDiaConfig.filter(c => c.id_grado === id_grado);
-        return configs.reduce((sum, c) => sum + (c.bloques_dia || 0), 0);
+        const totalConfig = configs.reduce((sum, c) => sum + (c.bloques_dia || 0), 0);
+        
+        let reservedSlots = 0;
+        bloquesReservados.forEach(reserva => {
+            if (reserva.grados && reserva.grados.includes(id_grado)) {
+                let maxSlotsInOpciones = 0;
+                if (reserva.opciones) {
+                    reserva.opciones.forEach(op => {
+                        if (op.slots && op.slots.length > maxSlotsInOpciones) {
+                            maxSlotsInOpciones = op.slots.length;
+                        }
+                    });
+                }
+                reservedSlots += maxSlotsInOpciones;
+            }
+        });
+        
+        return Math.max(0, totalConfig - reservedSlots);
     };
 
     const getUsedSlotsForGrado = (id_grado) => {

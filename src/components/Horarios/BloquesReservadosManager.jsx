@@ -20,10 +20,9 @@ export default function BloquesReservadosManager() {
         id_sede: '',
         id_dia: '',
         id_turno: '',
+        nombre_actividad: '',
         grados: [],
-        opciones_slots: [
-            [] // One option with an empty array of slots initially
-        ]
+        opciones_slots: [ [] ]
     });
 
     useEffect(() => {
@@ -60,8 +59,9 @@ export default function BloquesReservadosManager() {
             id_sede: sedes.length > 0 ? sedes[0].id_sede : '',
             id_dia: dias.length > 0 ? dias[0].id_dia : '',
             id_turno: turnos.length > 0 ? turnos[0].id_turno : '',
+            nombre_actividad: '',
             grados: [],
-            opciones_slots: [{ slots: [], nombre: '' }]
+            opciones_slots: [ [] ]
         });
         setIsModalOpen(true);
     };
@@ -83,7 +83,7 @@ export default function BloquesReservadosManager() {
     const handleAddOpcion = () => {
         setFormData({
             ...formData,
-            opciones_slots: [...formData.opciones_slots, { slots: [], nombre: '' }]
+            opciones_slots: [...formData.opciones_slots, []]
         });
     };
 
@@ -92,39 +92,22 @@ export default function BloquesReservadosManager() {
         setFormData({ ...formData, opciones_slots: newOps });
     };
 
-    const updateOpcionNombre = (opIdx, nombre) => {
-        const newOps = [...formData.opciones_slots];
-        newOps[opIdx].nombre = nombre;
-        setFormData({ ...formData, opciones_slots: newOps });
-    };
 
-    const handleAddSlot = (opcionIndex) => {
-        setFormData(prev => {
-            const newOps = [...prev.opciones_slots];
-            const lastSlot = newOps[opcionIndex].slots.length > 0 ? newOps[opcionIndex].slots[newOps[opcionIndex].slots.length - 1] : 0;
-            newOps[opcionIndex].slots.push(lastSlot + 1);
-            return { ...prev, opciones_slots: newOps };
-        });
-    };
-
-    const handleRemoveSlot = (opcionIndex, slotIndex) => {
-        setFormData(prev => {
-            const newOps = [...prev.opciones_slots];
-            newOps[opcionIndex].slots = newOps[opcionIndex].slots.filter((_, i) => i !== slotIndex);
-            return { ...prev, opciones_slots: newOps };
-        });
-    };
 
     const handleSave = async () => {
         if (!formData.id_sede || !formData.id_dia || !formData.id_turno) {
             alert("Debes seleccionar Sede, Día y Turno.");
             return;
         }
+        if (!formData.nombre_actividad.trim()) {
+            alert("Debes ingresar el nombre de la actividad.");
+            return;
+        }
         if (formData.grados.length === 0) {
             alert("Debes seleccionar al menos un grado.");
             return;
         }
-        if (formData.opciones_slots.length === 0 || formData.opciones_slots.some(op => op.slots.length === 0)) {
+        if (formData.opciones_slots.length === 0 || formData.opciones_slots.some(op => op.length === 0)) {
             alert("Todas las opciones deben tener al menos un bloque asignado.");
             return;
         }
@@ -135,11 +118,12 @@ export default function BloquesReservadosManager() {
                 id_sede: parseInt(formData.id_sede),
                 id_dia: parseInt(formData.id_dia),
                 id_turno: parseInt(formData.id_turno),
+                nombre: formData.nombre_actividad.trim(),
                 grados: formData.grados.map(g => parseInt(g)),
-                opciones: formData.opciones_slots.map((op, i) => ({
+                opciones: formData.opciones_slots.map((slots, i) => ({
                     nro_opcion: i + 1,
-                    nombre: op.nombre || `Grupo ${i + 1}`,
-                    slots: op.slots
+                    nombre: formData.nombre_actividad.trim(),
+                    slots: slots
                 }))
             };
             const res = await fetch(`${API_BASE}/bloque-reservado-completo`, {
@@ -304,9 +288,11 @@ export default function BloquesReservadosManager() {
                                         </div>
                                         <div>
                                             <h3 className="text-[18px] font-black text-slate-800 leading-tight">
-                                                {getNombreDia(r.id_dia)} • {getNombreTurno(r.id_turno)}
+                                                {r.nombre || "Actividad Especial"}
                                             </h3>
-                                            <p className="text-xs font-bold text-slate-400 mt-0.5">Sede {getNombreSede(r.id_sede)}</p>
+                                            <p className="text-xs font-bold text-slate-400 mt-0.5">
+                                                {getNombreDia(r.id_dia)} • {getNombreTurno(r.id_turno)} • Sede {getNombreSede(r.id_sede)}
+                                            </p>
                                         </div>
                                     </div>
                                     
@@ -328,7 +314,7 @@ export default function BloquesReservadosManager() {
                                                 <div key={op.id_bloque_opcion} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white p-2 rounded-lg border border-slate-100 shadow-sm">
                                                     <div className="flex items-center gap-2">
                                                         <div className="w-2 h-2 rounded-full bg-hx-purple"></div>
-                                                        <span className="font-bold text-slate-700 text-xs">{op.nombre || `Grupo ${op.nro_opcion}`}</span>
+                                                        <span className="font-bold text-slate-700 text-xs">Alternativa {op.nro_opcion}</span>
                                                     </div>
                                                     <div className="flex flex-wrap gap-1.5">
                                                         {op.slots.sort((a, b) => a - b).map((s, i) => (
@@ -432,77 +418,99 @@ export default function BloquesReservadosManager() {
 
                             {/* C. Configuración de Grupos y Horas */}
                             <div className="bg-white">
-                                <div className="flex justify-between items-center mb-4">
+                                <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
                                     <h3 className="text-sm font-black text-[var(--color-hx-purple)] uppercase tracking-widest flex items-center gap-2">
                                         <span className="w-6 h-6 rounded bg-purple-100 text-purple-600 flex items-center justify-center">3</span>
                                         Grupos y Horas (Bloques)
                                     </h3>
                                     <button 
                                         onClick={handleAddOpcion}
-                                        className="text-xs font-black text-[var(--color-hx-purple)] bg-purple-50 px-3 py-1.5 rounded-lg hover:bg-purple-100 transition-colors flex items-center gap-1"
+                                        className="text-xs font-black text-[var(--color-hx-purple)] bg-purple-50 px-3 py-1.5 rounded-lg hover:bg-purple-100 transition-colors flex items-center gap-1 shadow-sm border border-purple-100"
                                     >
-                                        + Añadir Grupo / Taller
+                                        + Añadir Alternativa de Horario
                                     </button>
                                 </div>
                                 
-                                <p className="text-sm text-slate-500 mb-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                                    Puedes crear uno o varios grupos (ej. para talleres paralelos o exámenes divididos). Selecciona los bloques de hora haciendo clic en ellos.
-                                </p>
+                                <div className="mb-8 bg-slate-50 p-5 rounded-2xl border border-slate-200 shadow-sm">
+                                    <label className="text-xs font-bold text-slate-500 mb-2 block uppercase tracking-widest flex items-center gap-2">
+                                        <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                        Nombre de la Actividad General
+                                    </label>
+                                    <input 
+                                        type="text" 
+                                        value={formData.nombre_actividad}
+                                        onChange={(e) => setFormData({...formData, nombre_actividad: e.target.value})}
+                                        placeholder="Ej: Examen de Matemática, Taller de Arte..."
+                                        className="w-full text-lg font-black text-slate-800 bg-white border border-slate-300 rounded-xl px-4 py-3 outline-none focus:border-hx-purple focus:ring-2 focus:ring-purple-100 placeholder:text-slate-300 transition-all shadow-sm"
+                                    />
+                                    <p className="text-[11px] text-slate-400 mt-2 font-medium">
+                                        Este nombre se aplicará a todas las alternativas de horario que configures a continuación.
+                                    </p>
+                                </div>
 
-                                <div className="space-y-5">
-                                    {formData.opciones_slots.map((op, opIdx) => (
-                                        <div key={opIdx} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm relative group hover:border-purple-200 transition-colors">
-                                            {formData.opciones_slots.length > 1 && (
-                                                <button 
-                                                    onClick={() => handleRemoveOpcion(opIdx)}
-                                                    className="absolute -top-3 -right-3 w-7 h-7 bg-white border border-slate-200 text-red-500 rounded-full flex items-center justify-center shadow-sm hover:bg-red-50 hover:border-red-100 transition-all"
-                                                    title="Eliminar este grupo"
-                                                >
-                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                                                </button>
-                                            )}
-                                            
-                                            <div className="flex flex-col gap-4">
-                                                <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-                                                    <div className="w-10 h-10 rounded-xl bg-purple-50 text-hx-purple font-black flex items-center justify-center text-lg border border-purple-100 shrink-0">
-                                                        {opIdx + 1}
+                                <div className="relative pl-2 sm:pl-6">
+                                    {/* Timeline Connector */}
+                                    {formData.opciones_slots.length > 1 && (
+                                        <div className="absolute left-6 sm:left-10 top-8 bottom-8 w-[2px] bg-slate-200 z-0 rounded-full"></div>
+                                    )}
+                                    
+                                    <div className="space-y-6">
+
+                                        {formData.opciones_slots.map((op, opIdx) => (
+                                            <div key={opIdx} className="relative z-10">
+                                                {/* "O" Badge */}
+                                                {opIdx > 0 && (
+                                                    <div className="absolute -top-4 -left-[14px] sm:-left-[14px] w-7 h-7 bg-white border-2 border-slate-200 rounded-full flex items-center justify-center text-[10px] font-black text-slate-400 z-20 shadow-sm">
+                                                        O
                                                     </div>
-                                                    <div className="flex-1">
-                                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">Nombre del Grupo / Actividad</label>
-                                                        <input 
-                                                            type="text" 
-                                                            value={op.nombre}
-                                                            onChange={(e) => updateOpcionNombre(opIdx, e.target.value)}
-                                                            placeholder={`Ej: Examen, Taller de Danza, etc.`}
-                                                            className="w-full text-sm font-bold text-slate-700 bg-transparent outline-none border-none p-0 placeholder:text-slate-300 placeholder:font-medium focus:ring-0"
-                                                        />
-                                                    </div>
-                                                </div>
+                                                )}
                                                 
-                                                <div className="pt-1">
-                                                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-3 block flex items-center gap-2">
-                                                        <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                                        Selecciona los bloques a bloquear:
-                                                    </label>
+                                                <div className="bg-white rounded-2xl border-2 border-slate-100 p-5 shadow-sm relative hover:border-purple-200 transition-all ml-4 sm:ml-0">
+                                                    {formData.opciones_slots.length > 1 && (
+                                                        <button 
+                                                            onClick={() => handleRemoveOpcion(opIdx)}
+                                                            className="absolute -top-3 -right-3 w-8 h-8 bg-white border-2 border-slate-100 text-red-500 rounded-full flex items-center justify-center shadow-sm hover:bg-red-50 hover:border-red-200 transition-all"
+                                                            title="Eliminar esta alternativa"
+                                                        >
+                                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                                        </button>
+                                                    )}
                                                     
-                                                    {maxBloques === 0 ? (
-                                                        <div className="w-full bg-amber-50 text-amber-600 p-4 rounded-xl border border-amber-200 text-sm font-bold flex items-center gap-2">
-                                                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                                                            No hay bloques configurados para este grado en el día seleccionado.
+                                                    <div className="flex flex-col sm:flex-row gap-5">
+                                                        <div className="flex flex-row sm:flex-col items-center sm:items-start gap-3 sm:w-1/4 shrink-0 border-b sm:border-b-0 sm:border-r border-slate-100 pb-4 sm:pb-0 sm:pr-4">
+                                                            <div className="w-10 h-10 rounded-xl bg-purple-50 text-hx-purple font-black flex items-center justify-center text-lg border border-purple-100 shadow-sm">
+                                                                {opIdx + 1}
+                                                            </div>
+                                                            <div>
+                                                                <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest block">Alternativa</span>
+                                                                <span className="text-xs font-bold text-slate-500">De horario</span>
+                                                            </div>
                                                         </div>
-                                                    ) : (
-                                                        <div className="flex flex-wrap gap-2">
-                                                            {Array.from({ length: maxBloques }, (_, i) => i + 1).map(num => {
-                                                                const isSelected = op.slots.includes(num);
+                                                        
+                                                        <div className="flex-1 pt-1 sm:pt-0">
+                                                            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                                                <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                                                Selecciona los bloques a reservar:
+                                                            </label>
+                                                            
+                                                            {maxBloques === 0 ? (
+                                                                <div className="w-full bg-amber-50 text-amber-600 p-4 rounded-xl border border-amber-200 text-sm font-bold flex items-center gap-2">
+                                                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                                                    No hay bloques configurados.
+                                                                </div>
+                                                            ) : (
+                                                                <div className="flex flex-wrap gap-2.5">
+                                                                    {Array.from({ length: maxBloques }, (_, i) => i + 1).map(num => {
+                                                                        const isSelected = op.includes(num);
                                                                 return (
                                                                     <button
                                                                         key={num}
                                                                         onClick={() => {
                                                                             const newOps = [...formData.opciones_slots];
                                                                             if (isSelected) {
-                                                                                newOps[opIdx].slots = newOps[opIdx].slots.filter(s => s !== num);
+                                                                                newOps[opIdx] = newOps[opIdx].filter(s => s !== num);
                                                                             } else {
-                                                                                newOps[opIdx].slots = [...newOps[opIdx].slots, num].sort((a,b)=>a-b);
+                                                                                newOps[opIdx] = [...newOps[opIdx], num].sort((a,b)=>a-b);
                                                                             }
                                                                             setFormData({ ...formData, opciones_slots: newOps });
                                                                         }}
@@ -519,16 +527,18 @@ export default function BloquesReservadosManager() {
                                                         </div>
                                                     )}
                                                     
-                                                    {op.slots.length === 0 && maxBloques > 0 && (
-                                                        <p className="text-xs text-amber-500 font-bold mt-3 flex items-center gap-1.5">
+                                                    {op.length === 0 && maxBloques > 0 && (
+                                                        <p className="text-[10px] text-amber-500 font-bold mt-3 flex items-center gap-1.5 bg-amber-50 px-3 py-2 rounded-lg inline-flex">
                                                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                                                             Selecciona al menos un bloque.
                                                         </p>
                                                     )}
                                                 </div>
                                             </div>
+                                            </div>
                                         </div>
                                     ))}
+                                    </div>
                                 </div>
                             </div>
                         </div>

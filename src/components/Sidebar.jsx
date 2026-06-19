@@ -217,17 +217,10 @@ export default function Sidebar({ currentPath: initialPath = '' }) {
                                 icon={<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>}
                             />
                             <MenuItem
-                                path="/planes"
-                                label="Planes de Estudio"
-                                isLocked={cursosCount === 0}
-                                lockMsg="Debes registrar al menos un Curso primero."
-                                icon={<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>}
-                            />
-                            <MenuItem
                                 path="/reservas"
                                 label="Bloques Especiales"
-                                isLocked={planesCount === 0}
-                                lockMsg="Debes registrar al menos un Plan de Estudio primero."
+                                isLocked={cursosCount === 0}
+                                lockMsg="Debes registrar al menos un Curso primero."
                                 icon={
                                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                         <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
@@ -237,6 +230,13 @@ export default function Sidebar({ currentPath: initialPath = '' }) {
                                         <rect x="8" y="14" width="4" height="4" rx="1"></rect>
                                     </svg>
                                 }
+                            />
+                            <MenuItem
+                                path="/planes"
+                                label="Planes de Estudio"
+                                isLocked={cursosCount === 0}
+                                lockMsg="Debes registrar al menos un Curso primero."
+                                icon={<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>}
                             />
                         </div>
                     )}

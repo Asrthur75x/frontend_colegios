@@ -105,7 +105,9 @@ export default function DashboardManager() {
     if (profList.length > 0) progresoBase += 10;
 
     const cursosAsignados = new Set(profCurso.map(pc => pc.id_curso)).size;
-    const totalCursos = cursosList.length;
+    // Excluir los cursos de "Tutoría" del conteo total porque se asignan por sección, no por carga académica
+    const cursosRegulares = cursosList.filter(c => !c.nombre_curso?.toLowerCase().includes('tutor'));
+    const totalCursos = cursosRegulares.length;
     // El 40% final del progreso recae en la asignación de profesores a cursos
     const porcentajeAsignacion = totalCursos > 0 ? (cursosAsignados / totalCursos) * 40 : 0;
 

@@ -373,7 +373,7 @@ export default function CursosManager() {
                 const resArea = await fetch(`${API_BASE}/areas`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nombre: "Desarrollo Personal" })
+                    body: JSON.stringify({ nombre: "Desarrollo Personal", max_horas_dia: 2 })
                 });
                 if (!resArea.ok) throw new Error("Error al crear el área");
                 const newArea = await resArea.json();
