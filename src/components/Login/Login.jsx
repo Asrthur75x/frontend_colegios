@@ -102,9 +102,15 @@ export default function Login() {
                 </div>
 
                 <div className="relative z-10 p-12 w-full flex flex-col items-center">
-                    {/* Logo Hx */}
-                    <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center font-bold text-hx-purple text-4xl shadow-2xl mb-12 transition-transform duration-500 hover:scale-110 hover:rotate-6">
-                        Hx
+                    {/* Logo Abstracto Moderno */}
+                    <div className="w-24 h-24 mb-12 flex items-center justify-center relative group">
+                        {/* Glowing backdrop */}
+                        <div className="absolute inset-0 bg-white/10 rounded-full blur-xl group-hover:bg-white/20 transition-all duration-700"></div>
+                        
+                        {/* Core geometric shape */}
+                        <div className="relative w-16 h-16 rounded-[14px] border-[3px] border-white/80 rotate-45 flex items-center justify-center shadow-[0_0_30px_rgba(255,255,255,0.2)] group-hover:rotate-180 transition-transform duration-1000 ease-[cubic-bezier(0.34,1.56,0.64,1)]">
+                            <div className="w-5 h-5 bg-white rounded-full shadow-[0_0_20px_rgba(255,255,255,0.9)] animate-pulse"></div>
+                        </div>
                     </div>
 
                     {/* Decoración circular con orbitales */}

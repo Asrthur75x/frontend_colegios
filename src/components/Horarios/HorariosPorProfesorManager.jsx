@@ -17,6 +17,11 @@ const CURSO_COLORS = [
     { solid: '#F3C252', pastel: '#fef9c3', text: '#7c4a00' },
 ];
 
+import ConfiguracionTiemposModal from './ConfiguracionTiemposModal';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
+
 const DIA_COLOR = { bg: 'var(--color-hx-purple)', text: '#ffffff' };
 
 export default function HorariosPorProfesorManager() {
@@ -47,6 +52,222 @@ export default function HorariosPorProfesorManager() {
         }
     };
     const [searchQuery, setSearchQuery] = useState('');
+    
+    // Configuración de tiempos modal
+    const [isTimeModalOpen, setIsTimeModalOpen] = useState(false);
+    const [timeConfig, setTimeConfig] = useState(null);
+    const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('horarix_time_config');
+            if (saved) {
+                try { setTimeConfig(JSON.parse(saved)); } catch (e) { }
+            }
+            
+            const handleStorageChange = () => {
+                const s = localStorage.getItem('horarix_time_config');
+                if (s) {
+                    try { setTimeConfig(JSON.parse(s)); } catch (e) { }
+                }
+            };
+            window.addEventListener('horarix_time_config_changed', handleStorageChange);
+            return () => window.removeEventListener('horarix_time_config_changed', handleStorageChange);
+        }
+    }, []);
+
+    const handleDownloadPDF = async () => {
+        const normalize = (str) => str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim() : "";
+        
+        setIsDownloadingPdf(true);
+        try {
+            const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+            let isFirstPage = true;
+
+            const profesoresAExportar = profesores.length > 0 ? profesores : [];
+
+            if (profesoresAExportar.length === 0) {
+                setIsDownloadingPdf(false);
+                return;
+            }
+
+            profesoresAExportar.forEach(prof => {
+                const profAsignaciones = asignaciones.filter(a => String(a.profesor_id).replace('PROF_','') === String(prof.id_profesor));
+                if (profAsignaciones.length === 0) return;
+
+                turnos.forEach(turno => {
+                    const asignacionesTurno = profAsignaciones.filter(a => {
+                        const secId = parseInt(String(a.seccion_id).replace('SEC_', ''));
+                        const diaObj = dias.find(d => normalize(d.nombre_dia) === normalize(a.dia));
+                        if (!diaObj) return false;
+                        const st = seccionTurnos.find(st => st.id_seccion === secId && st.id_dia === diaObj.id_dia);
+                        return st && st.id_turno === turno.id_turno;
+                    });
+
+                    if (asignacionesTurno.length === 0) return;
+
+                    if (!isFirstPage) pdf.addPage();
+                    isFirstPage = false;
+                    
+                    const titulo = `Profesor: ${prof.nombre_profesor} - Turno: ${turno.nombre}`;
+                    
+                    pdf.setFontSize(14);
+                    pdf.text(titulo, 14, 20);
+
+                    const tableData = [];
+                    mappedBlocks.forEach(bloque => {
+                        if (bloque.type === 'recreo') {
+                            tableData.push([`${bloque.inicio}\n${bloque.fin}`, ...gridDias.map(() => 'RECREO')]);
+                        } else {
+                            const row = [`${bloque.inicio}\n${bloque.fin}`];
+                            gridDias.forEach(dia => {
+                                const asignaciones = asignacionesTurno.filter(a => {
+                                    const diaObj = dias.find(d => normalize(d.nombre_dia) === normalize(a.dia));
+                                    if (!diaObj || diaObj.id_dia !== dia.id_dia) return false;
+                                    const bloqIni = a.slot_inicio + 1;
+                                    const bloqFin = a.slot_inicio + a.horas;
+                                    return bloque.numero >= bloqIni && bloque.numero <= bloqFin;
+                                });
+
+                                if (asignaciones.length > 0) {
+                                    row.push(asignaciones.map(a => {
+                                        const cId = parseInt(a.curso_id?.replace('CUR_','') || '0');
+                                        const cursoObj = cursos.find(c => c.id_curso === cId);
+                                        const cName = cursoObj ? cursoObj.nombre_curso : a.curso_id;
+                                        
+                                        const secIdNum = parseInt(String(a.seccion_id).replace('SEC_', ''));
+                                        const secObj = secciones.find(s => s.id_seccion === secIdNum);
+                                        let secStr = String(a.seccion_id).replace('SEC_', '');
+                                        if (secObj) {
+                                            const gradoObj = grados.find(g => g.id_grado === secObj.id_grado);
+                                            secStr = `${gradoObj ? gradoObj.numero + '° ' : ''}Sec. ${secObj.nombre}`;
+                                        }
+                                        
+                                        return `${cName}\n${secStr}`;
+                                    }).join("\n\n"));
+                                } else {
+                                    row.push("");
+                                }
+                            });
+                            tableData.push(row);
+                        }
+                    });
+
+                    autoTable(pdf, {
+                        startY: 25,
+                        head: [["Bloque", ...gridDias.map(d => d.nombre_dia.toUpperCase())]],
+                        body: tableData,
+                        theme: 'grid',
+                        styles: { fontSize: 8, cellPadding: 2, halign: 'center', valign: 'middle' },
+                        headStyles: { fillColor: [139, 92, 246], textColor: [255, 255, 255], fontStyle: 'bold' },
+                        columnStyles: { 0: { fontStyle: 'bold', cellWidth: 20 } },
+                        didParseCell: function(data) {
+                            if (data.row.raw[1] === 'RECREO' && data.column.index > 0) {
+                                data.cell.styles.fillColor = [253, 230, 138];
+                                data.cell.styles.textColor = [180, 83, 9];
+                                data.cell.styles.fontStyle = 'bold';
+                            }
+                        }
+                    });
+                });
+            });
+
+            pdf.save(`Horarios_Profesores_Completos.pdf`);
+        } catch (error) {
+            console.error("Error al generar el PDF: ", error);
+        } finally {
+            setIsDownloadingPdf(false);
+        }
+    };
+
+    const handleDownloadExcel = () => {
+        try {
+            const normalize = (str) => str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim() : "";
+            const wb = XLSX.utils.book_new();
+
+            const profesoresAExportar = profesores.length > 0 ? profesores : [];
+
+            if (profesoresAExportar.length === 0) return;
+
+            profesoresAExportar.forEach(prof => {
+                const profAsignaciones = asignaciones.filter(a => String(a.profesor_id).replace('PROF_','') === String(prof.id_profesor));
+                if (profAsignaciones.length === 0) return;
+
+                turnos.forEach(turno => {
+                    const asignacionesTurno = profAsignaciones.filter(a => {
+                        const secId = parseInt(String(a.seccion_id).replace('SEC_', ''));
+                        const diaObj = dias.find(d => normalize(d.nombre_dia) === normalize(a.dia));
+                        if (!diaObj) return false;
+                        const st = seccionTurnos.find(st => st.id_seccion === secId && st.id_dia === diaObj.id_dia);
+                        return st && st.id_turno === turno.id_turno;
+                    });
+
+                    if (asignacionesTurno.length === 0) return;
+
+                    const profAbrev = prof.nombre_profesor.split(' ').map(w => w[0]).join('').substring(0, 5);
+                    const sheetName = `${profAbrev} ${turno.nombre.substring(0, 10)} ${prof.id_profesor}`;
+                    const wsData = [];
+                    wsData.push(["Bloque", ...gridDias.map(d => d.nombre_dia.toUpperCase())]);
+
+                    mappedBlocks.forEach(bloque => {
+                        if (bloque.type === 'recreo') {
+                            wsData.push([`${bloque.inicio} - ${bloque.fin}`, ...gridDias.map(() => 'RECREO')]);
+                        } else {
+                            const row = [`${bloque.inicio} - ${bloque.fin}`];
+                            gridDias.forEach(dia => {
+                                const asignaciones = asignacionesTurno.filter(a => {
+                                    const diaObj = dias.find(d => normalize(d.nombre_dia) === normalize(a.dia));
+                                    if (!diaObj || diaObj.id_dia !== dia.id_dia) return false;
+                                    const bloqIni = a.slot_inicio + 1;
+                                    const bloqFin = a.slot_inicio + a.horas;
+                                    return bloque.numero >= bloqIni && bloque.numero <= bloqFin;
+                                });
+
+                                if (asignaciones.length > 0) {
+                                    row.push(asignaciones.map(a => {
+                                        const cId = parseInt(a.curso_id?.replace('CUR_','') || '0');
+                                        const cursoObj = cursos.find(c => c.id_curso === cId);
+                                        const cName = cursoObj ? cursoObj.nombre_curso : a.curso_id;
+
+                                        const secIdNum = parseInt(String(a.seccion_id).replace('SEC_', ''));
+                                        const secObj = secciones.find(s => s.id_seccion === secIdNum);
+                                        let secStr = String(a.seccion_id).replace('SEC_', '');
+                                        if (secObj) {
+                                            const gradoObj = grados.find(g => g.id_grado === secObj.id_grado);
+                                            secStr = `${gradoObj ? gradoObj.numero + '° ' : ''}Sec. ${secObj.nombre}`;
+                                        }
+
+                                        return `${cName} / ${secStr}`;
+                                    }).join(" | "));
+                                } else {
+                                    row.push("");
+                                }
+                            });
+                            wsData.push(row);
+                        }
+                    });
+
+                    const ws = XLSX.utils.aoa_to_sheet(wsData);
+                    
+                    // Configurar ancho de columnas
+                    const colWidths = [{ wch: 15 }, ...gridDias.map(() => ({ wch: 28 }))];
+                    ws['!cols'] = colWidths;
+                    
+                    const safeSheetName = sheetName.substring(0, 31).replace(/[\\/?*[\]]/g, '');
+                    XLSX.utils.book_append_sheet(wb, ws, safeSheetName);
+                });
+            });
+
+            if (wb.SheetNames.length === 0) {
+                alert("No hay datos de horarios de profesores generados para exportar.");
+                return;
+            }
+
+            XLSX.writeFile(wb, `Horarios_Profesores_Completos.xlsx`);
+        } catch(error) {
+            console.error("Error al generar Excel: ", error);
+        }
+    };
 
     useEffect(() => {
         const fetchData = async () => {
@@ -176,7 +397,61 @@ export default function HorariosPorProfesorManager() {
     const diasConfigurados = [...new Set(configGradoDia.map(c => c.id_dia))];
     const gridDias = dias.filter(d => diasConfigurados.includes(d.id_dia) || assignedDays.has(normalize(d.nombre_dia)));
 
-    const blockNumbers = Array.from({ length: maxBloquesDia }, (_, i) => i + 1);
+    // Helpers para calcular horas dinámicas
+    const parseTime = (timeStr) => {
+        const [h, m] = timeStr.split(':').map(Number);
+        return h * 60 + m;
+    };
+    const formatTime = (mins) => {
+        const h = Math.floor(mins / 60).toString().padStart(2, '0');
+        const m = (mins % 60).toString().padStart(2, '0');
+        return `${h}:${m}`;
+    };
+
+    const mappedBlocks = useMemo(() => {
+        if (!timeConfig) {
+            // Si no hay config, devolvemos formato estándar sin recreos
+            return Array.from({ length: maxBloquesDia }, (_, i) => ({
+                type: 'clase',
+                numero: i + 1,
+                inicio: null,
+                fin: null
+            }));
+        }
+
+        let currentMins = parseTime(timeConfig.horaInicio);
+        const result = [];
+        const dur = parseInt(timeConfig.duracionBloque) || 45;
+
+        for (let i = 1; i <= maxBloquesDia; i++) {
+            const inicioClase = formatTime(currentMins);
+            currentMins += dur;
+            const finClase = formatTime(currentMins);
+
+            result.push({
+                type: 'clase',
+                numero: i,
+                inicio: inicioClase,
+                fin: finClase
+            });
+
+            const recreo = timeConfig.recreos?.find(r => parseInt(r.despuesDeBloque) === i);
+            if (recreo) {
+                const inicioRecreo = formatTime(currentMins);
+                currentMins += parseInt(recreo.duracion) || 15;
+                const finRecreo = formatTime(currentMins);
+
+                result.push({
+                    type: 'recreo',
+                    inicio: inicioRecreo,
+                    fin: finRecreo,
+                    duracion: recreo.duracion,
+                    despuesDeBloque: i
+                });
+            }
+        }
+        return result;
+    }, [maxBloquesDia, timeConfig]);
 
     // Stats del profesor
     const stats = useMemo(() => {
@@ -327,12 +602,25 @@ export default function HorariosPorProfesorManager() {
                                 if (asignacionesTurno.length === 0) return null;
 
                                 return (
-                                    <div key={turno.id_turno} className="w-full bg-white rounded-[24px] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-x-auto p-6">
-                                        <div className="flex items-center gap-3 mb-5">
-                                            <div className="w-3 h-3 rounded-full bg-hx-purple"></div>
-                                            <h3 className="text-[16px] font-black text-slate-800 uppercase tracking-widest">Turno {turno.nombre}</h3>
+                                    <div key={turno.id_turno} className="flex flex-col gap-4 w-full">
+                                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-2 ml-2">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-3 h-3 rounded-full bg-hx-purple"></div>
+                                                <h3 className="text-[16px] font-black text-slate-800 uppercase tracking-widest">Turno {turno.nombre}</h3>
+                                            </div>
+                                            <div className="flex justify-start lg:justify-end gap-3 flex-shrink-0">
+                                                <button onClick={handleDownloadExcel} className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl hover:bg-emerald-100 hover:shadow-md font-black text-[13px] transition-all cursor-pointer">
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                                    Descargar Excel (Todos)
+                                                </button>
+                                                <button onClick={handleDownloadPDF} disabled={isDownloadingPdf} className={`flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl hover:bg-rose-100 hover:shadow-md font-black text-[13px] transition-all cursor-pointer ${isDownloadingPdf ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                                    <svg className={`w-4 h-4 ${isDownloadingPdf ? 'animate-bounce' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                                    {isDownloadingPdf ? 'Generando PDF...' : 'Descargar PDF (Todos)'}
+                                                </button>
+                                            </div>
                                         </div>
-                                        <table className="w-full border-collapse min-w-[600px] table-fixed">
+                                        <div id={`horario-profesor-table-${turno.nombre}`} className="w-full bg-white rounded-[24px] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-x-auto p-6 pt-4">
+                                            <table className="w-full border-collapse min-w-[600px] table-fixed">
                                             <thead>
                                                 <tr>
                                                     <th className="w-16 pb-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Blq</th>
@@ -347,52 +635,103 @@ export default function HorariosPorProfesorManager() {
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {blockNumbers.map((bNum) => {
+                                                {mappedBlocks.map((bloque, idx) => {
+                                                    if (bloque.type === 'recreo') {
+                                                        return (
+                                                            <tr key={`recreo-${idx}`} style={{ height: '65px' }} className="bg-slate-50">
+                                                                <td className="py-2 pr-3 text-center align-middle" style={{ width: '70px' }}>
+                                                                    <div className="flex flex-col items-center justify-center bg-amber-50 border border-amber-200 shadow-sm rounded-xl py-2 px-1">
+                                                                        <span className="text-[13px] font-black text-amber-800 leading-none mb-1">{bloque.inicio}</span>
+                                                                        <div className="w-4 h-px bg-amber-300 my-0.5"></div>
+                                                                        <span className="text-[11px] font-bold text-amber-600/80 leading-none mt-1">{bloque.fin}</span>
+                                                                    </div>
+                                                                </td>
+                                                                <td colSpan={gridDias.length} className="px-1 py-1 h-[65px]">
+                                                                    <div className="w-full h-full min-h-[50px] flex items-center justify-center gap-4 bg-gradient-to-r from-amber-50/50 via-amber-100/50 to-amber-50/50 py-3 rounded-[16px] border border-amber-200/50 shadow-sm relative overflow-hidden">
+                                                                        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'repeating-linear-gradient(45deg, #f59e0b 25%, transparent 25%, transparent 75%, #f59e0b 75%, #f59e0b)', backgroundSize: '10px 10px' }}></div>
+                                                                        <div className="h-px bg-amber-300/60 flex-1 ml-8 relative z-10"></div>
+                                                                        <div className="flex items-center gap-3 relative z-10">
+                                                                            <svg className="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                                                            <span className="text-[13px] font-black text-amber-700 tracking-[0.4em] uppercase mt-0.5">R E C R E O</span>
+                                                                        </div>
+                                                                        <div className="h-px bg-amber-300/60 flex-1 mr-8 relative z-10"></div>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    }
+
+                                                    const bNum = bloque.numero;
                                                     return (
-                                                        <tr key={bNum} style={{ height: '100px' }}>
-                                                            <td className="py-1 pr-2 text-center align-middle" style={{ width: '52px' }}>
-                                                                <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center mx-auto">
-                                                                    <span className="text-[11px] font-black text-slate-600">{bNum}</span>
-                                                                </div>
+                                                        <tr key={`clase-${bNum}`} style={{ height: '100px' }}>
+                                                            {/* Número de bloque o Hora */}
+                                                            <td className="py-2 pr-3 text-center align-middle" style={{ width: '70px' }}>
+                                                                {bloque.inicio ? (
+                                                                    <div className="flex flex-col items-center justify-center bg-white border border-slate-100 shadow-sm rounded-xl py-2 px-1">
+                                                                        <span className="text-[13px] font-black text-slate-700 leading-none mb-1">{bloque.inicio}</span>
+                                                                        <div className="w-4 h-px bg-slate-200 my-0.5"></div>
+                                                                        <span className="text-[11px] font-bold text-slate-400 leading-none mt-1">{bloque.fin}</span>
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center mx-auto">
+                                                                        <span className="text-[11px] font-black text-slate-600">{bNum}</span>
+                                                                    </div>
+                                                                )}
                                                             </td>
                                                             {gridDias.map((dia) => {
-                                                                const cubiertoPorAnterior = asignacionesTurno.some(x =>
+                                                                // Buscar asignación
+                                                                const asigOriginal = asignacionesTurno.find(x =>
                                                                     normalize(x.dia) === normalize(dia.nombre_dia)
-                                                                    && x.horas > 1
-                                                                    && (bNum - 1) > x.slot_inicio
-                                                                    && (bNum - 1) < (x.slot_inicio + x.horas)
-                                                                );
-                                                                if (cubiertoPorAnterior) return null;
-
-                                                                const a = asignacionesTurno.find(x =>
-                                                                    normalize(x.dia) === normalize(dia.nombre_dia)
-                                                                    && (bNum - 1) === x.slot_inicio
+                                                                    && (x.slot_inicio + 1) <= bNum
+                                                                    && (x.slot_inicio + x.horas) >= bNum
                                                                 );
 
-                                                                if (a) {
+                                                                let renderAsignacion = null;
+                                                                if (asigOriginal) {
+                                                                    const startBlock = asigOriginal.slot_inicio + 1;
+                                                                    const endBlock = asigOriginal.slot_inicio + asigOriginal.horas;
+                                                                    const isStart = bNum === startBlock;
+                                                                    const isAfterRecreo = bNum > startBlock && timeConfig?.recreos?.some(rec => parseInt(rec.despuesDeBloque) === (bNum - 1));
+                                                                    
+                                                                    if (isStart || isAfterRecreo) {
+                                                                        let currentSpan = 0;
+                                                                        for (let r = bNum; r <= endBlock; r++) {
+                                                                            currentSpan++;
+                                                                            if (r < endBlock && timeConfig?.recreos?.some(rec => parseInt(rec.despuesDeBloque) === r)) {
+                                                                                break;
+                                                                            }
+                                                                        }
+                                                                        renderAsignacion = { a: asigOriginal, span: currentSpan };
+                                                                    } else {
+                                                                        return null; // Ocupado por span superior
+                                                                    }
+                                                                }
+
+                                                                if (renderAsignacion) {
+                                                                    const a = renderAsignacion.a;
                                                                     const col = getColor(a.curso_id);
-                                                                    const span = a.horas || 1;
+                                                                    const span = renderAsignacion.span;
+
                                                                     return (
                                                                         <td key={dia.id_dia} rowSpan={span} className="py-1 px-1" style={{ verticalAlign: 'middle' }}>
-                                                                            <div className="rounded-2xl p-3 flex flex-col items-center justify-center text-center transition-all duration-200 hover:shadow-lg border-2 cursor-pointer"
+                                                                            <div className="rounded-2xl p-3 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-200 hover:shadow-lg border-2 relative z-10"
                                                                                 style={{ backgroundColor: col.pastel, borderColor: col.solid, height: `calc(${span} * 100px - 8px)` }}>
-                                                                                <div className="w-full flex flex-col items-center justify-center">
+                                                                                <div>
                                                                                     {span > 1 && (
-                                                                                        <span className="inline-block mb-1.5 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider border" style={{ borderColor: col.solid, color: col.solid, backgroundColor: 'transparent' }}>
+                                                                                        <span className="inline-block mb-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border" style={{ borderColor: col.solid, color: col.solid, backgroundColor: 'transparent' }}>
                                                                                             {span} horas
                                                                                         </span>
                                                                                     )}
-                                                                                    
-                                                                                    <p className="text-[16px] md:text-[18px] font-black leading-snug" style={{ color: col.text }}>
+                                                                                    <p className="text-[18px] font-black leading-snug" style={{ color: col.text }}>
                                                                                         {getCurso(a.curso_id)}
                                                                                     </p>
                                                                                     
-                                                                                    <div className="mt-2 w-full flex flex-col gap-1 items-center">
-                                                                                        <span className="inline-block px-2.5 py-1 rounded-lg text-[10px] font-black tracking-widest uppercase bg-white/60 border border-white/40 shadow-sm" style={{ color: col.solid }}>
+                                                                                    <div className="mt-4 w-full flex flex-col gap-2 items-center">
+                                                                                        <span className="block text-[14px] font-black tracking-widest uppercase" style={{ color: col.text }}>
                                                                                             {getGradoSeccion(a.seccion_id)}
                                                                                         </span>
                                                                                         
-                                                                                        <span className="inline-block text-[9px] font-bold tracking-wider uppercase opacity-70" style={{ color: col.text }}>
+                                                                                        <span className="block text-[11px] font-bold tracking-widest uppercase opacity-75" style={{ color: col.text }}>
                                                                                             {getSedePorSeccion(a.seccion_id)}
                                                                                         </span>
                                                                                     </div>
@@ -416,7 +755,8 @@ export default function HorariosPorProfesorManager() {
                                             </tbody>
                                         </table>
                                     </div>
-                                );
+                                </div>
+                            );
                             })}
                         </div>
                     )}
