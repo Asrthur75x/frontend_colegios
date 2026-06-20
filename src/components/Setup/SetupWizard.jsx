@@ -290,18 +290,31 @@ export default function SetupWizard() {
             const diasResDb = await fetch('http://127.0.0.1:8000/api/dias');
             const diasDbList = await diasResDb.json();
 
-            // Eliminar días que fueron deseleccionados
-            for (let dbD of diasDbList) {
-                if (!wizardData.dias.some(d => d.nombre === dbD.nombre_dia)) {
-                    await fetch(`http://127.0.0.1:8000/api/dias/${dbD.id_dia}`, {
-                        method: 'DELETE'
-                    });
+            // Eliminar días que fueron deseleccionados (manejando FK dependencies primero)
+            const diasABorrar = diasDbList.filter(dbD => !wizardData.dias.some(d => d.nombre === dbD.nombre_dia));
+            if (diasABorrar.length > 0) {
+                const configResDb = await fetch('http://127.0.0.1:8000/api/grado-dia-config');
+                const configDbList = await configResDb.json();
+                const configABorrar = configDbList.filter(c => diasABorrar.some(d => d.id_dia === c.id_dia));
+                for (const c of configABorrar) {
+                    await fetch(`http://127.0.0.1:8000/api/grado-dia-config/${c.id_config}`, { method: 'DELETE' });
+                }
+
+                const stResDb = await fetch('http://127.0.0.1:8000/api/seccion-turno');
+                const stDbList = await stResDb.json();
+                const stABorrar = stDbList.filter(st => diasABorrar.some(d => d.id_dia === st.id_dia));
+                for (const st of stABorrar) {
+                    await fetch(`http://127.0.0.1:8000/api/seccion-turno/${st.id_seccion_turno}`, { method: 'DELETE' });
+                }
+
+                for (const dbD of diasABorrar) {
+                    await fetch(`http://127.0.0.1:8000/api/dias/${dbD.id_dia}`, { method: 'DELETE' });
                 }
             }
 
             // Ordenar días por su ID (orden lógico) antes de guardar
             const sortedDias = [...wizardData.dias].sort((a, b) => a.id - b.id);
-            for (let d of sortedDias) {
+            for (const d of sortedDias) {
                 if (!diasDbList.some(dbD => dbD.nombre_dia === d.nombre)) {
                     await fetch('http://127.0.0.1:8000/api/dias', {
                         method: 'POST',
@@ -314,18 +327,41 @@ export default function SetupWizard() {
             const gradosResDb = await fetch('http://127.0.0.1:8000/api/grados');
             const gradosDbList = await gradosResDb.json();
 
-            // Eliminar grados que fueron deseleccionados
-            for (let dbG of gradosDbList) {
-                if (!wizardData.grados.includes(dbG.numero)) {
-                    await fetch(`http://127.0.0.1:8000/api/grados/${dbG.id_grado}`, {
-                        method: 'DELETE'
-                    });
+            // Eliminar grados deseleccionados (manejando FK dependencies)
+            const gradosABorrar = gradosDbList.filter(dbG => !wizardData.grados.includes(dbG.numero));
+            if (gradosABorrar.length > 0) {
+                const configResDb = await fetch('http://127.0.0.1:8000/api/grado-dia-config');
+                const configDbList = await configResDb.json();
+                const configABorrar = configDbList.filter(c => gradosABorrar.some(g => g.id_grado === c.id_grado));
+                for (const c of configABorrar) {
+                    await fetch(`http://127.0.0.1:8000/api/grado-dia-config/${c.id_config}`, { method: 'DELETE' });
+                }
+
+                const secResDb = await fetch('http://127.0.0.1:8000/api/secciones');
+                const secDbList = await secResDb.json();
+                const secABorrar = secDbList.filter(s => gradosABorrar.some(g => g.id_grado === s.id_grado));
+                
+                if (secABorrar.length > 0) {
+                    const stResDb = await fetch('http://127.0.0.1:8000/api/seccion-turno');
+                    const stDbList = await stResDb.json();
+                    const stABorrar = stDbList.filter(st => secABorrar.some(s => s.id_seccion === st.id_seccion));
+                    for (const st of stABorrar) {
+                        await fetch(`http://127.0.0.1:8000/api/seccion-turno/${st.id_seccion_turno}`, { method: 'DELETE' });
+                    }
+
+                    for (const s of secABorrar) {
+                        await fetch(`http://127.0.0.1:8000/api/secciones/${s.id_seccion}`, { method: 'DELETE' });
+                    }
+                }
+
+                for (const dbG of gradosABorrar) {
+                    await fetch(`http://127.0.0.1:8000/api/grados/${dbG.id_grado}`, { method: 'DELETE' });
                 }
             }
 
-            // Ordenar grados de menor a mayor antes de guardar
+            // Ordenar grados de menor a mayor antes de guardar (secuencial para preservar IDs lógicos)
             const sortedGrados = [...wizardData.grados].sort((a, b) => a - b);
-            for (let g of sortedGrados) {
+            for (const g of sortedGrados) {
                 if (!gradosDbList.some(dbG => dbG.numero === g)) {
                     await fetch('http://127.0.0.1:8000/api/grados', {
                         method: 'POST',
@@ -357,6 +393,9 @@ export default function SetupWizard() {
             const diasRes = await fetch('http://127.0.0.1:8000/api/dias');
             const diasDb = await diasRes.json();
 
+            const configRes = await fetch('http://127.0.0.1:8000/api/grado-dia-config');
+            const configDb = await configRes.json();
+
             const { gradoDiaConfig } = wizardData;
 
             // Verificamos si config existe y tiene datos
@@ -372,7 +411,7 @@ export default function SetupWizard() {
                 });
 
                 for (const key of sortedKeys) {
-                    const bloques = gradoDiaConfig[key];
+                    const bloques = parseInt(gradoDiaConfig[key]);
                     const [gradoNumStr, diaIdStr] = key.split('-');
                     const gradoNum = parseInt(gradoNumStr);
                     const diaIdLocal = parseInt(diaIdStr);
@@ -381,20 +420,41 @@ export default function SetupWizard() {
                     const realGrado = gradosDb.find(g => g.numero === gradoNum);
                     const realDia = diasDb.find(d => d.orden === diaIdLocal);
 
-                    if (realGrado && realDia && bloques > 0) {
-                        const response = await fetch('http://127.0.0.1:8000/api/grado-dia-config', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                id_grado: realGrado.id_grado,
-                                id_dia: realDia.id_dia,
-                                bloques_dia: bloques
-                            })
-                        });
+                    if (realGrado && realDia) {
+                        const existing = configDb.find(c => c.id_grado === realGrado.id_grado && c.id_dia === realDia.id_dia);
 
-                        if (!response.ok) {
-                            const errorText = await response.text();
-                            throw new Error(`Error en el backend: ${response.status} - ${errorText}`);
+                        if (existing) {
+                            if (bloques === 0) {
+                                // Borrar si se puso en 0
+                                await fetch(`http://127.0.0.1:8000/api/grado-dia-config/${existing.id_config}`, { method: 'DELETE' });
+                            } else if (existing.bloques_dia !== bloques) {
+                                // Actualizar si cambió usando el nuevo endpoint PUT
+                                const putRes = await fetch(`http://127.0.0.1:8000/api/grado-dia-config/${existing.id_config}`, {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        id_grado: realGrado.id_grado,
+                                        id_dia: realDia.id_dia,
+                                        bloques_dia: bloques
+                                    })
+                                });
+                                if (!putRes.ok) throw new Error(await putRes.text());
+                            }
+                        } else if (bloques > 0) {
+                            // Crear nuevo de manera secuencial para preservar el orden
+                            const response = await fetch('http://127.0.0.1:8000/api/grado-dia-config', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    id_grado: realGrado.id_grado,
+                                    id_dia: realDia.id_dia,
+                                    bloques_dia: bloques
+                                })
+                            });
+                            if (!response.ok) {
+                                const errorText = await response.text();
+                                throw new Error(`Error backend: ${errorText}`);
+                            }
                         }
                     } else {
                         console.warn(`No se encontraron IDs reales para Grado ${gradoNum} y Día ${diaIdLocal}`);
@@ -403,6 +463,7 @@ export default function SetupWizard() {
             }
 
             setSavedSteps(prev => prev.includes(3) ? prev : [...prev, 3]);
+            setEditingSteps(prev => prev.filter(s => s !== 3));
             setStep(prev => prev + 1);
         } catch (error) {
             console.error("Error al guardar configuración de bloques:", error);
@@ -421,6 +482,9 @@ export default function SetupWizard() {
 
             const gradosRes = await fetch('http://127.0.0.1:8000/api/grados');
             const gradosDb = await gradosRes.json();
+
+            const seccionesRes = await fetch('http://127.0.0.1:8000/api/secciones');
+            const seccionesDb = await seccionesRes.json();
 
             const { secciones } = wizardData;
 
@@ -458,31 +522,49 @@ export default function SetupWizard() {
                     return a.nombre.localeCompare(b.nombre);
                 });
 
-                // Insertar ordenadamente
-                for (const sec of seccionesAInsertar) {
-                    const response = await fetch('http://127.0.0.1:8000/api/secciones', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            id_sede: sec.id_sede,
-                            id_grado: sec.id_grado,
-                            nombre: sec.nombre
-                        })
-                    });
+                // Borrar secciones que ya no están (para edición limpia - manejando FK)
+                const seccionesABorrar = seccionesDb
+                    .filter(dbS => !seccionesAInsertar.some(s => s.id_sede === dbS.id_sede && s.id_grado === dbS.id_grado && s.nombre === dbS.nombre));
+                
+                if (seccionesABorrar.length > 0) {
+                    // Primero borrar de seccion-turno
+                    const stResDb = await fetch('http://127.0.0.1:8000/api/seccion-turno');
+                    const stDbList = await stResDb.json();
+                    const stABorrar = stDbList.filter(st => seccionesABorrar.some(s => s.id_seccion === st.id_seccion));
+                    for (const st of stABorrar) {
+                        await fetch(`http://127.0.0.1:8000/api/seccion-turno/${st.id_seccion_turno}`, { method: 'DELETE' });
+                    }
 
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        throw new Error(`Error en el backend: ${response.status} - ${errorText}`);
+                    // Luego borrar las secciones
+                    for (const dbS of seccionesABorrar) {
+                        await fetch(`http://127.0.0.1:8000/api/secciones/${dbS.id_seccion}`, { method: 'DELETE' });
+                    }
+                }
+
+                // Insertar nuevas secuencialmente para mantener orden de IDs
+                for (const sec of seccionesAInsertar) {
+                    if (!seccionesDb.some(dbS => dbS.id_sede === sec.id_sede && dbS.id_grado === sec.id_grado && dbS.nombre === sec.nombre)) {
+                        await fetch('http://127.0.0.1:8000/api/secciones', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                id_sede: sec.id_sede,
+                                id_grado: sec.id_grado,
+                                nombre: sec.nombre
+                            })
+                        });
                     }
                 }
             }
 
             if (totalSteps === 6) {
                 setSavedSteps(prev => prev.includes(4) ? prev : [...prev, 4]);
+                setEditingSteps(prev => prev.filter(s => s !== 4));
                 setStep(5);
             } else {
                 await autoAssignTurnoUnico();
                 setSavedSteps(prev => prev.includes(4) ? prev : [...prev, 4]);
+                setEditingSteps(prev => prev.filter(s => s !== 4));
                 setStep(5);
             }
         } catch (error) {
@@ -506,18 +588,23 @@ export default function SetupWizard() {
         if (turnosDb.length === 0) return;
         const turnoId = turnosDb[0].id_turno;
 
+        const stRes = await fetch('http://127.0.0.1:8000/api/seccion-turno');
+        const stDb = await stRes.json();
+
+        const requiredRelations = [];
         for (const sec of seccionesDb) {
             for (const dia of diasDb) {
-                await fetch('http://127.0.0.1:8000/api/seccion-turno', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        id_seccion: sec.id_seccion,
-                        id_turno: turnoId,
-                        id_dia: dia.id_dia
-                    })
-                });
+                requiredRelations.push({ id_seccion: sec.id_seccion, id_turno: turnoId, id_dia: dia.id_dia });
             }
+        }
+
+        const toInsert = requiredRelations.filter(r => !stDb.some(dbSt => dbSt.id_seccion === r.id_seccion && dbSt.id_turno === r.id_turno && dbSt.id_dia === r.id_dia));
+        for (const r of toInsert) {
+            await fetch('http://127.0.0.1:8000/api/seccion-turno', {
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify(r)
+            });
         }
     };
 
@@ -542,6 +629,7 @@ export default function SetupWizard() {
             const { seccionTurno } = wizardData;
 
             if (seccionTurno) {
+                const requiredRelations = [];
                 for (const [sedeNombre, gradosObj] of Object.entries(seccionTurno)) {
                     const realSede = sedesDb.find(s => s.nombre_sede === sedeNombre);
                     if (!realSede) continue;
@@ -560,45 +648,47 @@ export default function SetupWizard() {
                             if (!realSeccion) continue;
 
                             if (typeof turnoValor === 'string') {
-                                // MODO SIMPLE: mismo turno para todos los días
                                 const realTurno = turnosDb.find(t => t.nombre === turnoValor);
                                 if (realTurno) {
                                     for (const dia of diasDb) {
-                                        await fetch('http://127.0.0.1:8000/api/seccion-turno', {
-                                            method: 'POST',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({
-                                                id_seccion: realSeccion.id_seccion,
-                                                id_turno: realTurno.id_turno,
-                                                id_dia: dia.id_dia
-                                            })
-                                        });
+                                        requiredRelations.push({ id_seccion: realSeccion.id_seccion, id_turno: realTurno.id_turno, id_dia: dia.id_dia });
                                     }
                                 }
                             } else if (typeof turnoValor === 'object' && turnoValor !== null) {
-                                // MODO AVANZADO: turno diferente por día (diaId local → turnoNombre)
                                 for (const [diaIdLocal, turnoNombre] of Object.entries(turnoValor)) {
                                     const realDia = diasDb.find(d => d.orden === parseInt(diaIdLocal));
                                     const realTurno = turnosDb.find(t => t.nombre === turnoNombre);
                                     if (realDia && realTurno) {
-                                        await fetch('http://127.0.0.1:8000/api/seccion-turno', {
-                                            method: 'POST',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({
-                                                id_seccion: realSeccion.id_seccion,
-                                                id_turno: realTurno.id_turno,
-                                                id_dia: realDia.id_dia
-                                            })
-                                        });
+                                        requiredRelations.push({ id_seccion: realSeccion.id_seccion, id_turno: realTurno.id_turno, id_dia: realDia.id_dia });
                                     }
                                 }
                             }
                         }
                     }
                 }
+
+                const stRes = await fetch('http://127.0.0.1:8000/api/seccion-turno');
+                const stDb = await stRes.json();
+
+                // Borrar relaciones que ya no existen (Edición)
+                const toDelete = stDb.filter(dbSt => !requiredRelations.some(r => r.id_seccion === dbSt.id_seccion && r.id_turno === dbSt.id_turno && r.id_dia === dbSt.id_dia));
+                for (const dbSt of toDelete) {
+                    await fetch(`http://127.0.0.1:8000/api/seccion-turno/${dbSt.id_seccion_turno}`, { method: 'DELETE' });
+                }
+
+                // Insertar nuevas
+                const toInsert = requiredRelations.filter(r => !stDb.some(dbSt => dbSt.id_seccion === r.id_seccion && dbSt.id_turno === r.id_turno && dbSt.id_dia === r.id_dia));
+                for (const r of toInsert) {
+                    await fetch('http://127.0.0.1:8000/api/seccion-turno', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(r)
+                    });
+                }
             }
 
             setSavedSteps(prev => prev.includes(5) ? prev : [...prev, 5]);
+            setEditingSteps(prev => prev.filter(s => s !== 5));
             setStep(6);
         } catch (error) {
             console.error("Error al guardar configuración de turnos:", error);
@@ -675,7 +765,7 @@ export default function SetupWizard() {
                 return;
             }
 
-            if (savedSteps.includes(3)) {
+            if (savedSteps.includes(3) && !editingSteps.includes(3)) {
                 setStep(prev => prev + 1);
             } else {
                 saveStep3Data();
@@ -705,7 +795,7 @@ export default function SetupWizard() {
                 return;
             }
 
-            if (savedSteps.includes(4)) {
+            if (savedSteps.includes(4) && !editingSteps.includes(4)) {
                 setStep(5);
             } else {
                 saveStep4Data();
@@ -772,9 +862,11 @@ export default function SetupWizard() {
                 <div style={{ position: 'absolute', top: '-10%', right: '-10%', width: 256, height: 256, background: '#790EEC', opacity: 0.2, borderRadius: '50%', filter: 'blur(60px)' }}></div>
                 <div style={{ position: 'absolute', top: '40%', left: '-20%', width: 320, height: 320, background: '#790EEC', opacity: 0.2, borderRadius: '50%', filter: 'blur(60px)' }}></div>
 
-                <div className="relative z-10 flex items-center gap-3">
-                    <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center font-bold text-[#790EEC] text-xl shadow-lg">Hx</div>
-                    <span className="text-white text-2xl font-bold tracking-tight">HorariX</span>
+                <div className="relative z-10 flex items-center gap-3 group cursor-default">
+                    <div className="relative w-8 h-8 rounded-lg border-[2px] border-white/80 rotate-45 flex items-center justify-center shadow-[0_0_15px_rgba(255,255,255,0.2)] group-hover:rotate-180 transition-transform duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)]">
+                        <div className="w-2.5 h-2.5 bg-white rounded-full shadow-[0_0_10px_rgba(255,255,255,0.9)] animate-pulse"></div>
+                    </div>
+                    <span className="text-white text-[22px] font-black tracking-widest uppercase ml-3 opacity-90 drop-shadow-sm">HorariX</span>
                 </div>
 
                 <div className="relative z-10 flex flex-col items-center justify-center flex-grow mt-12">
@@ -842,14 +934,24 @@ export default function SetupWizard() {
                         opacity: entered ? 1 : 0,
                         transition: 'opacity 0.3s ease 0.3s',
                     }}>
-                        <div style={{
-                            textAlign: 'center', fontSize: 11, fontWeight: 700,
-                            letterSpacing: '0.15em',
-                            color: 'var(--color-hx-purple)',
-                            textTransform: 'uppercase', marginBottom: 48, marginTop: 16,
-                            transition: 'color 0.5s ease',
-                        }}>
-                            PASO {step} DE {totalSteps} • {step === 1 ? 'DATOS INICIALES' : step === 2 ? 'DÍAS Y GRADOS' : step === 3 ? 'BLOQUES POR DÍA' : step === 4 ? 'SECCIONES' : (step === 5 && totalSteps === 6) ? 'TURNOS' : '¡ÉXITO!'}
+                        <div className="flex flex-col items-center justify-center mb-12 mt-4">
+                            <div style={{
+                                textAlign: 'center', fontSize: 11, fontWeight: 700,
+                                letterSpacing: '0.15em', color: 'var(--color-hx-purple)',
+                                textTransform: 'uppercase', marginBottom: 12,
+                                transition: 'color 0.5s ease',
+                            }}>
+                                PASO {step} DE {totalSteps} • {step === 1 ? 'DATOS INICIALES' : step === 2 ? 'DÍAS Y GRADOS' : step === 3 ? 'BLOQUES POR DÍA' : step === 4 ? 'SECCIONES' : (step === 5 && totalSteps === 6) ? 'TURNOS' : '¡ÉXITO!'}
+                            </div>
+
+                            {/* Barra de progreso (movida desde abajo) */}
+                            <div style={{ width: 240, height: 6, background: '#f1f5f9', borderRadius: 999, overflow: 'hidden' }}>
+                                <div style={{
+                                    height: '100%', width: `${(step / totalSteps) * 100}%`,
+                                    background: 'var(--color-hx-purple)',
+                                    borderRadius: 999, transition: 'all 0.5s ease'
+                                }}></div>
+                            </div>
                         </div>
 
                         <div className="flex-grow flex flex-col justify-center w-full">
@@ -873,9 +975,9 @@ export default function SetupWizard() {
                             )}
                             {step === 2 && (
                                 <div className="animate-fade-in" style={{ animationDuration: '0.6s' }}>
-                                    <Paso2DiasGrados 
-                                        data={wizardData} 
-                                        setData={setWizardData} 
+                                    <Paso2DiasGrados
+                                        data={wizardData}
+                                        setData={setWizardData}
                                         isSaved={savedSteps.includes(2) && !editingSteps.includes(2)}
                                         onEnableEdit={() => {
                                             setWizardDataBackup(JSON.parse(JSON.stringify(wizardData)));
@@ -893,17 +995,62 @@ export default function SetupWizard() {
                             )}
                             {step === 3 && (
                                 <div className="animate-fade-in" style={{ animationDuration: '0.6s' }}>
-                                    <Paso3GradoDiaConfig data={wizardData} setData={setWizardData} />
+                                    <Paso3GradoDiaConfig 
+                                        data={wizardData} 
+                                        setData={setWizardData} 
+                                        isSaved={savedSteps.includes(3) && !editingSteps.includes(3)}
+                                        onEnableEdit={() => {
+                                            setWizardDataBackup(JSON.parse(JSON.stringify(wizardData)));
+                                            setEditingSteps(prev => [...prev, 3]);
+                                        }}
+                                        isEditing={editingSteps.includes(3)}
+                                        onCancelEdit={() => {
+                                            if (wizardDataBackup) {
+                                                setWizardData(wizardDataBackup);
+                                            }
+                                            setEditingSteps(prev => prev.filter(s => s !== 3));
+                                        }}
+                                    />
                                 </div>
                             )}
                             {step === 4 && (
                                 <div className="animate-fade-in" style={{ animationDuration: '0.6s' }}>
-                                    <Paso4Secciones data={wizardData} setData={setWizardData} />
+                                    <Paso4Secciones 
+                                        data={wizardData} 
+                                        setData={setWizardData}
+                                        isSaved={savedSteps.includes(4) && !editingSteps.includes(4)}
+                                        onEnableEdit={() => {
+                                            setWizardDataBackup(JSON.parse(JSON.stringify(wizardData)));
+                                            setEditingSteps(prev => [...prev, 4]);
+                                        }}
+                                        isEditing={editingSteps.includes(4)}
+                                        onCancelEdit={() => {
+                                            if (wizardDataBackup) {
+                                                setWizardData(wizardDataBackup);
+                                            }
+                                            setEditingSteps(prev => prev.filter(s => s !== 4));
+                                        }}
+                                    />
                                 </div>
                             )}
                             {step === 5 && totalSteps === 6 && (
                                 <div className="animate-fade-in" style={{ animationDuration: '0.6s' }}>
-                                    <Paso5Turnos data={wizardData} setData={setWizardData} />
+                                    <Paso5Turnos 
+                                        data={wizardData} 
+                                        setData={setWizardData}
+                                        isSaved={savedSteps.includes(5) && !editingSteps.includes(5)}
+                                        onEnableEdit={() => {
+                                            setWizardDataBackup(JSON.parse(JSON.stringify(wizardData)));
+                                            setEditingSteps(prev => [...prev, 5]);
+                                        }}
+                                        isEditing={editingSteps.includes(5)}
+                                        onCancelEdit={() => {
+                                            if (wizardDataBackup) {
+                                                setWizardData(wizardDataBackup);
+                                            }
+                                            setEditingSteps(prev => prev.filter(s => s !== 5));
+                                        }}
+                                    />
                                 </div>
                             )}
                             {step === totalSteps && (
@@ -917,16 +1064,18 @@ export default function SetupWizard() {
                                     </p>
                                 </div>
                             )}
-                        </div>
 
-                        {/* Botones de navegación */}
-                        <div style={{ marginTop: 40, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            {/* Mensaje de Error Integrado muy cerca del formulario */}
                             {errorMsg && (
-                                <div className="w-full max-w-[400px] mb-6 p-4 rounded-xl bg-red-50 border border-red-100 flex items-center gap-3 animate-fade-in text-red-500 text-sm font-bold">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                                <div className="mt-2 mx-auto w-fit max-w-[500px] px-5 py-3 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center gap-2 animate-fade-in text-red-600 text-xs font-black uppercase tracking-widest shadow-sm">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
                                     {errorMsg}
                                 </div>
                             )}
+                        </div>
+
+                        {/* Botones de navegación */}
+                        <div style={{ marginTop: 24, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                             <div style={{
                                 width: '100%', maxWidth: 400,
                                 display: 'flex', gap: 16, marginBottom: 40,
@@ -958,18 +1107,7 @@ export default function SetupWizard() {
                                 </button>
                             </div>
 
-                            {/* Barra de progreso */}
-                            <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8, fontWeight: 500 }}>
-                                {step} DE {totalSteps}
-                            </div>
-                            <div style={{ width: 192, height: 6, background: '#f1f5f9', borderRadius: 999, overflow: 'hidden' }}>
-                                <div style={{
-                                    height: '100%',
-                                    width: `${(step / totalSteps) * 100}%`,
-                                    background: 'var(--color-hx-purple)',
-                                    borderRadius: 999, transition: 'all 0.5s ease'
-                                }}></div>
-                            </div>
+                            {/* La barra de progreso fue movida a la cabecera superior */}
                         </div>
                     </div>
                 </div>

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 
-export default function Paso3GradoDiaConfig({ data, setData }) {
+export default function Paso3GradoDiaConfig({ data, setData, isSaved, onEnableEdit, isEditing, onCancelEdit }) {
     // El grado seleccionado en las pestañas (por defecto el primero)
     const [activeTab, setActiveTab] = useState(null);
     const [isCopying, setIsCopying] = useState(false);
@@ -77,15 +77,35 @@ export default function Paso3GradoDiaConfig({ data, setData }) {
             <h2 className="text-3xl lg:text-4xl font-extrabold text-[#111827] text-center mb-3 leading-tight">
                 Bloques por Día
             </h2>
-            <p className="text-slate-500 text-center mb-8 text-lg max-w-[500px]">
-                Configura los periodos de clase. Selecciona un grado en las pestañas para editar sus días.
-            </p>
+            <div className="w-full max-w-[800px] flex flex-col items-end gap-5 mb-5">
+                <p className="text-slate-500 text-center mb-8 text-lg w-full">
+                    Configura los periodos de clase. Selecciona un grado en las pestañas para editar sus días.
+                </p>
+                {isSaved && (
+                    <button
+                        onClick={onEnableEdit}
+                        className="px-4 py-1.5 rounded-full border-2 border-[#790EEC] text-[#ffffff] text-sm font-bold bg-[#790EEC] hover:bg-[#6b0bc9] hover:border-[#6b0bc9] transition-colors shadow-sm cursor-pointer flex items-center justify-center gap-2"
+                    >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                        Activar Edición
+                    </button>
+                )}
+                {isEditing && (
+                    <button
+                        onClick={onCancelEdit}
+                        className="px-4 py-1.5 rounded-full border-2 border-[#790EEC] text-slate-500 text-sm font-bold bg-white hover:bg-slate-50 transition-colors shadow-sm cursor-pointer flex items-center justify-center gap-2"
+                    >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        Cancelar Edición
+                    </button>
+                )}
+            </div>
 
-            <div className="w-full max-w-[800px] flex flex-col items-center">
+            <div className={`w-full max-w-[800px] flex flex-col items-center ${isSaved ? 'opacity-60 pointer-events-none select-none grayscale-[20%]' : ''}`}>
 
                 {/* PESTAÑAS (TABS) */}
                 <div className="flex flex-wrap justify-center gap-2 mb-6 bg-slate-50 p-2 rounded-2xl border border-slate-100">
-                    {data.grados.sort((a, b) => a - b).map(grado => {
+                    {[...data.grados].sort((a, b) => a - b).map(grado => {
                         const isActive = activeTab === grado;
                         return (
                             <button

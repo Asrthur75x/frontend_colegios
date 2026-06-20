@@ -8,22 +8,45 @@ import React, { useEffect, useState } from 'react';
  * gradoDiaConfig key: "grado-diaId" → bloques_dia (number)
  * Only days with bloques_dia > 0 are relevant for a grade.
  */
-export default function Paso5Turnos({ data, setData }) {
+export default function Paso5Turnos({ data, setData, isSaved, onEnableEdit, isEditing, onCancelEdit }) {
     // Initialize with first turno for all sections (simple mode)
+    // Also sync new sections added via step 4 editing
     useEffect(() => {
-        if (!data.seccionTurno && data.secciones && data.turnos.length > 1) {
-            const primerTurno = data.turnos[0];
+        if (!data.secciones || data.turnos.length <= 1) return;
+        const primerTurno = data.turnos[0];
+
+        if (!data.seccionTurno) {
+            // First time: build from scratch
             const init = {};
             for (const sede of Object.keys(data.secciones)) {
                 init[sede] = {};
                 for (const grado of Object.keys(data.secciones[sede])) {
                     init[sede][grado] = {};
                     for (const sec of data.secciones[sede][grado]) {
-                        init[sede][grado][sec] = primerTurno; // simple string
+                        init[sede][grado][sec] = primerTurno;
                     }
                 }
             }
             setData(prev => ({ ...prev, seccionTurno: init }));
+        } else {
+            // Sync: add any new sections missing from seccionTurno
+            let needsUpdate = false;
+            const updated = { ...data.seccionTurno };
+            for (const sede of Object.keys(data.secciones)) {
+                if (!updated[sede]) { updated[sede] = {}; needsUpdate = true; }
+                for (const grado of Object.keys(data.secciones[sede])) {
+                    if (!updated[sede][grado]) { updated[sede][grado] = {}; needsUpdate = true; }
+                    for (const sec of data.secciones[sede][grado]) {
+                        if (updated[sede][grado][sec] === undefined) {
+                            updated[sede][grado][sec] = primerTurno;
+                            needsUpdate = true;
+                        }
+                    }
+                }
+            }
+            if (needsUpdate) {
+                setData(prev => ({ ...prev, seccionTurno: updated }));
+            }
         }
     }, [data.secciones, data.turnos, data.seccionTurno, setData]);
 
@@ -149,11 +172,33 @@ export default function Paso5Turnos({ data, setData }) {
             <h2 className="text-3xl lg:text-4xl font-extrabold text-[#111827] text-center mb-2 leading-tight">
                 Asignación de Turnos
             </h2>
-            <p className="text-slate-500 text-center mb-6 text-base max-w-[480px]">
-                Selecciona a qué turno pertenece cada sección.{' '}
-                <span className="font-semibold text-slate-600">Si una sección cambia de turno según el día</span>
-                , usa el botón <span className="font-semibold text-[#790EEC]">Variar por día</span>.
-            </p>
+            <div className="w-full max-w-[800px] flex flex-col items-end gap-5 mb-5">
+                <p className="text-slate-500 text-center mb-8 text-lg w-full">
+                    Selecciona a qué turno pertenece cada sección.{' '}
+                    <span className="font-semibold text-slate-600">Si una sección cambia de turno según el día</span>
+                    , usa el botón <span className="font-semibold text-[#790EEC]">Variar por día</span>.
+                </p>
+                {isSaved && (
+                    <button
+                        onClick={onEnableEdit}
+                        className="px-4 py-1.5 rounded-full border-2 border-[#790EEC] text-[#ffffff] text-sm font-bold bg-[#790EEC] hover:bg-[#6b0bc9] hover:border-[#6b0bc9] transition-colors shadow-sm cursor-pointer flex items-center justify-center gap-2"
+                    >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                        Activar Edición
+                    </button>
+                )}
+                {isEditing && (
+                    <button
+                        onClick={onCancelEdit}
+                        className="px-4 py-1.5 rounded-full border-2 border-[#790EEC] text-slate-500 text-sm font-bold bg-white hover:bg-slate-50 transition-colors shadow-sm cursor-pointer flex items-center justify-center gap-2"
+                    >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        Cancelar Edición
+                    </button>
+                )}
+            </div>
+
+            <div className={`w-full max-w-[800px] flex flex-col items-center ${isSaved ? 'opacity-60 pointer-events-none select-none grayscale-[20%]' : ''}`}>
 
             {/* SEDES tabs */}
             {sedes.length > 1 && (
@@ -307,6 +352,7 @@ export default function Paso5Turnos({ data, setData }) {
                     );
                 })}
             </div>
+        </div>
         </div>
     );
 }
