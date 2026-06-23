@@ -63,6 +63,8 @@ export default function CargaAcademicaManager() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [filterCurso, setFilterCurso] = useState('');
+    const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = 12;
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -101,6 +103,10 @@ export default function CargaAcademicaManager() {
 
     const filtered = profesores
         .filter(p => p.nombre_profesor?.toLowerCase().includes(searchTerm.toLowerCase()))
+        .filter(p => {
+            if (!filterCurso) return true;
+            return profesorCurso.some(pc => pc.id_profesor === p.id_profesor && pc.id_curso.toString() === filterCurso);
+        })
         .sort((a, b) => {
             const ac = profesorCurso.filter(pc => pc.id_profesor === a.id_profesor).length;
             const bc = profesorCurso.filter(pc => pc.id_profesor === b.id_profesor).length;
@@ -141,18 +147,28 @@ export default function CargaAcademicaManager() {
 
     return (
         <div className="w-full space-y-8 animate-fade-in relative pb-10">
-
             {/* Cabecera Superior */}
             <div className="flex flex-col md:flex-row gap-6">
-                <div className="md:w-2/3 bg-hx-purple/10 rounded-[24px] p-8 shadow-md relative overflow-hidden flex flex-col justify-center min-h-[180px] border border-hx-purple/70">
-                    <div className="relative z-10 flex flex-col md:flex-row justify-between items-center md:items-start gap-6">
+                <div className="md:w-2/3 bg-[var(--color-hx-purple)]/10 rounded-[24px] p-8 shadow-md relative overflow-hidden flex flex-col justify-center  min-h-[180px] border border-[var(--color-hx-purple)]/70">
+                    <div className="relative z-10 flex flex-col md:flex-row justify-between items-center md:items-center gap-6">
                         <div className="max-w-md">
                             <h2 className="text-3xl md:text-4xl font-black text-slate-800 tracking-tight leading-tight mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
-                                Especialidades Docentes
+                                Especialidad Docente
                             </h2>
                             <p className="text-slate-500 text-[13px] font-medium mb-6 leading-relaxed max-w-sm drop-shadow-sm">
-                                Selecciona un docente y elige qué cursos está capacitado para enseñar.
+                                Selecciona un docente y elige qué cursos está capacitado para enseñar
                             </p>
+                        </div>
+
+                        {/* Imagen Ilustrativa a la derecha */}
+                        <div className="hidden sm:flex relative w-32 h-32 md:w-45 md:h-45 flex-shrink-0 items-center justify-center md:mr-16">
+                            {/* Brillo suave de fondo para resaltar */}
+                            <div className="absolute inset-0 bg-white/40 rounded-full blur-2xl"></div>
+                            <img
+                                src="/docente.svg"
+                                alt="Ilustración"
+                                className="relative z-10 w-full h-full object-contain drop-shadow-[0_10px_15px_rgba(0,0,0,0.1)] hover:scale-105 transition-transform duration-500"
+                            />
                         </div>
                     </div>
                 </div>
@@ -173,7 +189,7 @@ export default function CargaAcademicaManager() {
 
                     <div className="mt-auto bg-purple-50 rounded-xl p-3.5 border border-purple-100/60 flex gap-3 items-start">
                         <div className="text-hx-purple bg-white p-1 rounded-lg shadow-sm border border-purple-100 mt-0.5 flex-shrink-0">
-                            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>
                         </div>
                         <div>
                             <p className="text-purple-800 text-[12px] font-bold mb-0.5">Asignaciones</p>
@@ -209,7 +225,66 @@ export default function CargaAcademicaManager() {
                                 </div>
                             </div>
                         </div>
-                        <div className="flex-shrink-0 w-1/4"></div>
+
+                        <div className="flex-shrink-0 w-1/4 flex justify-end relative">
+                            <button 
+                                onClick={() => setIsFilterOpen(!isFilterOpen)}
+                                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all border-2 h-12 ${filterCurso ? 'bg-hx-purple text-white border-hx-purple shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:border-hx-purple hover:text-hx-purple'}`}
+                            >
+                                {filterCurso ? (
+                                    <span className="truncate max-w-[120px]">{cursos.find(c => c.id_curso.toString() === filterCurso)?.nombre_curso || 'Curso'}</span>
+                                ) : (
+                                    <>
+                                        <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                                        <span className="hidden sm:inline">Filtrar Curso</span>
+                                    </>
+                                )}
+                            </button>
+
+                            {/* Panel Flotante de Cursos */}
+                            {isFilterOpen && (
+                                <>
+                                    <div className="fixed inset-0 z-40" onClick={() => setIsFilterOpen(false)}></div>
+                                    <div className="absolute top-[120%] right-0 mt-2 w-80 bg-white rounded-[24px] border border-slate-100 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] p-5 z-50 animate-fade-in origin-top-right">
+                                        <div className="flex justify-between items-center mb-4">
+                                            <h4 className="font-bold text-slate-800 text-[14px]">Selecciona un Curso</h4>
+                                            {filterCurso && (
+                                                <button onClick={() => {setFilterCurso(''); setIsFilterOpen(false); setCurrentPage(1);}} className="text-[11px] font-bold text-hx-purple hover:underline">
+                                                    Limpiar
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div className="flex flex-wrap gap-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+                                            <button 
+                                                onClick={() => {setFilterCurso(''); setIsFilterOpen(false); setCurrentPage(1);}}
+                                                className={`px-3 py-1.5 rounded-full text-[12px] font-bold transition-all border-2 ${!filterCurso ? 'border-hx-purple bg-hx-purple/10 text-hx-purple' : 'border-slate-100 bg-slate-50 text-slate-500 hover:border-slate-300'}`}
+                                            >
+                                                Todos
+                                            </button>
+                                            {cursos.map((c, idx) => {
+                                                const color = CURSO_COLORS[idx % CURSO_COLORS.length];
+                                                const isSel = filterCurso === c.id_curso.toString();
+                                                return (
+                                                    <button 
+                                                        key={c.id_curso}
+                                                        onClick={() => {setFilterCurso(c.id_curso.toString()); setIsFilterOpen(false); setCurrentPage(1);}}
+                                                        className={`px-3 py-1.5 rounded-full text-[12px] font-bold transition-all border-2`}
+                                                        style={{
+                                                            backgroundColor: isSel ? color.bg : color.light,
+                                                            color: isSel ? color.text : color.bg,
+                                                            borderColor: isSel ? color.bg : 'transparent',
+                                                            opacity: filterCurso && !isSel ? 0.6 : 1
+                                                        }}
+                                                    >
+                                                        {c.nombre_curso}
+                                                    </button>
+                                                )
+                                            })}
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                        </div>
                     </div>
 
                     {filtered.length === 0 ? (

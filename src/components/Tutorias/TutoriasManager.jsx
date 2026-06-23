@@ -179,15 +179,26 @@ export default function TutoriasManager() {
 
             {/* ── Banner ── */}
             <div className="flex flex-col md:flex-row gap-6 mb-2">
-                <div className="md:w-2/3 bg-hx-purple/10 rounded-[24px] p-8 shadow-md relative overflow-hidden flex flex-col justify-center min-h-[180px] border border-hx-purple/70">
-                    <div className="relative z-10 flex flex-col md:flex-row justify-between items-center md:items-start gap-6">
+                <div className="md:w-2/3 bg-[var(--color-hx-purple)]/10 rounded-[24px] p-8 shadow-md relative overflow-hidden flex flex-col justify-center min-h-[180px] border border-[var(--color-hx-purple)]/70">
+                    <div className="relative z-10 flex flex-col md:flex-row justify-between items-center md:items-center gap-6">
                         <div className="max-w-md">
                             <h2 className="text-3xl md:text-4xl font-black text-slate-800 tracking-tight leading-tight mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
-                                Asignación de Tutorías
+                                Asignación de tutorías
                             </h2>
                             <p className="text-slate-500 text-[13px] font-medium mb-6 leading-relaxed max-w-sm drop-shadow-sm">
-                                Asigna un docente tutor a cada sección. Organizado por grados y colores para mejor identificación.
+                                Designa al docente responsable de guiar y acompañar a los estudiantes de cada sección académica.
                             </p>
+                        </div>
+
+                        {/* Imagen Ilustrativa a la derecha */}
+                        <div className="hidden sm:flex relative w-32 h-32 md:w-45 md:h-45 flex-shrink-0 items-center justify-center md:mr-16">
+                            {/* Brillo suave de fondo para resaltar */}
+                            <div className="absolute inset-0 bg-white/40 rounded-full blur-2xl"></div>
+                            <img
+                                src="/tutor.svg"
+                                alt="Ilustración"
+                                className="relative z-10 w-full h-full object-contain drop-shadow-[0_10px_15px_rgba(0,0,0,0.1)] hover:scale-105 transition-transform duration-500"
+                            />
                         </div>
                     </div>
                 </div>

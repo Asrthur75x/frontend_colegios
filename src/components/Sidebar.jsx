@@ -218,7 +218,7 @@ export default function Sidebar({ currentPath: initialPath = '' }) {
                             />
                             <MenuItem
                                 path="/reservas"
-                                label="Bloques Especiales"
+                                label="Actividades Fijas"
                                 isLocked={cursosCount === 0}
                                 lockMsg="Debes registrar al menos un Curso primero."
                                 icon={

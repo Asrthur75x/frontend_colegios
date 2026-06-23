@@ -39,7 +39,7 @@ const AreaFolderCard = ({ area, onEdit, onDelete, index }) => {
                 {/* Actions */}
                 <div className="flex gap-2 transition-opacity duration-300 relative z-30">
                     <button onClick={(e) => { e.stopPropagation(); onEdit(area); }} className="cursor-pointer p-2 bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-xl transition-colors"><svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg></button>
-                    <button onClick={(e) => { e.stopPropagation(); onDelete(area.id_area); }} className="cursor-pointer p-2 bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-xl transition-colors"><svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+                    <button onClick={(e) => { e.stopPropagation(); onDelete(area); }} className="cursor-pointer p-2 bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-xl transition-colors"><svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
                 </div>
             </div>
 
@@ -73,6 +73,12 @@ export default function AreasManager() {
     const [isEditing, setIsEditing] = useState(false);
     const [editId, setEditId] = useState(null);
     const [guardando, setGuardando] = useState(false);
+    const [formErrors, setFormErrors] = useState({});
+
+    // Estado para modal de eliminar
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [areaToDelete, setAreaToDelete] = useState(null);
+    const [eliminando, setEliminando] = useState(false);
 
     const [nuevaArea, setNuevaArea] = useState({
         nombre: '',
@@ -110,6 +116,7 @@ export default function AreasManager() {
         setIsEditing(false);
         setEditId(null);
         setNuevaArea({ nombre: '', max_horas_dia: '' });
+        setFormErrors({});
         setIsModalOpen(true);
     };
 
@@ -121,27 +128,53 @@ export default function AreasManager() {
             nombre: area.nombre,
             max_horas_dia: area.max_horas_dia || 4
         });
+        setFormErrors({});
         setIsModalOpen(true);
     };
 
-    // ── Eliminar (DELETE endpoint) ──
-    const eliminarArea = async (id) => {
-        const confirmacion = window.confirm("¿Seguro que deseas eliminar esta área?");
-        if (confirmacion) {
-            try {
-                const res = await fetch(`${API_BASE}/areas/${id}`, { method: 'DELETE' });
-                if (!res.ok) throw new Error('Error al eliminar');
-                setAreas(areas.filter(a => a.id_area !== id));
-                window.dispatchEvent(new Event('horarix_data_updated'));
-            } catch (err) {
-                alert(`Error: ${err.message}`);
-            }
+    // ── Preparar Eliminación (Abrir Modal) ──
+    const eliminarArea = (area) => {
+        setAreaToDelete(area);
+        setIsDeleteModalOpen(true);
+    };
+
+    // ── Ejecutar Eliminación (DELETE endpoint) ──
+    const confirmarEliminacion = async () => {
+        if (!areaToDelete) return;
+        setEliminando(true);
+        try {
+            const res = await fetch(`${API_BASE}/areas/${areaToDelete.id_area}`, { method: 'DELETE' });
+            if (!res.ok) throw new Error('Error al eliminar');
+            setAreas(areas.filter(a => a.id_area !== areaToDelete.id_area));
+            window.dispatchEvent(new Event('horarix_data_updated'));
+            setIsDeleteModalOpen(false);
+            setAreaToDelete(null);
+        } catch (err) {
+            alert(`Error: ${err.message}`);
+        } finally {
+            setEliminando(false);
         }
     };
 
     // ── Guardar área (POST al backend) ──
     const handleGuardar = async (e) => {
         e.preventDefault();
+
+        // Validaciones visuales
+        const errors = {};
+        if (!nuevaArea.nombre || nuevaArea.nombre.trim() === '') {
+            errors.nombre = "El nombre del área es obligatorio.";
+        }
+        if (!nuevaArea.max_horas_dia || isNaN(nuevaArea.max_horas_dia) || parseInt(nuevaArea.max_horas_dia) < 1) {
+            errors.max_horas_dia = "Debes ingresar un número válido mayor a 0.";
+        }
+
+        if (Object.keys(errors).length > 0) {
+            setFormErrors(errors);
+            return;
+        }
+
+        setFormErrors({});
         setGuardando(true);
 
         try {
@@ -222,7 +255,7 @@ export default function AreasManager() {
                             {/* Brillo suave de fondo para resaltar */}
                             <div className="absolute inset-0 bg-white/40 rounded-full blur-2xl"></div>
                             <img
-                                src="/teacher.svg"
+                                src="/areas.svg"
                                 alt="Ilustración"
                                 className="relative z-10 w-full h-full object-contain drop-shadow-[0_10px_15px_rgba(0,0,0,0.1)] hover:scale-105 transition-transform duration-500"
                             />
@@ -353,7 +386,7 @@ export default function AreasManager() {
                             </button>
                         </div>
 
-                        <form onSubmit={handleGuardar} className="p-8 space-y-6">
+                        <form onSubmit={handleGuardar} className="p-8 space-y-6" noValidate>
 
                             <div className="space-y-1">
                                 <label className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider">Nombre del Área</label>
@@ -362,9 +395,15 @@ export default function AreasManager() {
                                     type="text"
                                     placeholder="Ej. Ciencias Exactas"
                                     value={nuevaArea.nombre}
-                                    onChange={(e) => setNuevaArea({ ...nuevaArea, nombre: e.target.value })}
-                                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-hx-purple focus:ring-4 focus:ring-hx-purple/10 outline-none transition-all text-sm font-medium text-[#111827] placeholder:text-slate-300"
+                                    onChange={(e) => {
+                                        setNuevaArea({ ...nuevaArea, nombre: e.target.value });
+                                        if (formErrors.nombre) setFormErrors({ ...formErrors, nombre: null });
+                                    }}
+                                    className={`w-full px-4 py-3 rounded-xl border ${formErrors.nombre ? 'border-red-500 focus:ring-red-500/10 bg-red-50/30' : 'border-slate-200 focus:border-hx-purple focus:ring-hx-purple/10'} focus:ring-4 outline-none transition-all text-sm font-medium text-[#111827] placeholder:text-slate-400`}
                                 />
+                                {formErrors.nombre && (
+                                    <p className="text-red-500 text-[11px] font-bold mt-1 animate-fade-in">{formErrors.nombre}</p>
+                                )}
                             </div>
 
                             <div className="space-y-1">
@@ -376,9 +415,15 @@ export default function AreasManager() {
                                     max="12"
                                     placeholder="Ingresa las horas por día"
                                     value={nuevaArea.max_horas_dia}
-                                    onChange={(e) => setNuevaArea({ ...nuevaArea, max_horas_dia: e.target.value })}
-                                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-hx-purple focus:ring-4 focus:ring-hx-purple/10 outline-none transition-all text-sm font-medium text-[#111827] placeholder:text-slate-300"
+                                    onChange={(e) => {
+                                        setNuevaArea({ ...nuevaArea, max_horas_dia: e.target.value });
+                                        if (formErrors.max_horas_dia) setFormErrors({ ...formErrors, max_horas_dia: null });
+                                    }}
+                                    className={`w-full px-4 py-3 rounded-xl border ${formErrors.max_horas_dia ? 'border-red-500 focus:ring-red-500/10 bg-red-50/30' : 'border-slate-200 focus:border-hx-purple focus:ring-hx-purple/10'} focus:ring-4 outline-none transition-all text-sm font-medium text-[#111827] placeholder:text-slate-400`}
                                 />
+                                {formErrors.max_horas_dia && (
+                                    <p className="text-red-500 text-[11px] font-bold mt-1 animate-fade-in">{formErrors.max_horas_dia}</p>
+                                )}
                             </div>
 
                             <div className="flex items-center gap-3 pt-4 border-t border-slate-100">
@@ -407,6 +452,50 @@ export default function AreasManager() {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Confirmación de Eliminar */}
+            {isDeleteModalOpen && areaToDelete && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm animate-fade-in p-4">
+                    <div
+                        className="bg-white rounded-3xl shadow-2xl w-full max-w-[340px] overflow-hidden transform animate-slide-up p-8 text-center"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Icono de advertencia */}
+                        <div className="w-14 h-14 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="#f43f5e" strokeWidth="2.5">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                        </div>
+
+                        <h2 className="text-[20px] font-extrabold text-slate-800 mb-2">Eliminar Área</h2>
+                        <p className="text-slate-500 text-[14px] font-medium mb-8 leading-relaxed">
+                            Estás a punto de eliminar el área <strong className="text-slate-700">"{areaToDelete.nombre}"</strong>. ¿Estás seguro?
+                        </p>
+
+                        <div className="flex items-center gap-3 w-full">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setIsDeleteModalOpen(false);
+                                    setAreaToDelete(null);
+                                }}
+                                disabled={eliminando}
+                                className="cursor-pointer flex-1 py-3 text-[13px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full transition-all disabled:opacity-50"
+                            >
+                                No, Conservarla
+                            </button>
+                            <button
+                                type="button"
+                                onClick={confirmarEliminacion}
+                                disabled={eliminando}
+                                className="cursor-pointer flex-1 py-3 bg-[#f43f5e] hover:bg-[#e11d48] text-white text-[13px] font-bold rounded-full shadow-[0_4px_12px_rgba(244,63,94,0.3)] hover:shadow-[0_6px_16px_rgba(244,63,94,0.4)] transition-all flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {eliminando ? 'Eliminando...' : 'Sí, ¡Eliminar!'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

@@ -11,6 +11,22 @@ import "../styles/global.css";
 		<title>Login | HorariX</title>
 	</head>
 	<body class="bg-white font-sans antialiased h-screen w-screen overflow-hidden">
+		<script is:inline>
+			if (!window.__fetchIntercepted) {
+				window.__fetchIntercepted = true;
+				const originalFetch = window.fetch;
+				window.fetch = function(...args) {
+					if (typeof args[0] === 'string') {
+						if (args[0].startsWith('http://127.0.0.1:8000/api')) {
+							args[0] = args[0].replace('http://127.0.0.1:8000/api', '/api');
+						} else if (args[0].startsWith('http://localhost:8000/api')) {
+							args[0] = args[0].replace('http://localhost:8000/api', '/api');
+						}
+					}
+					return originalFetch.apply(this, args);
+				};
+			}
+		</script>
 		<Login client:load />
 	</body>
 </html>

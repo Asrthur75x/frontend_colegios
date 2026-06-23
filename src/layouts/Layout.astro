@@ -21,8 +21,24 @@ const bodyBg = "rgba(121, 14, 236, 0.95)";
 			if (!localStorage.getItem("user")) {
 				window.location.href = "/login";
 			}
+			// Global interceptor for API calls to bypass CORS without backend changes
+			if (!window.__fetchIntercepted) {
+				window.__fetchIntercepted = true;
+				const originalFetch = window.fetch;
+				window.fetch = function(...args) {
+					if (typeof args[0] === 'string') {
+						if (args[0].startsWith('http://127.0.0.1:8000/api')) {
+							args[0] = args[0].replace('http://127.0.0.1:8000/api', '/api');
+						} else if (args[0].startsWith('http://localhost:8000/api')) {
+							args[0] = args[0].replace('http://localhost:8000/api', '/api');
+						}
+					}
+					return originalFetch.apply(this, args);
+				};
+			}
 		</script>
 		<ClientRouter />
+
 	</head>
 	<body
 		class="text-[#757680] font-sans antialiased h-screen overflow-hidden pt-20 transition-colors duration-500"

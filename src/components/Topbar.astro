@@ -21,10 +21,9 @@ if (
 }
 
 const isHorarios = pathname.includes("/horarios");
-const isDashboard =
-    !isHorarios &&
-    (pathname === "/" || pathname === "" || pathname.includes("/dashboard"));
 const isAjustes = pathname.startsWith("/ajustes");
+// Si no es la app de Horarios ni Ajustes, se asume que estamos navegando dentro del ecosistema "Dashboard"
+const isDashboard = !isHorarios && !isAjustes;
 
 const sidebarColor = "rgba(121, 14, 236, 0.95)";
 ---
@@ -75,6 +74,7 @@ const sidebarColor = "rgba(121, 14, 236, 0.95)";
             <!-- Dashboard -->
             <a
                 href="/dashboard"
+                id="nav-dashboard"
                 class={isDashboard
                     ? "bg-white text-[#111827] px-5 py-2.5 rounded-2xl text-sm font-extrabold shadow-sm transition-all border border-slate-200 hover:shadow-md"
                     : "relative inline-flex items-center justify-center px-4 py-2 text-sm font-bold text-slate-500 hover:text-[#111827] transition-colors rounded-xl overflow-hidden group"}
@@ -182,6 +182,23 @@ const sidebarColor = "rgba(121, 14, 236, 0.95)";
         // Indicador dinámico de Horarios (Borde giratorio)
         const checkHorariosStatus = () => {
             const isReady = localStorage.getItem("configReady") === "true";
+            
+            // Navegación inteligente de retorno
+            const navDashboard = document.getElementById("nav-dashboard");
+            const currentPath = window.location.pathname.replace(/\/$/, "");
+            
+            // Si estamos dentro del módulo académico/docente (no horarios), guardamos la ruta
+            if (!currentPath.startsWith("/horarios")) {
+                sessionStorage.setItem("lastAppPage", currentPath === "" ? "/dashboard" : currentPath);
+            }
+            
+            // Al botón de Dashboard le asignamos la última página visitada
+            if (navDashboard) {
+                const lastPage = sessionStorage.getItem("lastAppPage");
+                if (lastPage) {
+                    navDashboard.href = lastPage;
+                }
+            }
             console.log("Topbar: Verificando configReady ->", isReady);
 
             const spinBorder = document.getElementById("horarios-spin-border");

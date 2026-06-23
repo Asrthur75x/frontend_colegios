@@ -13,8 +13,20 @@ export default function DashboardManager() {
     const [sedesList, setSedesList] = useState([]);
     const [sedeProfesor, setSedeProfesor] = useState([]);
     const [areasList, setAreasList] = useState([]);
-    const [activeTab, setActiveTab] = useState(null);
+    const [activeTab, setActiveTab] = useState(() => {
+        if (typeof sessionStorage !== 'undefined') {
+            const saved = sessionStorage.getItem('dashboardActiveSede');
+            return saved ? parseInt(saved, 10) : null;
+        }
+        return null;
+    });
     const [currentPage, setCurrentPage] = useState(1);
+
+    useEffect(() => {
+        if (activeTab && typeof sessionStorage !== 'undefined') {
+            sessionStorage.setItem('dashboardActiveSede', activeTab.toString());
+        }
+    }, [activeTab]);
 
     useEffect(() => {
         const load = async () => {

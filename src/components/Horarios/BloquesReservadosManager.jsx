@@ -10,20 +10,25 @@ export default function BloquesReservadosManager() {
     const [grados, setGrados] = useState([]);
     const [gradoDiaConfigs, setGradoDiaConfigs] = useState([]);
     const [reservas, setReservas] = useState([]);
-    
+
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [bloqueToDelete, setBloqueToDelete] = useState(null);
+    const [eliminando, setEliminando] = useState(false);
+    const [answeredYes, setAnsweredYes] = useState(false);
+
     // Form State
     const [formData, setFormData] = useState({
-        id_sede: '',
+        sedes: [],
         id_dia: '',
         id_turno: '',
         nombre_actividad: '',
         grados: [],
-        opciones_slots: [ [] ]
+        opciones_slots: [[]]
     });
+    const [formErrors, setFormErrors] = useState({});
 
     useEffect(() => {
         fetchInitialData();
@@ -46,7 +51,7 @@ export default function BloquesReservadosManager() {
             setGrados(rGrados.ok ? await rGrados.json() : []);
             setGradoDiaConfigs(rConfig.ok ? await rConfig.json() : []);
             setReservas(rReservas.ok ? await rReservas.json() : []);
-            
+
             setStatus('ready');
         } catch (error) {
             console.error("Error cargando datos:", error);
@@ -56,13 +61,14 @@ export default function BloquesReservadosManager() {
 
     const handleOpenModal = () => {
         setFormData({
-            id_sede: sedes.length > 0 ? sedes[0].id_sede : '',
-            id_dia: dias.length > 0 ? dias[0].id_dia : '',
-            id_turno: turnos.length > 0 ? turnos[0].id_turno : '',
+            sedes: [],
+            id_dia: '',
+            id_turno: '',
             nombre_actividad: '',
             grados: [],
-            opciones_slots: [ [] ]
+            opciones_slots: [[]]
         });
+        setFormErrors({});
         setIsModalOpen(true);
     };
 
@@ -76,6 +82,16 @@ export default function BloquesReservadosManager() {
             return {
                 ...prev,
                 grados: exists ? prev.grados.filter(g => g !== id_grado) : [...prev.grados, id_grado]
+            };
+        });
+    };
+
+    const toggleSede = (id_sede) => {
+        setFormData(prev => {
+            const exists = prev.sedes.includes(id_sede);
+            return {
+                ...prev,
+                sedes: exists ? prev.sedes.filter(s => s !== id_sede) : [...prev.sedes, id_sede]
             };
         });
     };
@@ -94,49 +110,85 @@ export default function BloquesReservadosManager() {
 
 
 
-    const handleSave = async () => {
-        if (!formData.id_sede || !formData.id_dia || !formData.id_turno) {
-            alert("Debes seleccionar Sede, Día y Turno.");
-            return;
-        }
-        if (!formData.nombre_actividad.trim()) {
-            alert("Debes ingresar el nombre de la actividad.");
-            return;
-        }
-        if (formData.grados.length === 0) {
-            alert("Debes seleccionar al menos un grado.");
-            return;
-        }
+    const handleSave = async (e) => {
+        if (e) e.preventDefault();
+
+        let errors = {};
+        if (formData.sedes.length === 0) errors.sedes = "Selecciona al menos una sede";
+        if (!formData.id_dia) errors.id_dia = "Selecciona un día";
+        if (!formData.id_turno) errors.id_turno = "Selecciona un turno";
+        if (!formData.nombre_actividad.trim()) errors.nombre_actividad = "El nombre es obligatorio";
+        if (formData.grados.length === 0) errors.grados = "Selecciona al menos un grado";
         if (formData.opciones_slots.length === 0 || formData.opciones_slots.some(op => op.length === 0)) {
-            alert("Todas las opciones deben tener al menos un bloque asignado.");
+            errors.opciones_slots = "Todas las alternativas deben tener al menos un bloque seleccionado";
+        } else {
+            let hasNonConsecutive = false;
+            for (let op of formData.opciones_slots) {
+                if (op.length > 1) {
+                    const sorted = [...op].sort((a, b) => a - b);
+                    for (let i = 1; i < sorted.length; i++) {
+                        if (sorted[i] - sorted[i - 1] !== 1) {
+                            hasNonConsecutive = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (hasNonConsecutive) {
+                errors.opciones_slots = "Los bloques dentro de una alternativa deben ser estrictamente consecutivos";
+            } else {
+                const seen = new Set();
+                let hasDuplicates = false;
+                for (let op of formData.opciones_slots) {
+                    const strVal = [...op].sort((a, b) => a - b).join(',');
+                    if (seen.has(strVal)) {
+                        hasDuplicates = true;
+                        break;
+                    }
+                    seen.add(strVal);
+                }
+                if (hasDuplicates) {
+                    errors.opciones_slots = "No puedes crear alternativas idénticas con los mismos bloques";
+                }
+            }
+        }
+
+        if (Object.keys(errors).length > 0) {
+            setFormErrors(errors);
             return;
         }
 
+        setFormErrors({});
         setIsSaving(true);
         try {
-            const payload = {
-                id_sede: parseInt(formData.id_sede),
-                id_dia: parseInt(formData.id_dia),
-                id_turno: parseInt(formData.id_turno),
-                nombre: formData.nombre_actividad.trim(),
-                grados: formData.grados.map(g => parseInt(g)),
-                opciones: formData.opciones_slots.map((slots, i) => ({
-                    nro_opcion: i + 1,
+            const promises = formData.sedes.map(sedeId => {
+                const payload = {
+                    id_sede: parseInt(sedeId),
+                    id_dia: parseInt(formData.id_dia),
+                    id_turno: parseInt(formData.id_turno),
                     nombre: formData.nombre_actividad.trim(),
-                    slots: slots
-                }))
-            };
-            const res = await fetch(`${API_BASE}/bloque-reservado-completo`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                    grados: formData.grados.map(g => parseInt(g)),
+                    opciones: formData.opciones_slots.map((slots, i) => ({
+                        nro_opcion: i + 1,
+                        nombre: formData.nombre_actividad.trim(),
+                        slots: slots
+                    }))
+                };
+                return fetch(`${API_BASE}/bloque-reservado-completo`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
             });
-            if (res.ok) {
+
+            const results = await Promise.all(promises);
+            const allOk = results.every(res => res.ok);
+
+            if (allOk) {
                 await fetchInitialData();
                 setIsModalOpen(false);
             } else {
-                const err = await res.text();
-                alert("Error al guardar: " + err);
+                alert("Hubo un error al guardar uno o más bloques.");
             }
         } catch (error) {
             console.error(error);
@@ -146,19 +198,29 @@ export default function BloquesReservadosManager() {
         }
     };
 
-    const handleDelete = async (id) => {
-        if (!confirm("¿Seguro que deseas eliminar este bloque reservado?")) return;
+    const handleDelete = (r) => {
+        setBloqueToDelete(r);
+        setIsDeleteModalOpen(true);
+    };
+
+    const confirmarEliminacion = async () => {
+        if (!bloqueToDelete) return;
+        setEliminando(true);
         try {
-            const res = await fetch(`${API_BASE}/bloque-reservado/${id}`, {
+            const res = await fetch(`${API_BASE}/bloque-reservado/${bloqueToDelete.id_bloque_reservado}`, {
                 method: 'DELETE'
             });
             if (res.ok) {
                 await fetchInitialData();
+                setIsDeleteModalOpen(false);
+                setBloqueToDelete(null);
             } else {
                 alert("Error al eliminar.");
             }
         } catch (error) {
             console.error(error);
+        } finally {
+            setEliminando(false);
         }
     };
 
@@ -170,8 +232,8 @@ export default function BloquesReservadosManager() {
     // --- Dynamic Blocks Calculation ---
     const maxBloques = React.useMemo(() => {
         if (!formData.id_dia || formData.grados.length === 0 || gradoDiaConfigs.length === 0) return 0;
-        const configs = gradoDiaConfigs.filter(c => 
-            c.id_dia === parseInt(formData.id_dia) && 
+        const configs = gradoDiaConfigs.filter(c =>
+            c.id_dia === parseInt(formData.id_dia) &&
             formData.grados.includes(c.id_grado)
         );
         if (configs.length === 0) return 0;
@@ -180,7 +242,17 @@ export default function BloquesReservadosManager() {
 
     // --- Métricas para el panel derecho ---
     const totalReservas = reservas.length;
-    const totalHorasBloqueadas = reservas.reduce((acc, r) => acc + r.opciones.reduce((sum, op) => sum + op.slots.length, 0), 0);
+    const totalHorasBloqueadas = reservas.reduce((acc, r) => {
+        let maxSlots = 0;
+        if (r.opciones) {
+            r.opciones.forEach(op => {
+                if (op.slots && op.slots.length > maxSlots) {
+                    maxSlots = op.slots.length;
+                }
+            });
+        }
+        return acc + maxSlots;
+    }, 0);
 
     if (status === 'loading') return <div className="flex justify-center py-12"><div className="w-8 h-8 border-4 border-hx-purple/30 border-t-hx-purple rounded-full animate-spin"></div></div>;
 
@@ -192,21 +264,47 @@ export default function BloquesReservadosManager() {
 
                 <div className="md:w-2/3 bg-[var(--color-hx-purple)]/10 rounded-[24px] p-8 shadow-md relative overflow-hidden flex flex-col justify-center min-h-[180px] border border-[var(--color-hx-purple)]/70">
                     <div className="relative z-10 flex flex-col md:flex-row justify-between items-center md:items-start gap-6">
-                        <div className="max-w-md">
-                            <h2 className="text-3xl md:text-4xl font-black text-slate-800 tracking-tight leading-tight mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
-                                Bloques Especiales
-                            </h2>
-                            <p className="text-slate-500 text-[13px] font-medium mb-6 leading-relaxed max-w-sm drop-shadow-sm">
-                                Reserva bloques de horario que serán compartidos entre múltiples grados, ideal para talleres, electivos o actividades conjuntas.
+                        <div className="max-w-xl">
+                            <div className="flex items-center gap-3 mb-3">
+                                <h2 className="text-3xl md:text-4xl font-black text-slate-800 tracking-tight leading-tight flex flex-wrap items-center gap-x-3 gap-y-2">
+                                    Actividades Fijas
+                                </h2>
+                                <span className="bg-amber-100 text-amber-700 text-[10px] font-black uppercase px-2.5 py-1 rounded-md tracking-widest shadow-sm border border-amber-200">
+                                    Módulo Opcional
+                                </span>
+                            </div>
+
+                            <p className="text-slate-500 text-[13px] font-medium mb-4 leading-relaxed max-w-lg drop-shadow-sm">
+                                Solo utiliza esta sección si tu colegio tiene <strong>eventos estrictamente fijos</strong> en la semana (ej: formación general de los lunes, educación física en un bloque fijo, talleres simultáneos).
                             </p>
 
-                            <button
-                                onClick={handleOpenModal}
-                                className="bg-hx-purple text-white hover:bg-hx-purple/80 font-extrabold py-2.5 px-6 rounded-xl shadow-[0_4px_12px_rgba(121,14,236,0.3)] hover:shadow-[0_6px_16px_rgba(121,14,236,0.4)] hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2 text-sm w-max cursor-pointer"
-                            >
-                                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
-                                Crear Nuevo Bloque
-                            </button>
+                            {reservas.length === 0 && !answeredYes ? (
+                                <div className="mt-4 flex flex-col gap-3">
+                                    <p className="text-slate-800 font-black text-[14px]">¿Tu colegio cuenta con actividades fijas o bloques especiales?</p>
+                                    <div className="flex flex-wrap gap-3">
+                                        <button
+                                            onClick={() => setAnsweredYes(true)}
+                                            className="bg-hx-purple text-white hover:bg-hx-purple/90 font-bold py-2.5 px-6 rounded-xl shadow-sm hover:shadow-md transition-all text-[13px] cursor-pointer"
+                                        >
+                                            Sí, configurar bloques
+                                        </button>
+                                        <button
+                                            onClick={() => window.location.href = '/planes'}
+                                            className="bg-white border-2 border-slate-200 text-slate-600 hover:text-hx-purple hover:border-hx-purple font-bold py-2.5 px-6 rounded-xl shadow-sm hover:shadow-md transition-all text-[13px] cursor-pointer"
+                                        >
+                                            No, omitir este paso
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={handleOpenModal}
+                                    className="bg-hx-purple text-white hover:bg-hx-purple/80 font-extrabold py-2.5 px-6 rounded-xl shadow-[0_4px_12px_rgba(121,14,236,0.3)] hover:shadow-[0_6px_16px_rgba(121,14,236,0.4)] hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2 text-sm w-max cursor-pointer"
+                                >
+                                    <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
+                                    Crear Nuevo Bloque
+                                </button>
+                            )}
                         </div>
 
                         {/* Imagen Ilustrativa a la derecha */}
@@ -267,15 +365,17 @@ export default function BloquesReservadosManager() {
                             <div key={r.id_bloque_reservado} className="bg-white rounded-[24px] border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-300 relative group overflow-hidden flex flex-col">
                                 {/* Decoración superior según turno */}
                                 <div className={`h-2 w-full ${r.id_turno === 1 ? 'bg-amber-400' : 'bg-indigo-500'}`}></div>
-                                
-                                <button 
-                                    onClick={() => handleDelete(r.id_bloque_reservado)}
-                                    className="absolute top-5 right-5 w-8 h-8 rounded-full bg-white border border-slate-100 text-red-400 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500 hover:text-white shadow-sm hover:border-red-500 z-10"
-                                    title="Eliminar Reserva"
-                                >
-                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                </button>
-                                
+
+                                <div className="absolute top-5 right-5 flex items-center gap-2 z-10">
+                                    <button
+                                        onClick={() => handleDelete(r)}
+                                        className="cursor-pointer w-8 h-8 rounded-full bg-white border border-slate-100 text-red-400 flex items-center justify-center transition-all hover:bg-red-500 hover:text-white shadow-sm hover:border-red-500"
+                                        title="Eliminar Reserva"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                    </button>
+                                </div>
+
                                 <div className="p-6 flex-1 flex flex-col">
                                     <div className="flex items-center gap-3 mb-5">
                                         <div className="w-12 h-12 rounded-xl bg-purple-50 text-[var(--color-hx-purple)] flex items-center justify-center border border-purple-100 shadow-sm shrink-0">
@@ -295,7 +395,7 @@ export default function BloquesReservadosManager() {
                                             </p>
                                         </div>
                                     </div>
-                                    
+
                                     <div className="mb-5 flex-1">
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 border-b border-slate-100 pb-2">Grados Involucrados</p>
                                         <div className="flex flex-wrap gap-2">
@@ -344,14 +444,14 @@ export default function BloquesReservadosManager() {
                                 <h2 className="text-2xl font-black text-slate-800 tracking-tight">Nuevo Bloque Especial</h2>
                                 <p className="text-slate-500 font-medium text-sm mt-1">Configura los parámetros para este bloque compartido.</p>
                             </div>
-                            <button onClick={handleCloseModal} className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors shadow-sm border border-slate-200">
+                            <button onClick={handleCloseModal} className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors shadow-sm border border-slate-200 cursor-pointer">
                                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                             </button>
                         </div>
 
                         {/* Body scrollable */}
                         <div className="p-8 overflow-y-auto flex-1 flex flex-col gap-8">
-                            
+
                             {/* A. Datos Generales */}
                             <div className="bg-white">
                                 <h3 className="text-sm font-black text-[var(--color-hx-purple)] uppercase tracking-widest mb-4 flex items-center gap-2">
@@ -360,31 +460,57 @@ export default function BloquesReservadosManager() {
                                 </h3>
                                 <div className="grid grid-cols-3 gap-4">
                                     <div>
-                                        <label className="text-xs font-bold text-slate-500 mb-1.5 block">Sede</label>
-                                        <select 
-                                            value={formData.id_sede} onChange={e => setFormData({...formData, id_sede: e.target.value})}
-                                            className="w-full bg-slate-50 border border-slate-200 text-slate-800 font-bold rounded-xl px-4 py-2.5 outline-none focus:border-hx-purple"
-                                        >
-                                            {sedes.map(s => <option key={s.id_sede} value={s.id_sede}>{s.nombre_sede}</option>)}
-                                        </select>
+                                        <label className="text-xs font-bold text-slate-500 mb-1.5 block">Sede(s)</label>
+                                        <div className="flex flex-col gap-2">
+                                            {sedes.map(s => {
+                                                const isSelected = formData.sedes.includes(s.id_sede);
+                                                return (
+                                                    <button
+                                                        key={s.id_sede}
+                                                        onClick={() => {
+                                                            toggleSede(s.id_sede);
+                                                            if (formErrors.sedes) setFormErrors({ ...formErrors, sedes: null });
+                                                        }}
+                                                        className={`px-3 py-2 rounded-xl font-bold text-xs transition-all flex items-center justify-between border-2 cursor-pointer ${isSelected
+                                                            ? 'bg-[var(--color-hx-purple)] border-[var(--color-hx-purple)] text-white shadow-md'
+                                                            : (formErrors.sedes ? 'bg-red-50 border-red-200 text-slate-500' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300')
+                                                            }`}
+                                                    >
+                                                        <span className="truncate pr-2">{s.nombre_sede}</span>
+                                                        {isSelected && <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                        {formErrors.sedes && <p className="text-[11px] font-bold text-red-500 mt-2 flex items-center gap-1"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>{formErrors.sedes}</p>}
                                     </div>
                                     <div>
                                         <label className="text-xs font-bold text-slate-500 mb-1.5 block">Día</label>
-                                        <select 
-                                            value={formData.id_dia} onChange={e => setFormData({...formData, id_dia: e.target.value})}
-                                            className="w-full bg-slate-50 border border-slate-200 text-slate-800 font-bold rounded-xl px-4 py-2.5 outline-none focus:border-hx-purple"
+                                        <select
+                                            value={formData.id_dia} onChange={e => {
+                                                setFormData({ ...formData, id_dia: e.target.value });
+                                                if (formErrors.id_dia) setFormErrors({ ...formErrors, id_dia: null });
+                                            }}
+                                            className={`w-full bg-slate-50 border font-bold rounded-xl px-4 py-2.5 outline-none cursor-pointer ${formErrors.id_dia ? 'border-red-400 text-red-700' : 'border-slate-200 text-slate-800 focus:border-hx-purple'}`}
                                         >
+                                            <option value="">Seleccionar Día</option>
                                             {dias.map(d => <option key={d.id_dia} value={d.id_dia}>{d.nombre_dia}</option>)}
                                         </select>
+                                        {formErrors.id_dia && <p className="text-[11px] font-bold text-red-500 mt-2 flex items-center gap-1"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>{formErrors.id_dia}</p>}
                                     </div>
                                     <div>
                                         <label className="text-xs font-bold text-slate-500 mb-1.5 block">Turno</label>
-                                        <select 
-                                            value={formData.id_turno} onChange={e => setFormData({...formData, id_turno: e.target.value})}
-                                            className="w-full bg-slate-50 border border-slate-200 text-slate-800 font-bold rounded-xl px-4 py-2.5 outline-none focus:border-hx-purple"
+                                        <select
+                                            value={formData.id_turno} onChange={e => {
+                                                setFormData({ ...formData, id_turno: e.target.value });
+                                                if (formErrors.id_turno) setFormErrors({ ...formErrors, id_turno: null });
+                                            }}
+                                            className={`w-full bg-slate-50 border font-bold rounded-xl px-4 py-2.5 outline-none cursor-pointer ${formErrors.id_turno ? 'border-red-400 text-red-700' : 'border-slate-200 text-slate-800 focus:border-hx-purple'}`}
                                         >
+                                            <option value="">Seleccionar Turno</option>
                                             {turnos.map(t => <option key={t.id_turno} value={t.id_turno}>{t.nombre}</option>)}
                                         </select>
+                                        {formErrors.id_turno && <p className="text-[11px] font-bold text-red-500 mt-2 flex items-center gap-1"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>{formErrors.id_turno}</p>}
                                     </div>
                                 </div>
                             </div>
@@ -401,12 +527,14 @@ export default function BloquesReservadosManager() {
                                         return (
                                             <button
                                                 key={g.id_grado}
-                                                onClick={() => toggleGrado(g.id_grado)}
-                                                className={`px-4 py-2 rounded-xl font-black text-sm transition-all flex items-center gap-2 border-2 ${
-                                                    isSelected 
-                                                    ? 'bg-[var(--color-hx-purple)] border-[var(--color-hx-purple)] text-white shadow-md' 
-                                                    : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
-                                                }`}
+                                                onClick={() => {
+                                                    toggleGrado(g.id_grado);
+                                                    if (formErrors.grados) setFormErrors({ ...formErrors, grados: null });
+                                                }}
+                                                className={`px-4 py-2 rounded-xl font-black text-sm transition-all flex items-center gap-2 border-2 cursor-pointer ${isSelected
+                                                    ? 'bg-[var(--color-hx-purple)] border-[var(--color-hx-purple)] text-white shadow-md'
+                                                    : (formErrors.grados ? 'bg-red-50 border-red-200 text-slate-500' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300')
+                                                    }`}
                                             >
                                                 {isSelected && <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
                                                 {g.numero}° Grado
@@ -414,46 +542,63 @@ export default function BloquesReservadosManager() {
                                         );
                                     })}
                                 </div>
+                                {formErrors.grados && <p className="text-[11px] font-bold text-red-500 mt-3 flex items-center gap-1"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>{formErrors.grados}</p>}
                             </div>
 
                             {/* C. Configuración de Grupos y Horas */}
                             <div className="bg-white">
-                                <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
-                                    <h3 className="text-sm font-black text-[var(--color-hx-purple)] uppercase tracking-widest flex items-center gap-2">
-                                        <span className="w-6 h-6 rounded bg-purple-100 text-purple-600 flex items-center justify-center">3</span>
-                                        Grupos y Horas (Bloques)
-                                    </h3>
-                                    <button 
+                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 border-b border-slate-100 pb-4 gap-4">
+                                    <div>
+                                        <h3 className="text-sm font-black text-[var(--color-hx-purple)] uppercase tracking-widest flex items-center gap-2 mb-1.5">
+                                            <span className="w-6 h-6 rounded bg-purple-100 text-purple-600 flex items-center justify-center shrink-0">3</span>
+                                            Alternativas de Horario (Bloques)
+                                        </h3>
+
+                                    </div>
+                                    <button
                                         onClick={handleAddOpcion}
-                                        className="text-xs font-black text-[var(--color-hx-purple)] bg-purple-50 px-3 py-1.5 rounded-lg hover:bg-purple-100 transition-colors flex items-center gap-1 shadow-sm border border-purple-100"
+                                        className="cursor-pointer text-[11px] font-bold text-slate-600 bg-white border-2 border-slate-200 hover:border-slate-400 hover:bg-slate-50 px-3 py-1.5 rounded-xl transition-all shadow-sm flex items-center gap-1.5 ml-8 sm:ml-0 shrink-0"
                                     >
-                                        + Añadir Alternativa de Horario
+                                        <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                                        Añadir Alternativa
                                     </button>
                                 </div>
-                                
+
+                                {formErrors.opciones_slots && (
+                                    <div className="mb-5 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-[13px] font-bold flex items-center gap-2">
+                                        <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                        {formErrors.opciones_slots}
+                                    </div>
+                                )}
+
                                 <div className="mb-8 bg-slate-50 p-5 rounded-2xl border border-slate-200 shadow-sm">
                                     <label className="text-xs font-bold text-slate-500 mb-2 block uppercase tracking-widest flex items-center gap-2">
                                         <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                         Nombre de la Actividad General
                                     </label>
-                                    <input 
-                                        type="text" 
+                                    <input
+                                        type="text"
                                         value={formData.nombre_actividad}
-                                        onChange={(e) => setFormData({...formData, nombre_actividad: e.target.value})}
+                                        onChange={(e) => {
+                                            setFormData({ ...formData, nombre_actividad: e.target.value });
+                                            if (formErrors.nombre_actividad) setFormErrors({ ...formErrors, nombre_actividad: null });
+                                        }}
                                         placeholder="Ej: Examen de Matemática, Taller de Arte..."
-                                        className="w-full text-lg font-black text-slate-800 bg-white border border-slate-300 rounded-xl px-4 py-3 outline-none focus:border-hx-purple focus:ring-2 focus:ring-purple-100 placeholder:text-slate-300 transition-all shadow-sm"
+                                        className={`w-full text-lg font-black text-slate-800 bg-white border rounded-xl px-4 py-3 outline-none transition-all shadow-sm ${formErrors.nombre_actividad ? 'border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-100' : 'border-slate-300 focus:border-hx-purple focus:ring-2 focus:ring-purple-100 placeholder:text-slate-300'}`}
                                     />
-                                    <p className="text-[11px] text-slate-400 mt-2 font-medium">
-                                        Este nombre se aplicará a todas las alternativas de horario que configures a continuación.
-                                    </p>
-                                </div>
-
-                                <div className="relative pl-2 sm:pl-6">
+                                    {formErrors.nombre_actividad ? (
+                                        <p className="text-[11px] font-bold text-red-500 mt-2 flex items-center gap-1"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>{formErrors.nombre_actividad}</p>
+                                    ) : (
+                                        <p className="text-[11px] text-slate-400 mt-2 font-medium">
+                                            Este nombre se aplicará a todas las alternativas de horario que configures a continuación.
+                                        </p>
+                                    )}
+                                </div>                                <div className="relative pl-2 sm:pl-6">
                                     {/* Timeline Connector */}
                                     {formData.opciones_slots.length > 1 && (
                                         <div className="absolute left-6 sm:left-10 top-8 bottom-8 w-[2px] bg-slate-200 z-0 rounded-full"></div>
                                     )}
-                                    
+
                                     <div className="space-y-6">
 
                                         {formData.opciones_slots.map((op, opIdx) => (
@@ -464,10 +609,10 @@ export default function BloquesReservadosManager() {
                                                         O
                                                     </div>
                                                 )}
-                                                
+
                                                 <div className="bg-white rounded-2xl border-2 border-slate-100 p-5 shadow-sm relative hover:border-purple-200 transition-all ml-4 sm:ml-0">
                                                     {formData.opciones_slots.length > 1 && (
-                                                        <button 
+                                                        <button
                                                             onClick={() => handleRemoveOpcion(opIdx)}
                                                             className="absolute -top-3 -right-3 w-8 h-8 bg-white border-2 border-slate-100 text-red-500 rounded-full flex items-center justify-center shadow-sm hover:bg-red-50 hover:border-red-200 transition-all"
                                                             title="Eliminar esta alternativa"
@@ -475,7 +620,7 @@ export default function BloquesReservadosManager() {
                                                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                                                         </button>
                                                     )}
-                                                    
+
                                                     <div className="flex flex-col sm:flex-row gap-5">
                                                         <div className="flex flex-row sm:flex-col items-center sm:items-start gap-3 sm:w-1/4 shrink-0 border-b sm:border-b-0 sm:border-r border-slate-100 pb-4 sm:pb-0 sm:pr-4">
                                                             <div className="w-10 h-10 rounded-xl bg-purple-50 text-hx-purple font-black flex items-center justify-center text-lg border border-purple-100 shadow-sm">
@@ -486,13 +631,13 @@ export default function BloquesReservadosManager() {
                                                                 <span className="text-xs font-bold text-slate-500">De horario</span>
                                                             </div>
                                                         </div>
-                                                        
+
                                                         <div className="flex-1 pt-1 sm:pt-0">
                                                             <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
                                                                 <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                                                 Selecciona los bloques a reservar:
                                                             </label>
-                                                            
+
                                                             {maxBloques === 0 ? (
                                                                 <div className="w-full bg-amber-50 text-amber-600 p-4 rounded-xl border border-amber-200 text-sm font-bold flex items-center gap-2">
                                                                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
@@ -502,42 +647,42 @@ export default function BloquesReservadosManager() {
                                                                 <div className="flex flex-wrap gap-2.5">
                                                                     {Array.from({ length: maxBloques }, (_, i) => i + 1).map(num => {
                                                                         const isSelected = op.includes(num);
-                                                                return (
-                                                                    <button
-                                                                        key={num}
-                                                                        onClick={() => {
-                                                                            const newOps = [...formData.opciones_slots];
-                                                                            if (isSelected) {
-                                                                                newOps[opIdx] = newOps[opIdx].filter(s => s !== num);
-                                                                            } else {
-                                                                                newOps[opIdx] = [...newOps[opIdx], num].sort((a,b)=>a-b);
-                                                                            }
-                                                                            setFormData({ ...formData, opciones_slots: newOps });
-                                                                        }}
-                                                                        className={`w-10 h-10 rounded-xl font-black text-sm transition-all border-2 ${
-                                                                            isSelected 
-                                                                            ? 'bg-[var(--color-hx-purple)] border-[var(--color-hx-purple)] text-white shadow-md scale-105' 
-                                                                            : 'bg-slate-50 border-slate-200 text-slate-400 hover:border-slate-300 hover:text-slate-600 hover:bg-slate-100'
-                                                                        }`}
-                                                                    >
-                                                                        {num}
-                                                                    </button>
-                                                                );
-                                                            })}
+                                                                        return (
+                                                                            <button
+                                                                                key={num}
+                                                                                onClick={() => {
+                                                                                    const newOps = [...formData.opciones_slots];
+                                                                                    if (isSelected) {
+                                                                                        newOps[opIdx] = newOps[opIdx].filter(s => s !== num);
+                                                                                    } else {
+                                                                                        newOps[opIdx] = [...newOps[opIdx], num].sort((a, b) => a - b);
+                                                                                    }
+                                                                                    setFormData({ ...formData, opciones_slots: newOps });
+                                                                                    if (formErrors.opciones_slots) setFormErrors({ ...formErrors, opciones_slots: null });
+                                                                                }}
+                                                                                className={`w-10 h-10 rounded-xl font-black text-sm transition-all border-2 cursor-pointer ${isSelected
+                                                                                    ? 'bg-[var(--color-hx-purple)] border-[var(--color-hx-purple)] text-white shadow-md scale-105'
+                                                                                    : (formErrors.opciones_slots && op.length === 0 ? 'bg-red-50 border-red-300 text-red-500' : 'bg-slate-50 border-slate-200 text-slate-400 hover:border-slate-300 hover:text-slate-600 hover:bg-slate-100')
+                                                                                    }`}
+                                                                            >
+                                                                                {num}
+                                                                            </button>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            )}
+
+                                                            {op.length === 0 && maxBloques > 0 && (
+                                                                <p className="text-[10px] text-amber-500 font-bold mt-3 flex items-center gap-1.5 bg-amber-50 px-3 py-2 rounded-lg inline-flex">
+                                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                                                    Selecciona al menos un bloque.
+                                                                </p>
+                                                            )}
                                                         </div>
-                                                    )}
-                                                    
-                                                    {op.length === 0 && maxBloques > 0 && (
-                                                        <p className="text-[10px] text-amber-500 font-bold mt-3 flex items-center gap-1.5 bg-amber-50 px-3 py-2 rounded-lg inline-flex">
-                                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                                                            Selecciona al menos un bloque.
-                                                        </p>
-                                                    )}
+                                                    </div>
                                                 </div>
                                             </div>
-                                            </div>
-                                        </div>
-                                    ))}
+                                        ))}
                                     </div>
                                 </div>
                             </div>
@@ -545,18 +690,62 @@ export default function BloquesReservadosManager() {
 
                         {/* Footer */}
                         <div className="px-8 py-5 border-t border-slate-100 bg-white rounded-b-[32px] flex justify-end gap-3">
-                            <button 
+                            <button
                                 onClick={handleCloseModal}
                                 className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-50 transition-colors"
                             >
                                 Cancelar
                             </button>
-                            <button 
+                            <button
                                 onClick={handleSave}
                                 disabled={isSaving}
-                                className="px-8 py-3 bg-[var(--color-hx-purple)] text-white font-black rounded-xl hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center gap-2 disabled:opacity-50"
+                                className="px-8 py-3 bg-[var(--color-hx-purple)] text-white font-black rounded-xl hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
                             >
                                 {isSaving ? 'Guardando...' : 'Guardar Bloque'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Confirmación de Eliminar */}
+            {isDeleteModalOpen && bloqueToDelete && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm animate-fade-in p-4">
+                    <div
+                        className="bg-white rounded-[24px] shadow-2xl w-full max-w-[340px] overflow-hidden transform animate-slide-up p-8 text-center"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Icono de advertencia */}
+                        <div className="w-14 h-14 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="#f43f5e" strokeWidth="2.5">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                        </div>
+
+                        <h2 className="text-[20px] font-extrabold text-slate-800 mb-2">Eliminar Bloque</h2>
+                        <p className="text-slate-500 text-[14px] font-medium mb-8 leading-relaxed">
+                            Estás a punto de eliminar el bloque reservado <strong className="text-slate-700">"{bloqueToDelete.nombre}"</strong>. ¿Estás seguro?
+                        </p>
+
+                        <div className="flex items-center gap-3 w-full">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setIsDeleteModalOpen(false);
+                                    setBloqueToDelete(null);
+                                }}
+                                disabled={eliminando}
+                                className="cursor-pointer flex-1 py-3 text-[13px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full transition-all disabled:opacity-50"
+                            >
+                                No, Conservarlo
+                            </button>
+                            <button
+                                type="button"
+                                onClick={confirmarEliminacion}
+                                disabled={eliminando}
+                                className="cursor-pointer flex-1 py-3 bg-[#f43f5e] hover:bg-[#e11d48] text-white text-[13px] font-bold rounded-full shadow-[0_4px_12px_rgba(244,63,94,0.3)] hover:shadow-[0_6px_16px_rgba(244,63,94,0.4)] transition-all flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {eliminando ? 'Eliminando...' : 'Sí, ¡Eliminar!'}
                             </button>
                         </div>
                     </div>

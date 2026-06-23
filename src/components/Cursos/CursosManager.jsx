@@ -105,7 +105,7 @@ const CursoBookCard = ({ curso, area, onEdit, onDelete, index }) => {
                         <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                     </button>
                     <button
-                        onClick={(e) => { e.stopPropagation(); onDelete(curso.id_curso); }}
+                        onClick={(e) => { e.stopPropagation(); onDelete(curso); }}
                         title="Eliminar"
                         className="p-2.5 bg-white text-red-500 rounded-full shadow-lg hover:bg-red-50 hover:scale-110 transition-all cursor-pointer"
                     >
@@ -129,6 +129,11 @@ export default function CursosManager() {
     const [isEditing, setIsEditing] = useState(false);
     const [editId, setEditId] = useState(null);
     const [guardando, setGuardando] = useState(false);
+
+    // Modal de confirmación de eliminación
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [cursoToDelete, setCursoToDelete] = useState(null);
+    const [eliminando, setEliminando] = useState(false);
 
     // Adaptado al SQLModel: id_curso, nombre_curso y id_area
     const [nuevoCurso, setNuevoCurso] = useState({
@@ -203,17 +208,26 @@ export default function CursosManager() {
         setIsModalOpen(true);
     };
 
-    // ── Eliminar ──
-    const eliminarCurso = async (id) => {
-        const confirmacion = window.confirm("¿Seguro que deseas eliminar este curso?");
-        if (confirmacion) {
-            try {
-                await fetch(`${API_BASE}/cursos/${id}`, { method: 'DELETE' });
-                setCursos(cursos.filter(c => c.id_curso !== id));
-                window.dispatchEvent(new CustomEvent('horarix_data_updated'));
-            } catch (err) {
-                alert(`Error al eliminar: ${err.message}`);
-            }
+    // ── Preparar Eliminación (Abrir Modal) ──
+    const eliminarCurso = (curso) => {
+        setCursoToDelete(curso);
+        setIsDeleteModalOpen(true);
+    };
+
+    // ── Ejecutar Eliminación (DELETE endpoint) ──
+    const confirmarEliminacion = async () => {
+        if (!cursoToDelete) return;
+        setEliminando(true);
+        try {
+            await fetch(`${API_BASE}/cursos/${cursoToDelete.id_curso}`, { method: 'DELETE' });
+            setCursos(cursos.filter(c => c.id_curso !== cursoToDelete.id_curso));
+            window.dispatchEvent(new CustomEvent('horarix_data_updated'));
+            setIsDeleteModalOpen(false);
+            setCursoToDelete(null);
+        } catch (err) {
+            alert(`Error al eliminar: ${err.message}`);
+        } finally {
+            setEliminando(false);
         }
     };
 
@@ -264,12 +278,7 @@ export default function CursosManager() {
 
                 window.dispatchEvent(new CustomEvent('horarix_data_updated'));
             } else {
-                // Si el usuario escribió algo y no dio Enter, lo agregamos de paso
                 let listToSave = [...cursosNuevos];
-                const val = inputCursoVirtual.trim();
-                if (val && !listToSave.some(c => c.nombre === val)) {
-                    listToSave.push({ nombre: val, requiere_espacio_unico: false });
-                }
 
                 if (listToSave.length === 0) {
                     alert("Por favor, ingresa al menos un curso.");
@@ -446,7 +455,7 @@ export default function CursosManager() {
                             {/* Brillo suave de fondo para resaltar */}
                             <div className="absolute inset-0 bg-white/40 rounded-full blur-2xl"></div>
                             <img
-                                src="/class.svg"
+                                src="/cursos.svg"
                                 alt="Ilustración"
                                 className="relative z-10 w-full h-full object-contain drop-shadow-[0_10px_15px_rgba(0,0,0,0.1)] hover:scale-105 transition-transform duration-500"
                             />
@@ -601,7 +610,7 @@ export default function CursosManager() {
                                         No hay áreas registradas. Debes registrar un área primero.
                                     </div>
                                 ) : (
-                                    <div className="grid grid-cols-2 gap-3 max-h-48 overflow-y-auto pr-1">
+                                    <div className="grid grid-cols-2 gap-3 max-h-48 overflow-y-auto pr-1 stylish-scroll">
                                         {areas.map(area => {
                                             const isSelected = nuevoCurso.id_area == area.id_area;
                                             return (
@@ -673,14 +682,17 @@ export default function CursosManager() {
                                                     Agregar
                                                 </button>
                                             </div>
+                                            <p className="text-[11px] font-medium text-slate-500 pl-1">
+                                                Presiona <strong>Enter</strong> o haz clic en <strong>Agregar</strong> para añadirlo a la lista inferior.
+                                            </p>
 
                                             {/* Lista de chips para cursos nuevos */}
                                             {cursosNuevos.length > 0 && (
-                                                <div className="flex flex-col gap-2.5 pt-3 max-h-[35vh] overflow-y-auto pr-1 stylish-scroll">
+                                                <div className="flex flex-col gap-2.5 pt-3 max-h-[200px] overflow-y-auto pr-1 stylish-scroll">
                                                     {cursosNuevos.map(c => (
                                                         <div key={c.nombre} className={`flex items-center justify-between gap-3 px-4 py-3 rounded-xl border-2 border-l-4 transition-all animate-fade-in ${c.requiere_espacio_unico
-                                                                ? 'bg-purple-50 border-hx-purple/30 border-l-hx-purple'
-                                                                : 'bg-hx-purple/5 border-hx-purple/15 border-l-hx-purple/50'
+                                                            ? 'bg-purple-50 border-hx-purple/30 border-l-hx-purple'
+                                                            : 'bg-hx-purple/5 border-hx-purple/15 border-l-hx-purple/50'
                                                             }`}>
                                                             <div className="flex items-center gap-2.5 min-w-0">
                                                                 <div className="w-7 h-7 rounded-lg bg-hx-purple/15 flex items-center justify-center flex-shrink-0">
@@ -726,8 +738,8 @@ export default function CursosManager() {
                                         type="button"
                                         onClick={() => setNuevoCurso({ ...nuevoCurso, requiere_espacio_unico: !nuevoCurso.requiere_espacio_unico })}
                                         className={`w-full p-3 rounded-xl border-2 flex items-center justify-between transition-all cursor-pointer ${nuevoCurso.requiere_espacio_unico
-                                                ? 'border-hx-purple bg-purple-50 shadow-sm'
-                                                : 'border-slate-200 bg-white hover:border-slate-300'
+                                            ? 'border-hx-purple bg-purple-50 shadow-sm'
+                                            : 'border-slate-200 bg-white hover:border-slate-300'
                                             }`}
                                     >
                                         <div className="flex items-center gap-3">
@@ -758,7 +770,7 @@ export default function CursosManager() {
                                 </button>
                                 <button
                                     type="submit"
-                                    disabled={guardando || !nuevoCurso.id_area || (!isEditing && cursosNuevos.length === 0 && !inputCursoVirtual.trim()) || (isEditing && !nuevoCurso.nombre_curso)}
+                                    disabled={guardando || !nuevoCurso.id_area || (!isEditing && (cursosNuevos.length === 0 || inputCursoVirtual.trim() !== '')) || (isEditing && !nuevoCurso.nombre_curso)}
                                     className="cursor-pointer flex-1 py-3 px-4 bg-hx-purple hover:bg-hx-purple/90 text-white text-sm font-bold rounded-xl shadow-md hover:shadow-lg transition-all flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                                     {guardando ? (
                                         <>
@@ -767,7 +779,7 @@ export default function CursosManager() {
                                         </>
                                     ) : (
                                         <>
-                                            {isEditing ? 'Guardar Cambios' : `Guardar ${cursosNuevos.length > 0 ? cursosNuevos.length + (inputCursoVirtual.trim() ? 1 : 0) : 1} Curso(s)`}
+                                            {isEditing ? 'Guardar Cambios' : `Guardar ${cursosNuevos.length} Curso(s)`}
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
                                         </>
                                     )}
@@ -823,6 +835,50 @@ export default function CursosManager() {
                                     <span className="text-xs text-slate-500 font-medium mt-1">El curso será tratado como un curso normal (ideal para un Psicólogo).</span>
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Confirmación de Eliminar */}
+            {isDeleteModalOpen && cursoToDelete && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm animate-fade-in p-4">
+                    <div
+                        className="bg-white rounded-[24px] shadow-2xl w-full max-w-[340px] overflow-hidden transform animate-slide-up p-8 text-center"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Icono de advertencia */}
+                        <div className="w-14 h-14 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="#f43f5e" strokeWidth="2.5">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                        </div>
+
+                        <h2 className="text-[20px] font-extrabold text-slate-800 mb-2">Eliminar Curso</h2>
+                        <p className="text-slate-500 text-[14px] font-medium mb-8 leading-relaxed">
+                            Estás a punto de eliminar el curso <strong className="text-slate-700">"{cursoToDelete.nombre_curso}"</strong>. ¿Estás seguro?
+                        </p>
+
+                        <div className="flex items-center gap-3 w-full">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setIsDeleteModalOpen(false);
+                                    setCursoToDelete(null);
+                                }}
+                                disabled={eliminando}
+                                className="cursor-pointer flex-1 py-3 text-[13px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full transition-all disabled:opacity-50"
+                            >
+                                No, Conservarlo
+                            </button>
+                            <button
+                                type="button"
+                                onClick={confirmarEliminacion}
+                                disabled={eliminando}
+                                className="cursor-pointer flex-1 py-3 bg-[#f43f5e] hover:bg-[#e11d48] text-white text-[13px] font-bold rounded-full shadow-[0_4px_12px_rgba(244,63,94,0.3)] hover:shadow-[0_6px_16px_rgba(244,63,94,0.4)] transition-all flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {eliminando ? 'Eliminando...' : 'Sí, ¡Eliminar!'}
+                            </button>
                         </div>
                     </div>
                 </div>

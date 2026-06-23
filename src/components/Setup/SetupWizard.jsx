@@ -250,6 +250,32 @@ export default function SetupWizard() {
             let sedesResDb = await fetch('http://127.0.0.1:8000/api/sedes');
             let sedesDbList = await sedesResDb.json();
 
+            // Eliminar sedes que fueron deseleccionadas
+            const sedesABorrar = sedesDbList.filter(dbS => !wizardData.sedes.includes(dbS.nombre_sede));
+            if (sedesABorrar.length > 0) {
+                const secResDb = await fetch('http://127.0.0.1:8000/api/secciones');
+                if (secResDb.ok) {
+                    const secDbList = await secResDb.json();
+                    const secABorrar = secDbList.filter(s => sedesABorrar.some(dbS => dbS.id_sede === s.id_sede));
+                    if (secABorrar.length > 0) {
+                        const stResDb = await fetch('http://127.0.0.1:8000/api/seccion-turno');
+                        if (stResDb.ok) {
+                            const stDbList = await stResDb.json();
+                            const stABorrar = stDbList.filter(st => secABorrar.some(s => s.id_seccion === st.id_seccion));
+                            for (const st of stABorrar) {
+                                await fetch(`http://127.0.0.1:8000/api/seccion-turno/${st.id_seccion_turno}`, { method: 'DELETE' });
+                            }
+                        }
+                        for (const s of secABorrar) {
+                            await fetch(`http://127.0.0.1:8000/api/secciones/${s.id_seccion}`, { method: 'DELETE' });
+                        }
+                    }
+                }
+                for (const dbS of sedesABorrar) {
+                    await fetch(`http://127.0.0.1:8000/api/sedes/${dbS.id_sede}`, { method: 'DELETE' });
+                }
+            }
+
             for (let sedeNombre of wizardData.sedes) {
                 if (sedeNombre.trim() && !sedesDbList.some(s => s.nombre_sede === sedeNombre)) {
                     await fetch('http://127.0.0.1:8000/api/sedes', {
@@ -262,6 +288,30 @@ export default function SetupWizard() {
 
             let turnosResDb = await fetch('http://127.0.0.1:8000/api/turnos');
             let turnosDbList = await turnosResDb.json();
+
+            // Eliminar turnos que fueron deseleccionados
+            const turnosABorrar = turnosDbList.filter(dbT => !wizardData.turnos.includes(dbT.nombre));
+            if (turnosABorrar.length > 0) {
+                const stResDb = await fetch('http://127.0.0.1:8000/api/seccion-turno');
+                if (stResDb.ok) {
+                    const stDbList = await stResDb.json();
+                    const stABorrar = stDbList.filter(st => turnosABorrar.some(dbT => dbT.id_turno === st.id_turno));
+                    for (const st of stABorrar) {
+                        await fetch(`http://127.0.0.1:8000/api/seccion-turno/${st.id_seccion_turno}`, { method: 'DELETE' });
+                    }
+                }
+                const bloquesRes = await fetch('http://127.0.0.1:8000/api/bloques');
+                if (bloquesRes.ok) {
+                    const bloquesDb = await bloquesRes.json();
+                    const bloquesABorrar = bloquesDb.filter(b => turnosABorrar.some(dbT => dbT.id_turno === b.id_turno));
+                    for (const b of bloquesABorrar) {
+                        await fetch(`http://127.0.0.1:8000/api/bloques/${b.id_bloque}`, { method: 'DELETE' });
+                    }
+                }
+                for (const dbT of turnosABorrar) {
+                    await fetch(`http://127.0.0.1:8000/api/turnos/${dbT.id_turno}`, { method: 'DELETE' });
+                }
+            }
 
             for (let t of wizardData.turnos) {
                 if (!turnosDbList.some(dbT => dbT.nombre === t)) {
@@ -340,7 +390,7 @@ export default function SetupWizard() {
                 const secResDb = await fetch('http://127.0.0.1:8000/api/secciones');
                 const secDbList = await secResDb.json();
                 const secABorrar = secDbList.filter(s => gradosABorrar.some(g => g.id_grado === s.id_grado));
-                
+
                 if (secABorrar.length > 0) {
                     const stResDb = await fetch('http://127.0.0.1:8000/api/seccion-turno');
                     const stDbList = await stResDb.json();
@@ -525,7 +575,7 @@ export default function SetupWizard() {
                 // Borrar secciones que ya no están (para edición limpia - manejando FK)
                 const seccionesABorrar = seccionesDb
                     .filter(dbS => !seccionesAInsertar.some(s => s.id_sede === dbS.id_sede && s.id_grado === dbS.id_grado && s.nombre === dbS.nombre));
-                
+
                 if (seccionesABorrar.length > 0) {
                     // Primero borrar de seccion-turno
                     const stResDb = await fetch('http://127.0.0.1:8000/api/seccion-turno');
@@ -601,8 +651,8 @@ export default function SetupWizard() {
         const toInsert = requiredRelations.filter(r => !stDb.some(dbSt => dbSt.id_seccion === r.id_seccion && dbSt.id_turno === r.id_turno && dbSt.id_dia === r.id_dia));
         for (const r of toInsert) {
             await fetch('http://127.0.0.1:8000/api/seccion-turno', {
-                method: 'POST', 
-                headers: { 'Content-Type': 'application/json' }, 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(r)
             });
         }
@@ -995,9 +1045,9 @@ export default function SetupWizard() {
                             )}
                             {step === 3 && (
                                 <div className="animate-fade-in" style={{ animationDuration: '0.6s' }}>
-                                    <Paso3GradoDiaConfig 
-                                        data={wizardData} 
-                                        setData={setWizardData} 
+                                    <Paso3GradoDiaConfig
+                                        data={wizardData}
+                                        setData={setWizardData}
                                         isSaved={savedSteps.includes(3) && !editingSteps.includes(3)}
                                         onEnableEdit={() => {
                                             setWizardDataBackup(JSON.parse(JSON.stringify(wizardData)));
@@ -1015,8 +1065,8 @@ export default function SetupWizard() {
                             )}
                             {step === 4 && (
                                 <div className="animate-fade-in" style={{ animationDuration: '0.6s' }}>
-                                    <Paso4Secciones 
-                                        data={wizardData} 
+                                    <Paso4Secciones
+                                        data={wizardData}
                                         setData={setWizardData}
                                         isSaved={savedSteps.includes(4) && !editingSteps.includes(4)}
                                         onEnableEdit={() => {
@@ -1035,8 +1085,8 @@ export default function SetupWizard() {
                             )}
                             {step === 5 && totalSteps === 6 && (
                                 <div className="animate-fade-in" style={{ animationDuration: '0.6s' }}>
-                                    <Paso5Turnos 
-                                        data={wizardData} 
+                                    <Paso5Turnos
+                                        data={wizardData}
                                         setData={setWizardData}
                                         isSaved={savedSteps.includes(5) && !editingSteps.includes(5)}
                                         onEnableEdit={() => {

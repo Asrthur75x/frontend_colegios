@@ -2,14 +2,23 @@ import React, { useState, useEffect } from 'react';
 
 const API_BASE = 'http://localhost:8000/api';
 
-const ProfesorCard = ({ prof, sedesStr, cantGrados, cantDispo, onEdit, onDelete, isSelected, onToggleSelect, isSelectionMode }) => {
+const ProfesorCard = ({ prof, sedesStr, cantGrados, cantDispo, onEdit, onDelete, isSelected, onToggleSelect, isSelectionMode, faltanDatos }) => {
     return (
         <div
             className={`relative bg-white rounded-[20px] border p-6 flex flex-col gap-5 hover:shadow-md transition-all group cursor-pointer
                 ${isSelected ? 'border-hx-purple shadow-sm ring-1 ring-hx-purple/20 bg-hx-purple/10' : 'border-slate-100 shadow-sm'}
+                ${faltanDatos ? 'border-amber-200 bg-amber-50/30' : ''}
             `}
             onClick={() => isSelectionMode && onToggleSelect(prof.id_profesor)}
         >
+            {/* Etiqueta Faltan Datos */}
+            {faltanDatos && !isSelectionMode && (
+                <div className="absolute top-0 right-0 mt-3 mr-3 px-2 py-1 bg-amber-100 text-amber-700 border border-amber-200 rounded-lg text-[10px] font-bold flex items-center gap-1 shadow-sm z-10">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    Faltan Datos
+                </div>
+            )}
+
             {/* Checkbox (solo visible en modo selección) */}
             {isSelectionMode && (
                 <div className="absolute top-4 right-4 z-10">
@@ -54,14 +63,14 @@ const ProfesorCard = ({ prof, sedesStr, cantGrados, cantDispo, onEdit, onDelete,
                 <div className="grid grid-cols-2 gap-3 mt-auto">
                     <button
                         onClick={(e) => { e.stopPropagation(); onEdit(prof); }}
-                        className="py-2 px-3 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:text-hx-purple hover:border-hx-purple hover:bg-hx-purple/5 transition-all flex justify-center items-center gap-1.5"
+                        className="py-2 px-3 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:text-hx-purple hover:border-hx-purple hover:bg-hx-purple/5 transition-all flex justify-center items-center gap-1.5 cursor-pointer"
                     >
                         <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                         Editar
                     </button>
                     <button
                         onClick={(e) => { e.stopPropagation(); onDelete(prof.id_profesor); }}
-                        className="py-2 px-3 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:text-red-500 hover:border-red-500 hover:bg-red-50 transition-all flex justify-center items-center gap-1.5"
+                        className="py-2 px-3 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:text-red-500 hover:border-red-500 hover:bg-red-50 transition-all flex justify-center items-center gap-1.5 cursor-pointer"
                     >
                         <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
                         Eliminar
@@ -92,7 +101,10 @@ export default function ProfesoresManager() {
     const [dias, setDias] = useState([]);
     const [turnos, setTurnos] = useState([]);
     const [bloques, setBloques] = useState([]);
+    const [gradoDiaConfigs, setGradoDiaConfigs] = useState([]);
     const [maxBloquesDia, setMaxBloquesDia] = useState(10);
+    const [secciones, setSecciones] = useState([]);
+    const [seccionTurnos, setSeccionTurnos] = useState([]);
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -107,10 +119,15 @@ export default function ProfesoresManager() {
     // Form State
     const [formNombre, setFormNombre] = useState('');
     const [nombreError, setNombreError] = useState('');
+    const [sedesError, setSedesError] = useState('');
+    const [gradosError, setGradosError] = useState('');
+    const [dispoError, setDispoError] = useState('');
     const [formSedes, setFormSedes] = useState([]); // array of id_sede
     const [formGrados, setFormGrados] = useState([]); // array of id_grado
     const [formDispo, setFormDispo] = useState([]); // array of { id_dia, id_turno, nro_bloque }
     const [formPreferencia, setFormPreferencia] = useState([]); // array of { id_dia, id_turno, nro_bloque }
+    const [isDragging, setIsDragging] = useState(false);
+    const [dragAction, setDragAction] = useState(null); // 'add' or 'remove'
     const [esDisponibilidadTotal, setEsDisponibilidadTotal] = useState(false);
     const [modoPincel, setModoPincel] = useState('disponible'); // 'disponible' | 'preferido'
     const [activeSede, setActiveSede] = useState(null); // Sede seleccionada en el Tab 3
@@ -131,7 +148,13 @@ export default function ProfesoresManager() {
     // Derived: filtered + paginated lists
     const filteredProfesores = profesores.filter(p =>
         p.nombre_profesor?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    ).sort((a, b) => {
+        const aFaltan = gradoProfesores.filter(x => x.id_profesor === a.id_profesor).length === 0;
+        const bFaltan = gradoProfesores.filter(x => x.id_profesor === b.id_profesor).length === 0;
+        if (aFaltan && !bFaltan) return -1;
+        if (!aFaltan && bFaltan) return 1;
+        return 0;
+    });
     const totalPages = Math.ceil(filteredProfesores.length / ITEMS_PER_PAGE);
     const currentProfesores = filteredProfesores.slice(
         (currentPage - 1) * ITEMS_PER_PAGE,
@@ -169,9 +192,13 @@ export default function ProfesoresManager() {
                 for (let p of prefs) {
                     await fetch(`${API_BASE}/profesor-preferencia/${p.id_preferencia}`, { method: 'DELETE' });
                 }
+                const gp = gradoProfesores.filter(x => x.id_profesor === id);
+                for (let g of gp) {
+                    await fetch(`${API_BASE}/grado-profesor/${g.id_grado_profesor}`, { method: 'DELETE' });
+                }
                 const ps = profesorSedes.filter(x => x.id_profesor === id);
                 for (let s of ps) {
-                    await fetch(`${API_BASE}/profesor-sedes/${s.id_profesor_sede}`, { method: 'DELETE' });
+                    await fetch(`${API_BASE}/profesor-sedes/${s.id_sede_profesor}`, { method: 'DELETE' });
                 }
                 await fetch(`${API_BASE}/profesores/${id}`, { method: 'DELETE' });
             }
@@ -194,7 +221,7 @@ export default function ProfesoresManager() {
             const endpoints = [
                 'profesores', 'sedes', 'profesor-sedes',
                 'profesor-disponibilidad', 'profesor-preferencia', 'dias', 'turnos', 'bloques', 'grado-dia-config',
-                'grados', 'grado-profesor'
+                'grados', 'grado-profesor', 'secciones', 'seccion-turno'
             ];
 
             const responses = await Promise.all(
@@ -219,10 +246,13 @@ export default function ProfesoresManager() {
             setBloques(data[7] || []);
             setGrados(data[9] || []);
             setGradoProfesores(data[10] || []);
+            setSecciones(data[11] || []);
+            setSeccionTurnos(data[12] || []);
 
             // Calcular el máximo de bloques por día desde grado-dia-config
-            const gradoDiaConfigs = data[8] || [];
-            const maxBlq = gradoDiaConfigs.reduce((acc, c) => Math.max(acc, c.bloques_dia || 0), 0);
+            const gdc = data[8] || [];
+            setGradoDiaConfigs(gdc);
+            const maxBlq = gdc.reduce((acc, c) => Math.max(acc, c.bloques_dia || 0), 0);
             setMaxBloquesDia(maxBlq > 0 ? maxBlq : 10);
 
             setError(null);
@@ -365,6 +395,10 @@ export default function ProfesoresManager() {
         if (!confirmacion) return;
         try {
             // Eliminar dependencias primero si el backend no hace cascade
+            const linkGrados = gradoProfesores.filter(x => x.id_profesor === id);
+            for (let lg of linkGrados) {
+                await fetch(`${API_BASE}/grado-profesor/${lg.id_grado_profesor}`, { method: 'DELETE' });
+            }
             const linkSedes = profesorSedes.filter(x => x.id_profesor === id);
             for (let ls of linkSedes) {
                 await fetch(`${API_BASE}/profesor-sedes/${ls.id_sede_profesor}`, { method: 'DELETE' });
@@ -436,10 +470,15 @@ export default function ProfesoresManager() {
                 ? prev.filter(x => x !== id_sede)
                 : [...prev, id_sede]
         );
+        if (sedesError) setSedesError('');
     };
 
     const handleGuardarSedes = async () => {
         if (!editId) return;
+        if (formSedes.length === 0) {
+            setSedesError('Debes seleccionar al menos una sede para continuar.');
+            return;
+        }
         setGuardando(true);
         try {
             // Eliminar actuales
@@ -474,10 +513,15 @@ export default function ProfesoresManager() {
                 ? prev.filter(x => x !== id_grado)
                 : [...prev, id_grado]
         );
+        if (gradosError) setGradosError('');
     };
 
     const handleGuardarGrados = async () => {
         if (!editId) return;
+        if (formGrados.length === 0) {
+            setGradosError('Debes seleccionar al menos un grado para continuar.');
+            return;
+        }
         setGuardando(true);
         try {
             // Eliminar actuales
@@ -503,34 +547,53 @@ export default function ProfesoresManager() {
     };
 
     // ── Guardar Disponibilidad ──
-    const toggleDispo = (id_dia, id_turno, nro_bloque) => {
-        if (!activeSede) {
-            alert('Por favor selecciona una sede arriba primero.');
-            return;
-        }
+    const applyBrush = (id_dia, id_turno, nro_bloque, action) => {
+        if (!activeSede) return;
         const isDispo = formDispo.some(x => x.id_dia === id_dia && x.id_turno === id_turno && x.nro_bloque === nro_bloque && x.id_sede === activeSede);
         const isPref = formPreferencia.some(x => x.id_dia === id_dia && x.id_turno === id_turno && x.nro_bloque === nro_bloque && x.id_sede === activeSede);
 
         if (modoPincel === 'disponible') {
-            if (!isDispo) {
-                // Agregar a disponible
+            if (action === 'add' && !isDispo) {
                 setFormDispo(prev => [...prev, { id_dia, id_turno, nro_bloque, id_sede: activeSede }]);
-            } else {
-                // Quitar de disponible (y por ende de preferido)
+            } else if (action === 'remove' && isDispo) {
                 setFormDispo(prev => prev.filter(x => !(x.id_dia === id_dia && x.id_turno === id_turno && x.nro_bloque === nro_bloque && x.id_sede === activeSede)));
                 setFormPreferencia(prev => prev.filter(x => !(x.id_dia === id_dia && x.id_turno === id_turno && x.nro_bloque === nro_bloque && x.id_sede === activeSede)));
             }
         } else {
             // Modo Preferido
-            if (!isPref) {
-                // Agregar a ambas (un preferido DEBE estar disponible)
+            if (action === 'add' && !isPref) {
                 if (!isDispo) setFormDispo(prev => [...prev, { id_dia, id_turno, nro_bloque, id_sede: activeSede }]);
                 setFormPreferencia(prev => [...prev, { id_dia, id_turno, nro_bloque, id_sede: activeSede }]);
-            } else {
-                // Quitar de preferido Y de disponible → vuelve a "No disponible"
+            } else if (action === 'remove' && isPref) {
                 setFormPreferencia(prev => prev.filter(x => !(x.id_dia === id_dia && x.id_turno === id_turno && x.nro_bloque === nro_bloque && x.id_sede === activeSede)));
                 setFormDispo(prev => prev.filter(x => !(x.id_dia === id_dia && x.id_turno === id_turno && x.nro_bloque === nro_bloque && x.id_sede === activeSede)));
             }
+        }
+    };
+
+    const handleMouseDown = (id_dia, id_turno, nro_bloque) => {
+        if (!activeSede) {
+            alert('Por favor selecciona una sede arriba primero.');
+            return;
+        }
+        setIsDragging(true);
+        const isDispo = formDispo.some(x => x.id_dia === id_dia && x.id_turno === id_turno && x.nro_bloque === nro_bloque && x.id_sede === activeSede);
+        const isPref = formPreferencia.some(x => x.id_dia === id_dia && x.id_turno === id_turno && x.nro_bloque === nro_bloque && x.id_sede === activeSede);
+        
+        let action = 'add';
+        if (modoPincel === 'disponible') {
+            if (isDispo) action = 'remove';
+        } else {
+            if (isPref) action = 'remove';
+        }
+        setDragAction(action);
+        applyBrush(id_dia, id_turno, nro_bloque, action);
+        if (dispoError) setDispoError('');
+    };
+
+    const handleMouseEnter = (id_dia, id_turno, nro_bloque) => {
+        if (isDragging) {
+            applyBrush(id_dia, id_turno, nro_bloque, dragAction);
         }
     };
 
@@ -557,10 +620,21 @@ export default function ProfesoresManager() {
             setFormDispo(prev => prev.filter(x => x.id_sede !== activeSede));
             setFormPreferencia(prev => prev.filter(x => x.id_sede !== activeSede));
         }
+        if (dispoError) setDispoError('');
     };
 
     const handleGuardarDispo = async () => {
         if (!editId) return;
+
+        if (!esDisponibilidadTotal) {
+            const sedesFaltantes = formSedes.filter(sid => !formDispo.some(d => d.id_sede === sid));
+            if (sedesFaltantes.length > 0) {
+                const nombresFaltantes = sedesFaltantes.map(sid => sedes.find(s => s.id_sede === sid)?.nombre_sede || `Sede ${sid}`).join(', ');
+                setDispoError(`Por favor, asigna disponibilidad en la cuadrícula para: ${nombresFaltantes}`);
+                return;
+            }
+        }
+
         setGuardando(true);
         try {
             // Eliminar actuales
@@ -755,21 +829,27 @@ export default function ProfesoresManager() {
                     ) : (
                         <>
                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6 px-1">
-                                {currentProfesores.map((prof, index) => (
-                                    <ProfesorCard
-                                        key={prof.id_profesor}
-                                        prof={prof}
-                                        index={index}
-                                        sedesStr={getSedesProfesor(prof.id_profesor)}
-                                        cantGrados={getCantGrados(prof.id_profesor)}
-                                        cantDispo={getCantDispo(prof.id_profesor)}
-                                        onEdit={abrirModalEdicion}
-                                        onDelete={() => openDeleteModal(prof.id_profesor)}
-                                        isSelected={selectedIds.includes(prof.id_profesor)}
-                                        onToggleSelect={toggleSelect}
-                                        isSelectionMode={isSelectionMode}
-                                    />
-                                ))}
+                                {currentProfesores.map((prof, index) => {
+                                    const hasGrados = gradoProfesores.some(x => x.id_profesor === prof.id_profesor);
+                                    const faltanDatos = !hasGrados;
+
+                                    return (
+                                        <ProfesorCard
+                                            key={prof.id_profesor}
+                                            prof={prof}
+                                            index={index}
+                                            sedesStr={getSedesProfesor(prof.id_profesor)}
+                                            cantGrados={getCantGrados(prof.id_profesor)}
+                                            cantDispo={getCantDispo(prof.id_profesor)}
+                                            onEdit={abrirModalEdicion}
+                                            onDelete={() => openDeleteModal(prof.id_profesor)}
+                                            isSelected={selectedIds.includes(prof.id_profesor)}
+                                            onToggleSelect={toggleSelect}
+                                            isSelectionMode={isSelectionMode}
+                                            faltanDatos={faltanDatos}
+                                        />
+                                    );
+                                })}
                             </div>
                             {/* Paginación */}
                             {totalPages > 1 && (
@@ -903,8 +983,8 @@ export default function ProfesoresManager() {
                                                             <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
                                                         </div>
                                                         <div className="flex-1 min-w-0">
+                                                            <p className="text-[12px] text-slate-500 mt-0.5 truncate">Nombre de la sede:</p>
                                                             <p className={`font-bold text-sm truncate ${activo ? 'text-hx-purple' : 'text-slate-700'}`}>{s.nombre_sede}</p>
-                                                            <p className="text-[11px] text-slate-400 mt-0.5 truncate">{s.direccion || 'Sin dirección'}</p>
                                                         </div>
                                                         <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${activo ? 'border-hx-purple bg-hx-purple' : 'border-slate-200'
                                                             }`}>
@@ -920,6 +1000,12 @@ export default function ProfesoresManager() {
                                                 </div>
                                             )}
                                         </div>
+                                        {sedesError && (
+                                            <div className="mt-4 bg-red-50 text-red-500 text-xs font-bold p-3 rounded-xl border border-red-100 flex items-center gap-2">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                                                {sedesError}
+                                            </div>
+                                        )}
                                         <div className="flex gap-4 mt-6">
                                             <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3.5 text-sm font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all cursor-pointer">Cancelar</button>
                                             <button disabled={guardando} onClick={handleGuardarSedes} className={`flex-1 py-3.5 bg-hx-purple hover:bg-hx-purple/90 text-white font-bold rounded-xl shadow-md shadow-hx-purple/20 transition-all flex items-center justify-center gap-2 text-sm ${guardando ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'}`}>
@@ -971,6 +1057,12 @@ export default function ProfesoresManager() {
                                                 </div>
                                             )}
                                         </div>
+                                        {gradosError && (
+                                            <div className="mt-4 bg-red-50 text-red-500 text-xs font-bold p-3 rounded-xl border border-red-100 flex items-center gap-2">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                                                {gradosError}
+                                            </div>
+                                        )}
                                         <div className="flex gap-4 mt-6">
                                             <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3.5 text-sm font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all cursor-pointer">Cancelar</button>
                                             <button disabled={guardando} onClick={handleGuardarGrados} className={`flex-1 py-3.5 bg-hx-purple hover:bg-hx-purple/90 text-white font-bold rounded-xl shadow-md shadow-hx-purple/20 transition-all flex items-center justify-center gap-2 text-sm ${guardando ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'}`}>
@@ -1037,6 +1129,16 @@ export default function ProfesoresManager() {
                                         {(() => {
                                             // Construir la lista de turnos a mostrar
                                             let turnosRender = turnos.length > 0 ? turnos : [];
+
+                                            // Filtrar turnos según los grados seleccionados
+                                            if (secciones.length > 0 && seccionTurnos.length > 0 && formGrados.length > 0) {
+                                                const seccionesGrado = secciones.filter(s => formGrados.includes(s.id_grado)).map(s => s.id_seccion);
+                                                const turnosValidosIds = [...new Set(seccionTurnos.filter(st => seccionesGrado.includes(st.id_seccion)).map(st => st.id_turno))];
+                                                if (turnosValidosIds.length > 0) {
+                                                    turnosRender = turnosRender.filter(t => turnosValidosIds.includes(t.id_turno));
+                                                }
+                                            }
+
                                             if (turnosRender.length === 0) {
                                                 const allEntries = [...formDispo, ...formPreferencia];
                                                 const idsUnicos = [...new Set(allEntries.map(x => x.id_turno))];
@@ -1047,7 +1149,7 @@ export default function ProfesoresManager() {
                                             }
 
                                             // Asegurarnos de tener un turno activo
-                                            const currentTurnoId = activeTurnoTab || turnosRender[0].id_turno;
+                                            const currentTurnoId = turnosRender.some(t => t.id_turno === activeTurnoTab) ? activeTurnoTab : turnosRender[0].id_turno;
 
                                             return (
                                                 <div className="space-y-4">
@@ -1091,16 +1193,30 @@ export default function ProfesoresManager() {
                                                             if (turno.id_turno !== currentTurnoId) return null;
                                                             // Bloques del API para este turno
                                                             const bloquesTurno = bloques.filter(b => b.id_turno === turno.id_turno);
-                                                            // Usar: bloques del API si existen, si no generar desde grado-dia-config
+                                                            // Usar: bloques del API si existen, si no generar desde grado-dia-config dinámico
                                                             const maxFromDispo = Math.max(
                                                                 ...formDispo.filter(x => x.id_turno === turno.id_turno).map(x => x.nro_bloque || 0),
                                                                 ...formPreferencia.filter(x => x.id_turno === turno.id_turno).map(x => x.nro_bloque || 0),
                                                                 0
                                                             );
-                                                            const maxBloques = Math.max(maxFromDispo, maxBloquesDia);
+                                                            
+                                                            // Calcular cuántos bloques requiere como máximo los grados que el profe va a enseñar
+                                                            const configForGrados = gradoDiaConfigs.filter(c => formGrados.includes(c.id_grado));
+                                                            const maxFromGrados = configForGrados.length > 0 
+                                                                ? Math.max(...configForGrados.map(c => c.bloques_dia || 0))
+                                                                : maxBloquesDia; // Si no hay grados seleccionados o falta config, usa el global
+
+                                                            const maxBloques = Math.max(maxFromDispo, maxFromGrados);
                                                             const bloquesRender = bloquesTurno.length > 0
-                                                                ? bloquesTurno
+                                                                ? bloquesTurno.filter(b => b.numero_bloque <= maxBloques)
                                                                 : Array.from({ length: maxBloques }, (_, i) => ({ numero_bloque: i + 1, id_bloque: `temp-${turno.id_turno}-${i}` }));
+
+                                                            // Filtrar días válidos para los grados seleccionados
+                                                            const diasValidosIds = configForGrados.length > 0
+                                                                ? [...new Set(configForGrados.map(c => c.id_dia))]
+                                                                : dias.map(d => d.id_dia); // fallback a todos los días si no hay grados
+
+                                                            const diasRender = dias.filter(d => diasValidosIds.includes(d.id_dia));
 
                                                             return (
                                                                 <div key={turno.id_turno} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
@@ -1110,11 +1226,15 @@ export default function ProfesoresManager() {
                                                                     </div>
                                                                     <div className="overflow-x-auto">
                                                                         <div className="min-w-full p-2 sm:p-4">
-                                                                            <table className="w-full border-collapse text-xs">
+                                                                            <table 
+                                                                                className="w-full border-collapse text-xs select-none"
+                                                                                onMouseUp={() => setIsDragging(false)}
+                                                                                onMouseLeave={() => setIsDragging(false)}
+                                                                            >
                                                                                 <thead>
                                                                                     <tr>
                                                                                         <th className="p-3 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest w-16 bg-white border-r border-slate-100">Blq</th>
-                                                                                        {dias.map(d => <th key={d.id_dia} className="p-3 text-center text-[10px] font-black text-slate-600 bg-white min-w-[50px]">{d.nombre_dia?.slice(0, 3).toUpperCase() || d.nombre_dia}</th>)}
+                                                                                        {diasRender.map(d => <th key={d.id_dia} className="p-3 text-center text-[10px] font-black text-slate-600 bg-white min-w-[50px]">{d.nombre_dia?.slice(0, 3).toUpperCase() || d.nombre_dia}</th>)}
 
                                                                                     </tr>
                                                                                 </thead>
@@ -1124,14 +1244,15 @@ export default function ProfesoresManager() {
                                                                                             <td className="p-3 text-sm font-black text-slate-400 whitespace-nowrap text-center bg-slate-50 border-r border-slate-100">
                                                                                                 {b.numero_bloque}
                                                                                             </td>
-                                                                                            {dias.map(d => {
+                                                                                            {diasRender.map(d => {
                                                                                                 const isDispo = formDispo.some(x => x.id_dia === d.id_dia && x.id_turno === turno.id_turno && x.nro_bloque === b.numero_bloque && x.id_sede === activeSede);
                                                                                                 const isPref = formPreferencia.some(x => x.id_dia === d.id_dia && x.id_turno === turno.id_turno && x.nro_bloque === b.numero_bloque && x.id_sede === activeSede);
 
                                                                                                 return (
                                                                                                     <td
                                                                                                         key={d.id_dia}
-                                                                                                        onClick={() => toggleDispo(d.id_dia, turno.id_turno, b.numero_bloque)}
+                                                                                                        onMouseDown={() => handleMouseDown(d.id_dia, turno.id_turno, b.numero_bloque)}
+                                                                                                        onMouseEnter={() => handleMouseEnter(d.id_dia, turno.id_turno, b.numero_bloque)}
                                                                                                         className="p-2 text-center cursor-pointer"
                                                                                                     >
                                                                                                         <div className={`mx-auto w-10 h-8 rounded-xl flex items-center justify-center transition-colors border ${isPref
@@ -1165,7 +1286,13 @@ export default function ProfesoresManager() {
                                             );
                                         })()}
 
-                                        <div className="flex gap-4 pt-4 border-t border-slate-100">
+                                        {dispoError && (
+                                            <div className="mt-4 bg-red-50 text-red-500 text-xs font-bold p-3 rounded-xl border border-red-100 flex items-center gap-2">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                                                {dispoError}
+                                            </div>
+                                        )}
+                                        <div className="flex gap-4 pt-4 border-t border-slate-100 mt-4">
                                             <button onClick={() => setIsModalOpen(false)} className="flex-1 py-3 text-sm font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all cursor-pointer">Cancelar</button>
                                             <button disabled={guardando} onClick={handleGuardarDispo} className={`flex-1 py-3 bg-hx-purple hover:bg-hx-purple/90 text-white font-bold rounded-xl shadow-md transition-all ${guardando ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'}`}>
                                                 {guardando ? 'Finalizando...' : 'Finalizar y Guardar'}
