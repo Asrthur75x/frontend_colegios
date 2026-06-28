@@ -185,9 +185,11 @@ export default function Sidebar({ currentPath: initialPath = '' }) {
         >
             <div className="pt-6 pb-4 flex flex-col h-full overflow-y-auto">
                 {/* Logo */}
-                <div className="px-8 mb-8 flex items-center gap-3 flex-shrink-0">
-                    <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center font-black text-xl shadow-md" style={{ color: currentPath.startsWith('/ajustes') ? 'var(--color-hx-purple)' : 'var(--color-hx-purple)' }}>H</div>
-                    <h1 className="text-2xl font-black tracking-tight text-white drop-shadow-sm">HorariX</h1>
+                <div className="px-8 mb-8 flex items-center gap-3 flex-shrink-0 group cursor-pointer w-fit">
+                    <div className="relative w-8 h-8 rounded-lg border-[2px] border-white/80 rotate-45 flex items-center justify-center shadow-[0_0_15px_rgba(255,255,255,0.2)] group-hover:rotate-180 transition-transform duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)]">
+                        <div className="w-2.5 h-2.5 bg-white rounded-full shadow-[0_0_10px_rgba(255,255,255,0.9)] animate-pulse"></div>
+                    </div>
+                    <span className="text-white text-[22px] font-black tracking-widest uppercase ml-3 opacity-90 drop-shadow-sm">HorariX</span>
                 </div>
 
                 {/* Inicio */}
