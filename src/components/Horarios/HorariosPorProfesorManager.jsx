@@ -53,9 +53,7 @@ export default function HorariosPorProfesorManager() {
     };
     const [searchQuery, setSearchQuery] = useState('');
     
-    // Configuración de tiempos modal
     const [isTimeModalOpen, setIsTimeModalOpen] = useState(false);
-    const [timeConfig, setTimeConfig] = useState(null);
     const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
     useEffect(() => {
@@ -66,12 +64,14 @@ export default function HorariosPorProfesorManager() {
             }
             
             const handleStorageChange = () => {
-                const s = localStorage.getItem('horarix_time_config');
-                if (s) {
-                    try { setTimeConfig(JSON.parse(s)); } catch (e) { }
-                }
-            };
-            window.addEventListener('horarix_time_config_changed', handleStorageChange);
+            fetch('http://localhost:8000/api/bloques', { cache: 'no-store' })
+                .then(r => r.json())
+                .then(b => {
+                    const data = Array.isArray(b) ? b : (b.data || []);
+                    setBloques(Array.isArray(data) ? data.sort((a,b) => a.numero_bloque - b.numero_bloque) : []);
+                })
+                .catch(e => console.error("Error al actualizar bloques:", e));
+        };    window.addEventListener('horarix_time_config_changed', handleStorageChange);
             return () => window.removeEventListener('horarix_time_config_changed', handleStorageChange);
         }
     }, []);
@@ -114,8 +114,9 @@ export default function HorariosPorProfesorManager() {
                     pdf.setFontSize(14);
                     pdf.text(titulo, 14, 20);
 
+                    const currentMappedBlocks = getMappedBlocks(turno.id_turno);
                     const tableData = [];
-                    mappedBlocks.forEach(bloque => {
+                    currentMappedBlocks.forEach(bloque => {
                         if (bloque.type === 'recreo') {
                             tableData.push([`${bloque.inicio}\n${bloque.fin}`, ...gridDias.map(() => 'RECREO')]);
                         } else {
@@ -209,7 +210,8 @@ export default function HorariosPorProfesorManager() {
                     const wsData = [];
                     wsData.push(["Bloque", ...gridDias.map(d => d.nombre_dia.toUpperCase())]);
 
-                    mappedBlocks.forEach(bloque => {
+                    const currentMappedBlocks = getMappedBlocks(turno.id_turno);
+                    currentMappedBlocks.forEach(bloque => {
                         if (bloque.type === 'recreo') {
                             wsData.push([`${bloque.inicio} - ${bloque.fin}`, ...gridDias.map(() => 'RECREO')]);
                         } else {
@@ -397,20 +399,11 @@ export default function HorariosPorProfesorManager() {
     const diasConfigurados = [...new Set(configGradoDia.map(c => c.id_dia))];
     const gridDias = dias.filter(d => diasConfigurados.includes(d.id_dia) || assignedDays.has(normalize(d.nombre_dia)));
 
-    // Helpers para calcular horas dinámicas
-    const parseTime = (timeStr) => {
-        const [h, m] = timeStr.split(':').map(Number);
-        return h * 60 + m;
-    };
-    const formatTime = (mins) => {
-        const h = Math.floor(mins / 60).toString().padStart(2, '0');
-        const m = (mins % 60).toString().padStart(2, '0');
-        return `${h}:${m}`;
-    };
-
-    const mappedBlocks = useMemo(() => {
-        if (!timeConfig) {
-            // Si no hay config, devolvemos formato estándar sin recreos
+    const getMappedBlocks = (idTurno) => {
+        const result = [];
+        const bloquesTurno = bloques.filter(b => String(b.id_turno) === String(idTurno));
+        
+        if (bloquesTurno.length === 0) {
             return Array.from({ length: maxBloquesDia }, (_, i) => ({
                 type: 'clase',
                 numero: i + 1,
@@ -419,39 +412,39 @@ export default function HorariosPorProfesorManager() {
             }));
         }
 
-        let currentMins = parseTime(timeConfig.horaInicio);
-        const result = [];
-        const dur = parseInt(timeConfig.duracionBloque) || 45;
+        const formatTimeDb = (timeStr) => timeStr ? timeStr.substring(0, 5) : null;
 
         for (let i = 1; i <= maxBloquesDia; i++) {
-            const inicioClase = formatTime(currentMins);
-            currentMins += dur;
-            const finClase = formatTime(currentMins);
-
-            result.push({
-                type: 'clase',
-                numero: i,
-                inicio: inicioClase,
-                fin: finClase
-            });
-
-            const recreo = timeConfig.recreos?.find(r => parseInt(r.despuesDeBloque) === i);
-            if (recreo) {
-                const inicioRecreo = formatTime(currentMins);
-                currentMins += parseInt(recreo.duracion) || 15;
-                const finRecreo = formatTime(currentMins);
-
+            const bDb = bloquesTurno.find(b => b.numero_bloque === i && !b.es_recreo);
+            if (bDb) {
                 result.push({
-                    type: 'recreo',
-                    inicio: inicioRecreo,
-                    fin: finRecreo,
-                    duracion: recreo.duracion,
-                    despuesDeBloque: i
+                    type: 'clase',
+                    numero: i,
+                    inicio: formatTimeDb(bDb.hora_inicio),
+                    fin: formatTimeDb(bDb.hora_final)
+                });
+            } else {
+                result.push({
+                    type: 'clase',
+                    numero: i,
+                    inicio: null,
+                    fin: null
                 });
             }
+
+            const recreos = bloquesTurno.filter(b => b.es_recreo && b.despues_de_bloque === i);
+            recreos.forEach(rec => {
+                result.push({
+                    type: 'recreo',
+                    inicio: formatTimeDb(rec.hora_inicio),
+                    fin: formatTimeDb(rec.hora_final),
+                    duracion: rec.duracion_minutos,
+                    despuesDeBloque: i
+                });
+            });
         }
         return result;
-    }, [maxBloquesDia, timeConfig]);
+    };
 
     // Stats del profesor
     const stats = useMemo(() => {
@@ -483,7 +476,17 @@ export default function HorariosPorProfesorManager() {
     }, [asignaciones]);
 
     return (
-        <div className={`w-full h-full flex flex-col items-center animate-fade-in relative ${status === 'empty' ? 'justify-center' : 'justify-start'}`}>
+        <div className={`w-full h-full flex flex-col animate-fade-in relative ${status === 'empty' ? 'justify-center items-center' : ''}`}>
+            
+            {/* ENCABEZADO */}
+            {status !== 'empty' && (
+                <div className="flex items-center justify-between mb-8 w-full">
+                    <div>
+                        <h1 className="text-3xl font-black text-slate-800 tracking-tight">Horarios por Profesor</h1>
+                        <p className="text-slate-500 text-[14px] mt-1 font-medium">Visualiza y exporta el horario individual de cada docente.</p>
+                    </div>
+                </div>
+            )}
             
             {status === 'loading' && (
                 <div className="flex flex-col items-center justify-center gap-4 mt-20">
@@ -519,6 +522,19 @@ export default function HorariosPorProfesorManager() {
                         {/* Fila 1: Selector de Profesor */}
                         <div className="p-5 border-b border-slate-100 bg-slate-50/50">
                             <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4">
+                                <div className="flex flex-col w-full sm:w-[45%] shrink-0">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Buscar</label>
+                                    <div className="relative">
+                                        <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                                        <input
+                                            type="text"
+                                            placeholder="Filtrar por nombre..."
+                                            value={searchQuery}
+                                            onChange={e => setSearchQuery(e.target.value)}
+                                            className="w-full bg-white border border-slate-200 text-slate-700 text-[13px] font-bold rounded-xl pl-10 pr-4 py-2.5 outline-none focus:border-hx-purple shadow-sm transition-all"
+                                        />
+                                    </div>
+                                </div>
                                 <div className="flex flex-col flex-1 w-full">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Profesor</label>
                                     <select
@@ -531,19 +547,6 @@ export default function HorariosPorProfesorManager() {
                                             <option key={p.id_profesor} value={`PROF_${p.id_profesor}`}>{p.nombre_profesor}</option>
                                         ))}
                                     </select>
-                                </div>
-                                <div className="flex flex-col w-full sm:max-w-[280px]">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Buscar</label>
-                                    <div className="relative">
-                                        <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                                        <input
-                                            type="text"
-                                            placeholder="Filtrar por nombre..."
-                                            value={searchQuery}
-                                            onChange={e => setSearchQuery(e.target.value)}
-                                            className="w-full bg-white border border-slate-200 text-slate-700 text-[13px] font-bold rounded-xl pl-10 pr-4 py-2.5 outline-none focus:border-hx-purple shadow-sm transition-all"
-                                        />
-                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -635,48 +638,19 @@ export default function HorariosPorProfesorManager() {
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {mappedBlocks.map((bloque, idx) => {
+                                                {getMappedBlocks(turno.id_turno).map((bloque, idx) => {
                                                     if (bloque.type === 'recreo') {
-                                                        return (
-                                                            <tr key={`recreo-${idx}`} style={{ height: '65px' }} className="bg-slate-50">
-                                                                <td className="py-2 pr-3 text-center align-middle" style={{ width: '70px' }}>
-                                                                    <div className="flex flex-col items-center justify-center bg-amber-50 border border-amber-200 shadow-sm rounded-xl py-2 px-1">
-                                                                        <span className="text-[13px] font-black text-amber-800 leading-none mb-1">{bloque.inicio}</span>
-                                                                        <div className="w-4 h-px bg-amber-300 my-0.5"></div>
-                                                                        <span className="text-[11px] font-bold text-amber-600/80 leading-none mt-1">{bloque.fin}</span>
-                                                                    </div>
-                                                                </td>
-                                                                <td colSpan={gridDias.length} className="px-1 py-1 h-[65px]">
-                                                                    <div className="w-full h-full min-h-[50px] flex items-center justify-center gap-4 bg-gradient-to-r from-amber-50/50 via-amber-100/50 to-amber-50/50 py-3 rounded-[16px] border border-amber-200/50 shadow-sm relative overflow-hidden">
-                                                                        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'repeating-linear-gradient(45deg, #f59e0b 25%, transparent 25%, transparent 75%, #f59e0b 75%, #f59e0b)', backgroundSize: '10px 10px' }}></div>
-                                                                        <div className="h-px bg-amber-300/60 flex-1 ml-8 relative z-10"></div>
-                                                                        <div className="flex items-center gap-3 relative z-10">
-                                                                            <svg className="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                                                            <span className="text-[13px] font-black text-amber-700 tracking-[0.4em] uppercase mt-0.5">R E C R E O</span>
-                                                                        </div>
-                                                                        <div className="h-px bg-amber-300/60 flex-1 mr-8 relative z-10"></div>
-                                                                    </div>
-                                                                </td>
-                                                            </tr>
-                                                        );
+                                                        return null;
                                                     }
 
                                                     const bNum = bloque.numero;
                                                     return (
                                                         <tr key={`clase-${bNum}`} style={{ height: '100px' }}>
-                                                            {/* Número de bloque o Hora */}
+                                                            {/* Número de bloque */}
                                                             <td className="py-2 pr-3 text-center align-middle" style={{ width: '70px' }}>
-                                                                {bloque.inicio ? (
-                                                                    <div className="flex flex-col items-center justify-center bg-white border border-slate-100 shadow-sm rounded-xl py-2 px-1">
-                                                                        <span className="text-[13px] font-black text-slate-700 leading-none mb-1">{bloque.inicio}</span>
-                                                                        <div className="w-4 h-px bg-slate-200 my-0.5"></div>
-                                                                        <span className="text-[11px] font-bold text-slate-400 leading-none mt-1">{bloque.fin}</span>
-                                                                    </div>
-                                                                ) : (
-                                                                    <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center mx-auto">
-                                                                        <span className="text-[11px] font-black text-slate-600">{bNum}</span>
-                                                                    </div>
-                                                                )}
+                                                                <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center mx-auto">
+                                                                    <span className="text-[11px] font-black text-slate-600">{bNum}</span>
+                                                                </div>
                                                             </td>
                                                             {gridDias.map((dia) => {
                                                                 // Buscar asignación
@@ -691,15 +665,11 @@ export default function HorariosPorProfesorManager() {
                                                                     const startBlock = asigOriginal.slot_inicio + 1;
                                                                     const endBlock = asigOriginal.slot_inicio + asigOriginal.horas;
                                                                     const isStart = bNum === startBlock;
-                                                                    const isAfterRecreo = bNum > startBlock && timeConfig?.recreos?.some(rec => parseInt(rec.despuesDeBloque) === (bNum - 1));
                                                                     
-                                                                    if (isStart || isAfterRecreo) {
+                                                                    if (isStart) {
                                                                         let currentSpan = 0;
                                                                         for (let r = bNum; r <= endBlock; r++) {
                                                                             currentSpan++;
-                                                                            if (r < endBlock && timeConfig?.recreos?.some(rec => parseInt(rec.despuesDeBloque) === r)) {
-                                                                                break;
-                                                                            }
                                                                         }
                                                                         renderAsignacion = { a: asigOriginal, span: currentSpan };
                                                                     } else {

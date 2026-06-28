@@ -47,8 +47,17 @@ const ProfesorCard = ({ prof, cursos, profesorCurso, onAsignar }) => {
             <div className="px-5 py-4 border-t border-slate-100">
                 <button onClick={(e) => { e.stopPropagation(); onAsignar(prof); }}
                     className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-[13px] font-bold text-white transition-all cursor-pointer shadow-sm hover:shadow-md active:scale-95 bg-hx-purple hover:bg-purple-600">
-                    <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
-                    Asignar Cursos
+                    {asignados.length === 0 ? (
+                        <>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
+                            Asignar Cursos
+                        </>
+                    ) : (
+                        <>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                            Editar Asignación
+                        </>
+                    )}
                 </button>
             </div>
         </div>
@@ -105,7 +114,7 @@ export default function CargaAcademicaManager() {
         .filter(p => p.nombre_profesor?.toLowerCase().includes(searchTerm.toLowerCase()))
         .filter(p => {
             if (!filterCurso) return true;
-            return profesorCurso.some(pc => pc.id_profesor === p.id_profesor && pc.id_curso.toString() === filterCurso);
+            return profesorCurso.some(pc => pc.id_profesor === p.id_profesor && String(pc.id_curso) === filterCurso);
         })
         .sort((a, b) => {
             const ac = profesorCurso.filter(pc => pc.id_profesor === a.id_profesor).length;
@@ -126,18 +135,31 @@ export default function CargaAcademicaManager() {
         setIsModalOpen(true);
     };
 
-    const handleAsignar = async (id_curso) => {
-        if (!selectedProfesor || guardando || cursosDelProfesor.includes(id_curso)) return;
+    const handleAsignarToggle = async (id_curso) => {
+        if (!selectedProfesor || guardando) return;
         setGuardando(true);
         try {
-            const res = await fetch(`${API_BASE}/profesor-curso`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id_profesor: selectedProfesor.id_profesor, id_curso })
-            });
-            if (!res.ok) throw new Error('Error al asignar curso');
-            const nuevo = await res.json();
-            setProfesorCurso(prev => [...prev, nuevo]);
+            const isAsig = cursosDelProfesor.includes(id_curso);
+            
+            if (isAsig) {
+                // Eliminar (Desasignar)
+                const relacion = profesorCurso.find(pc => pc.id_profesor === selectedProfesor.id_profesor && pc.id_curso === id_curso);
+                if (relacion) {
+                    const res = await fetch(`${API_BASE}/profesor-curso/${relacion.id_profesor_curso}`, { method: 'DELETE' });
+                    if (!res.ok) throw new Error('Error al quitar el curso');
+                    setProfesorCurso(prev => prev.filter(pc => pc.id_profesor_curso !== relacion.id_profesor_curso));
+                }
+            } else {
+                // Asignar
+                const res = await fetch(`${API_BASE}/profesor-curso`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id_profesor: selectedProfesor.id_profesor, id_curso })
+                });
+                if (!res.ok) throw new Error('Error al asignar curso');
+                const nuevo = await res.json();
+                setProfesorCurso(prev => [...prev, nuevo]);
+            }
         } catch (err) {
             alert(err.message);
         } finally {
@@ -228,68 +250,37 @@ export default function CargaAcademicaManager() {
 
                         <div className="flex-shrink-0 w-1/4 flex justify-end relative">
                             <button 
-                                onClick={() => setIsFilterOpen(!isFilterOpen)}
-                                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all border-2 h-12 ${filterCurso ? 'bg-hx-purple text-white border-hx-purple shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:border-hx-purple hover:text-hx-purple'}`}
+                                onClick={() => setIsFilterOpen(true)}
+                                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all border-2 h-12 cursor-pointer ${filterCurso ? 'bg-hx-purple text-white border-hx-purple shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:border-hx-purple hover:text-hx-purple'}`}
                             >
                                 {filterCurso ? (
-                                    <span className="truncate max-w-[120px]">{cursos.find(c => c.id_curso.toString() === filterCurso)?.nombre_curso || 'Curso'}</span>
+                                    <>
+                                        <div className="w-2 h-2 rounded-full bg-white animate-pulse"></div>
+                                        <span className="truncate max-w-[120px]">{cursos.find(c => String(c.id_curso) === filterCurso)?.nombre_curso || 'Curso'}</span>
+                                    </>
                                 ) : (
                                     <>
-                                        <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-                                        <span className="hidden sm:inline">Filtrar Curso</span>
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                                        <span className="hidden sm:inline">Filtrar por Curso</span>
                                     </>
                                 )}
                             </button>
-
-                            {/* Panel Flotante de Cursos */}
-                            {isFilterOpen && (
-                                <>
-                                    <div className="fixed inset-0 z-40" onClick={() => setIsFilterOpen(false)}></div>
-                                    <div className="absolute top-[120%] right-0 mt-2 w-80 bg-white rounded-[24px] border border-slate-100 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] p-5 z-50 animate-fade-in origin-top-right">
-                                        <div className="flex justify-between items-center mb-4">
-                                            <h4 className="font-bold text-slate-800 text-[14px]">Selecciona un Curso</h4>
-                                            {filterCurso && (
-                                                <button onClick={() => {setFilterCurso(''); setIsFilterOpen(false); setCurrentPage(1);}} className="text-[11px] font-bold text-hx-purple hover:underline">
-                                                    Limpiar
-                                                </button>
-                                            )}
-                                        </div>
-                                        <div className="flex flex-wrap gap-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
-                                            <button 
-                                                onClick={() => {setFilterCurso(''); setIsFilterOpen(false); setCurrentPage(1);}}
-                                                className={`px-3 py-1.5 rounded-full text-[12px] font-bold transition-all border-2 ${!filterCurso ? 'border-hx-purple bg-hx-purple/10 text-hx-purple' : 'border-slate-100 bg-slate-50 text-slate-500 hover:border-slate-300'}`}
-                                            >
-                                                Todos
-                                            </button>
-                                            {cursos.map((c, idx) => {
-                                                const color = CURSO_COLORS[idx % CURSO_COLORS.length];
-                                                const isSel = filterCurso === c.id_curso.toString();
-                                                return (
-                                                    <button 
-                                                        key={c.id_curso}
-                                                        onClick={() => {setFilterCurso(c.id_curso.toString()); setIsFilterOpen(false); setCurrentPage(1);}}
-                                                        className={`px-3 py-1.5 rounded-full text-[12px] font-bold transition-all border-2`}
-                                                        style={{
-                                                            backgroundColor: isSel ? color.bg : color.light,
-                                                            color: isSel ? color.text : color.bg,
-                                                            borderColor: isSel ? color.bg : 'transparent',
-                                                            opacity: filterCurso && !isSel ? 0.6 : 1
-                                                        }}
-                                                    >
-                                                        {c.nombre_curso}
-                                                    </button>
-                                                )
-                                            })}
-                                        </div>
-                                    </div>
-                                </>
-                            )}
                         </div>
                     </div>
 
                     {filtered.length === 0 ? (
                         <div className="bg-slate-50 border-2 border-slate-200 border-dashed rounded-[32px] p-16 text-center">
-                            <h3 className="text-xl font-black text-slate-800">{searchTerm ? 'No se encontraron resultados' : 'No hay docentes registrados'}</h3>
+                            <h3 className="text-xl font-black text-slate-800">
+                                {(searchTerm || filterCurso) ? 'No se encontraron docentes con esos filtros' : 'No hay docentes registrados'}
+                            </h3>
+                            {(searchTerm || filterCurso) && (
+                                <button 
+                                    onClick={() => { setSearchTerm(''); setFilterCurso(''); setCurrentPage(1); }}
+                                    className="mt-6 px-6 py-2.5 bg-white border-2 border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-100 transition-colors shadow-sm cursor-pointer"
+                                >
+                                    Limpiar filtros
+                                </button>
+                            )}
                         </div>
                     ) : (
                         <>
@@ -417,12 +408,12 @@ export default function CargaAcademicaManager() {
                                                 const isAsig = cursosDelProfesor.includes(curso.id_curso);
                                                 const nombreCurso = curso?.nombre_curso || 'Sin nombre';
                                                 return (
-                                                    <div key={curso.id_curso} onClick={() => handleAsignar(curso.id_curso)}
-                                                        className={`rounded-2xl border-2 overflow-hidden transition-all duration-200 ${isAsig ? 'shadow-md cursor-default' : 'border-slate-100 bg-white hover:border-slate-300 hover:shadow-md cursor-pointer'}`}
+                                                    <div key={curso.id_curso} onClick={() => handleAsignarToggle(curso.id_curso)}
+                                                        className={`rounded-2xl border-2 overflow-hidden transition-all duration-200 cursor-pointer ${isAsig ? 'shadow-md hover:opacity-80' : 'border-slate-100 bg-white hover:border-slate-300 hover:shadow-md'}`}
                                                         style={isAsig ? { border: `2px solid ${col.bg}`, boxShadow: `0 4px 16px ${col.bg}30` } : {}}>
                                                         <div className="px-4 py-2.5 flex items-center justify-between" style={{ backgroundColor: col.bg }}>
                                                             <span className="text-[10px] font-black uppercase tracking-[0.15em]" style={{ color: col.text, opacity: 0.85 }}>Asignatura</span>
-                                                            {isAsig && <span className="text-[9px] font-black px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(255,255,255,0.25)', color: col.text }}>✓ Asignado</span>}
+                                                            {isAsig && <span className="text-[9px] font-black px-2 py-0.5 rounded-full flex items-center gap-1" style={{ backgroundColor: 'rgba(255,255,255,0.25)', color: col.text }}>✓ Asignado</span>}
                                                         </div>
                                                         <div className="p-4 flex items-center gap-3" style={{ backgroundColor: isAsig ? col.light : '#ffffff' }}>
                                                             <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-black text-sm flex-shrink-0" style={{ backgroundColor: col.bg }}>
@@ -430,7 +421,7 @@ export default function CargaAcademicaManager() {
                                                             </div>
                                                             <div className="flex-1 min-w-0">
                                                                 <p className="font-extrabold text-[13px] truncate leading-tight" style={{ color: isAsig ? col.bg : '#1e293b' }}>{nombreCurso}</p>
-                                                                <p className="text-[11px] text-slate-400 font-medium mt-0.5">{isAsig ? 'Ya enseña este curso' : '+ Clic para asignar'}</p>
+                                                                <p className="text-[11px] font-medium mt-0.5" style={isAsig ? { color: col.bg, opacity: 0.7 } : { color: '#94a3b8' }}>{isAsig ? 'Clic para quitar' : '+ Clic para asignar'}</p>
                                                             </div>
                                                             <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0"
                                                                 style={isAsig ? { borderColor: col.bg, backgroundColor: col.bg } : { borderColor: '#cbd5e1' }}>
@@ -455,6 +446,73 @@ export default function CargaAcademicaManager() {
                                 className="px-6 py-2.5 bg-hx-purple hover:bg-purple-600 text-white font-bold text-sm rounded-xl transition-all cursor-pointer shadow-md">
                                 Listo
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Modal de Filtro de Cursos */}
+            {isFilterOpen && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fade-in">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl border border-slate-100 flex flex-col overflow-hidden" style={{ maxHeight: '85vh' }}>
+                        
+                        <div className="px-6 py-5 flex justify-between items-center border-b border-slate-100 shrink-0 bg-slate-50/50">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-hx-purple/10 text-hx-purple font-black shadow-inner">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                                </div>
+                                <div>
+                                    <h3 className="font-black text-slate-800 text-lg">Filtrar por Curso</h3>
+                                    <p className="text-[12px] text-slate-500 font-medium mt-0.5">Selecciona un curso para ver los docentes asignados</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setIsFilterOpen(false)}
+                                className="w-9 h-9 rounded-full bg-white hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors shadow-sm border border-slate-100 cursor-pointer">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                            </button>
+                        </div>
+
+                        <div className="p-6 overflow-y-auto custom-scrollbar flex-1 bg-slate-50/30">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                <button 
+                                    onClick={() => {setFilterCurso(''); setIsFilterOpen(false); setCurrentPage(1);}}
+                                    className={`w-full text-left rounded-2xl border-2 transition-all p-4 cursor-pointer flex items-center gap-3
+                                        ${!filterCurso ? 'border-hx-purple bg-hx-purple/5 shadow-md' : 'border-slate-100 bg-white hover:border-hx-purple hover:shadow-md'}`}
+                                >
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black transition-colors shrink-0 ${!filterCurso ? 'bg-hx-purple text-white' : 'bg-slate-100 text-slate-500'}`}>
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className={`font-extrabold text-[13px] truncate ${!filterCurso ? 'text-hx-purple' : 'text-slate-700'}`}>Todos los Cursos</p>
+                                        <p className="text-[10px] text-slate-400 mt-0.5">Mostrar todo</p>
+                                    </div>
+                                </button>
+
+                                {cursos.map((c, idx) => {
+                                    const col = CURSO_COLORS[idx % CURSO_COLORS.length];
+                                    const isSel = filterCurso === String(c.id_curso);
+                                    return (
+                                        <button 
+                                            key={c.id_curso} 
+                                            onClick={() => {setFilterCurso(String(c.id_curso)); setIsFilterOpen(false); setCurrentPage(1);}}
+                                            className={`w-full text-left rounded-2xl border-2 transition-all p-4 cursor-pointer flex items-center gap-3
+                                                ${isSel ? 'shadow-md' : 'border-slate-100 bg-white hover:shadow-md hover:border-slate-300'}`}
+                                            style={isSel ? { borderColor: col.bg, backgroundColor: col.light } : {}}
+                                        >
+                                            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm font-black transition-colors shrink-0" style={{ backgroundColor: col.bg }}>
+                                                {c.nombre_curso.charAt(0).toUpperCase()}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-extrabold text-[13px] truncate" style={{ color: isSel ? col.bg : '#334155' }}>
+                                                    {c.nombre_curso}
+                                                </p>
+                                                <p className="text-[10px] font-bold mt-0.5" style={{ color: isSel ? col.bg : '#94a3b8' }}>
+                                                    {isSel ? 'Seleccionado' : 'Asignatura'}
+                                                </p>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
                         </div>
                     </div>
                 </div>

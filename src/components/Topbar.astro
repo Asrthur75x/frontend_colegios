@@ -3,21 +3,21 @@
 const pathname = Astro.url.pathname;
 let pageTitle = "Dashboard";
 
-if (
-    pathname.includes("/areas") ||
-    pathname.includes("/cursos") ||
-    pathname.includes("/planes")
+if (pathname.startsWith("/horarios")) {
+    pageTitle = "Centro de Horarios";
+} else if (
+    pathname.startsWith("/areas") ||
+    pathname.startsWith("/cursos") ||
+    pathname.startsWith("/planes")
 ) {
     pageTitle = "Módulo Académico";
 } else if (
-    pathname.includes("/profesores") ||
-    pathname.includes("/carga-academica") ||
-    pathname.includes("/tutorias") ||
-    pathname.includes("/asignacion-cursos")
+    pathname.startsWith("/profesores") ||
+    pathname.startsWith("/carga-academica") ||
+    pathname.startsWith("/tutorias") ||
+    pathname.startsWith("/asignacion-cursos")
 ) {
     pageTitle = "Módulo Docente";
-} else if (pathname.includes("/horarios")) {
-    pageTitle = "Centro de Horarios";
 }
 
 const isHorarios = pathname.includes("/horarios");
@@ -177,6 +177,21 @@ const sidebarColor = "rgba(121, 14, 236, 0.95)";
         const initialEl = document.getElementById("user-initial");
         if (initialEl) {
             initialEl.textContent = storedName.charAt(0).toUpperCase();
+        }
+
+        // Actualizar título basado en la ruta actual
+        const currentPath = window.location.pathname;
+        const topbarTitleEl = document.getElementById("topbar-title");
+        if (topbarTitleEl) {
+            if (currentPath.startsWith("/horarios")) {
+                topbarTitleEl.textContent = "Centro de Horarios";
+            } else if (currentPath.startsWith("/areas") || currentPath.startsWith("/cursos") || currentPath.startsWith("/planes")) {
+                topbarTitleEl.textContent = "Módulo Académico";
+            } else if (currentPath.startsWith("/profesores") || currentPath.startsWith("/carga-academica") || currentPath.startsWith("/tutorias") || currentPath.startsWith("/asignacion-cursos")) {
+                topbarTitleEl.textContent = "Módulo Docente";
+            } else {
+                topbarTitleEl.textContent = "Dashboard";
+            }
         }
 
         // Indicador dinámico de Horarios (Borde giratorio)

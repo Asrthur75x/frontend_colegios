@@ -82,6 +82,7 @@ export default function TutoriasManager() {
     const [error, setError] = useState(null);
 
     const [searchTerm, setSearchTerm] = useState('');
+    const [searchTermProfesor, setSearchTermProfesor] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedSeccion, setSelectedSeccion] = useState(null);
     const [guardando, setGuardando] = useState(false);
@@ -122,7 +123,7 @@ export default function TutoriasManager() {
     };
     const getTutoriaDeSeccion = (id_seccion) => tutorias.find(t => t.id_seccion === id_seccion) || null;
 
-    const abrirModal = (sec) => { setSelectedSeccion(sec); setIsModalOpen(true); };
+    const abrirModal = (sec) => { setSelectedSeccion(sec); setSearchTermProfesor(''); setIsModalOpen(true); };
 
     const handleQuitarTutor = async (id_seccion) => {
         const tutoriaExistente = getTutoriaDeSeccion(id_seccion);
@@ -326,26 +327,45 @@ export default function TutoriasManager() {
             {isModalOpen && selectedSeccion && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 sm:p-6">
                     <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-lg max-h-full sm:max-h-[85vh] flex flex-col overflow-hidden transform animate-slide-up">
-                        <div className="bg-white px-8 py-7 flex justify-between items-start border-b border-slate-100 shrink-0">
-                            <div>
-                                <h2 className="text-2xl font-black text-slate-800 tracking-tight">Elegir Tutor</h2>
-                                <p className="text-[13px] text-slate-500 mt-1 font-medium">
-                                    Para <span className="font-bold text-hx-purple">{selectedSeccion.nombre || `Sección ${selectedSeccion.id_seccion}`}</span>
-                                </p>
+                        <div className="bg-white px-8 py-6 flex flex-col border-b border-slate-100 shrink-0 gap-5">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h2 className="text-2xl font-black text-slate-800 tracking-tight">Elegir Tutor</h2>
+                                    <p className="text-[13px] text-slate-500 mt-1 font-medium">
+                                        Para <span className="font-bold text-hx-purple">{selectedSeccion.nombre || `Sección ${selectedSeccion.id_seccion}`}</span>
+                                    </p>
+                                </div>
+                                <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 w-10 h-10 rounded-full flex items-center justify-center transition-colors cursor-pointer">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                                </button>
                             </div>
-                            <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 w-10 h-10 rounded-full flex items-center justify-center transition-colors cursor-pointer">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-                            </button>
+                            <div className="w-full h-12 bg-slate-50/80 hover:bg-slate-100/80 border-2 border-slate-200 focus-within:border-hx-purple focus-within:bg-white focus-within:shadow-sm rounded-xl flex items-center transition-all duration-300 relative group overflow-hidden mt-1">
+                                <div className="pl-4 pr-3 text-slate-400 group-focus-within:text-hx-purple transition-colors">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                                </div>
+                                <input 
+                                    type="text" 
+                                    placeholder="Buscar docente por nombre..." 
+                                    value={searchTermProfesor}
+                                    onChange={(e) => setSearchTermProfesor(e.target.value)}
+                                    className="flex-1 bg-transparent pr-4 py-2 outline-none text-[14px] font-bold text-slate-700 placeholder:text-slate-400 h-full w-full"
+                                />
+                            </div>
                         </div>
 
-                        <div className="p-6 overflow-y-auto flex-1 min-h-0 space-y-2 bg-slate-50/50">
+                        <div className="p-6 overflow-y-auto flex-1 min-h-0 space-y-2 bg-slate-50/50 custom-scrollbar">
                             {guardando && (
                                 <div className="flex items-center justify-center gap-2 mb-4 px-4 py-3 rounded-2xl text-[13px] font-bold bg-hx-purple/10 text-hx-purple">
                                     <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin"></div>
                                     Guardando asignación...
                                 </div>
                             )}
-                            {profesores.map(prof => {
+                            {profesores.filter(p => (p.nombre_profesor || '').toLowerCase().includes(searchTermProfesor.toLowerCase())).length === 0 && (
+                                <div className="text-center py-8 text-slate-400 text-[13px] font-medium border-2 border-dashed border-slate-200 rounded-2xl">
+                                    No se encontraron docentes con ese nombre.
+                                </div>
+                            )}
+                            {profesores.filter(p => (p.nombre_profesor || '').toLowerCase().includes(searchTermProfesor.toLowerCase())).map(prof => {
                                 const isActual = tutoriaActual?.id_profesor === prof.id_profesor;
                                 return (
                                     <div

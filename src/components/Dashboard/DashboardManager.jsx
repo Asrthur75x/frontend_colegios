@@ -256,9 +256,9 @@ export default function DashboardManager() {
                     <div className="flex flex-col md:flex-row gap-6 w-full">
 
                         {/* 1. Progreso de Llenado (Izquierda) */}
-                        <div className="bg-white rounded-[24px] p-8 border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex-[1] flex flex-col justify-center min-w-[300px]">
+                        <div className="bg-white rounded-[24px] p-8 border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex-[0.75] flex flex-col justify-start min-w-[280px]">
                             <div className="flex items-center gap-3 mb-6">
-                                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center border border-blue-100/50">
+                                <div className="w-10 h-10 rounded-xl bg-purple-50 text-[var(--color-hx-purple)] flex items-center justify-center border border-purple-100/50">
                                     <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><path d="M22 4L12 14.01l-3-3" /></svg>
                                 </div>
                                 <div>
@@ -276,8 +276,8 @@ export default function DashboardManager() {
                                 <div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden shadow-inner relative">
                                     {/* Animated Progress Fill */}
                                     <div
-                                        className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-1000 ease-out relative"
-                                        style={{ width: `${progresoHorarios}%` }}
+                                        className="h-full rounded-full transition-all duration-1000 ease-out relative"
+                                        style={{ width: `${progresoHorarios}%`, backgroundColor: 'var(--color-hx-purple)' }}
                                     >
                                         <div className="absolute inset-0 bg-white/20 w-full animate-pulse"></div>
                                     </div>
@@ -291,7 +291,7 @@ export default function DashboardManager() {
                         </div>
 
                         {/* 2. Mapa de Áreas (Derecha) */}
-                        <div className="bg-white rounded-[24px] p-8 border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex-[1.3] flex flex-col">
+                        <div className="bg-white rounded-[24px] p-8 border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex-[1.5] flex flex-col">
                             <div className="flex items-center gap-3 mb-6">
                                 <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-500 flex items-center justify-center border border-purple-100/50">
                                     <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" /></svg>
@@ -327,7 +327,7 @@ export default function DashboardManager() {
 
                 {/* ── COLUMNA DERECHA (Directorio Docente) ── */}
                 <div className="w-full xl:w-[340px] flex-shrink-0">
-                    <div className="bg-white rounded-[24px] h-full flex flex-col overflow-hidden border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.09)] min-h-[500px]">
+                    <div className="bg-white rounded-[24px] h-full flex flex-col overflow-hidden border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.09)]">
                         {/* Header */}
                         <div className="px-6 pt-7 pb-5 flex items-center justify-between border-b border-slate-50 relative overflow-hidden">
                             <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-purple-50/80 via-white to-blue-50/50"></div>
@@ -376,8 +376,8 @@ export default function DashboardManager() {
                                     <p className="text-slate-500 text-sm font-medium">No hay docentes</p>
                                 </div>
                             ) : (
-                                <div className="space-y-1.5 h-full flex flex-col relative">
-                                    <div className="flex-1 space-y-1.5 min-h-[480px]">
+                                <div className="space-y-1.5 h-full flex flex-col relative pb-10">
+                                    <div className="flex-1 space-y-1.5">
                                         {paginatedProfs.map((prof) => {
                                             const initials = (prof.nombre_profesor || '?').substring(0, 2).toUpperCase();
                                             const profCursosCount = profCurso.filter(pc => pc.id_profesor === prof.id_profesor).length;

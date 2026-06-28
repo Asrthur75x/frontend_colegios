@@ -20,9 +20,12 @@ export default function Sidebar({ currentPath: initialPath = '' }) {
     const [openDocente, setOpenDocente] = useState(true);
 
     useEffect(() => {
-        if (typeof window !== 'undefined') {
+        const updatePath = () => {
             setCurrentPath(window.location.pathname.replace(/\/$/, ""));
-        }
+        };
+        updatePath();
+        
+        document.addEventListener('astro:page-load', updatePath);
 
         const fetchCounts = async () => {
             try {
@@ -41,7 +44,10 @@ export default function Sidebar({ currentPath: initialPath = '' }) {
 
         fetchCounts();
         window.addEventListener('horarix_data_updated', fetchCounts);
-        return () => window.removeEventListener('horarix_data_updated', fetchCounts);
+        return () => {
+            window.removeEventListener('horarix_data_updated', fetchCounts);
+            document.removeEventListener('astro:page-load', updatePath);
+        };
     }, []);
 
     const showToast = (msg) => {

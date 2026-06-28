@@ -2,9 +2,11 @@
 import { ClientRouter } from "astro:transitions";
 import Sidebar from "../components/Sidebar.jsx";
 import SidebarHorarios from "../components/SidebarHorarios.jsx";
+import GeneracionToast from "../components/Horarios/GeneracionToast.jsx";
 import Topbar from "../components/Topbar.astro";
 import "../styles/global.css";
 
+const { title = "Dashboard | HorariX" } = Astro.props;
 const currentPath = Astro.url.pathname;
 const isHorarios = currentPath.startsWith("/horarios");
 
@@ -16,7 +18,7 @@ const bodyBg = "rgba(121, 14, 236, 0.95)";
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>Dashboard | HorariX</title>
+		<title>{title}</title>
 		<script is:inline>
 			if (!localStorage.getItem("user")) {
 				window.location.href = "/login";
@@ -47,8 +49,8 @@ const bodyBg = "rgba(121, 14, 236, 0.95)";
 		<Topbar />
 
 		{isHorarios
-			? <SidebarHorarios client:load />
-			: <Sidebar client:load currentPath={currentPath} />
+			? <SidebarHorarios client:load currentPath={currentPath} transition:persist="sidebar-horarios" />
+			: <Sidebar client:load currentPath={currentPath} transition:persist="sidebar-main" />
 		}
 
 		<!-- El margen izquierdo de 64 equivale al w-64 (16rem/256px) del Sidebar fixado -->
@@ -60,5 +62,7 @@ const bodyBg = "rgba(121, 14, 236, 0.95)";
 				<slot />
 			</main>
 		</div>
+		<!-- Toast global de generación de horarios -->
+		<GeneracionToast client:load transition:persist />
 	</body>
 </html>

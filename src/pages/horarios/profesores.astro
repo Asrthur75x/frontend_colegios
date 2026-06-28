@@ -3,8 +3,6 @@ import Layout from "../../layouts/Layout.astro";
 import HorariosPorProfesorManager from "../../components/Horarios/HorariosPorProfesorManager.jsx";
 ---
 
-<Layout>
-    <div class="px-8 py-6 w-full h-full max-w-[1400px] mx-auto flex flex-col">
-        <HorariosPorProfesorManager client:load />
-    </div>
+<Layout title="Horarios por Profesores | HorariX">
+    <HorariosPorProfesorManager client:load />
 </Layout>

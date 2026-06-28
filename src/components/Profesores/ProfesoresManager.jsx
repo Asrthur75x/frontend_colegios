@@ -112,6 +112,7 @@ export default function ProfesoresManager() {
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
+    const [isNewRegistration, setIsNewRegistration] = useState(false);
     const [editId, setEditId] = useState(null);
     const [activeTab, setActiveTab] = useState('perfil');
     const [guardando, setGuardando] = useState(false);
@@ -289,8 +290,11 @@ export default function ProfesoresManager() {
             ps = [...new Set([...disps, ...prefs])].filter(id => id != null);
         }
 
-        // Si sigue vacío, es un profesor "Libre" del sistema antiguo que no tenía sede atada
-        if (ps.length === 0) return 'Libre (Todas)';
+        // Si sigue vacío, verificamos si está incompleto o es un profesor antiguo
+        if (ps.length === 0) {
+            const tieneGrados = gradoProfesores.some(x => x.id_profesor === id_prof);
+            return tieneGrados ? 'Libre (Todas)' : 'Sin Sede Asignada';
+        }
 
         return ps.map(sid => {
             const s = sedes.find(sede => sede.id_sede === sid);
@@ -302,7 +306,8 @@ export default function ProfesoresManager() {
         const cant = disponibilidades.filter(x => x.id_profesor === id_prof).length;
         if (cant === 0) {
             const prefs = preferencias.filter(x => x.id_profesor === id_prof).length;
-            if (prefs === 0) return 'Total';
+            const tieneGrados = gradoProfesores.some(x => x.id_profesor === id_prof);
+            if (prefs === 0 && tieneGrados) return 'Total';
         }
         return cant;
     };
@@ -314,6 +319,7 @@ export default function ProfesoresManager() {
     // ── Abrir Modal ──
     const abrirModalNueva = () => {
         setIsEditing(false);
+        setIsNewRegistration(true);
         setEditId(null);
         setFormNombre('');
         setNombreError('');
@@ -331,9 +337,18 @@ export default function ProfesoresManager() {
 
     const abrirModalEdicion = (prof) => {
         setIsEditing(true);
+        setIsNewRegistration(false);
         setEditId(prof.id_profesor);
         setFormNombre(prof.nombre_profesor);
         setNombreError('');
+
+        // Cargar grados actuales primero para saber si está incompleto
+        const gradosActuales = gradoProfesores
+            .filter(x => x.id_profesor === prof.id_profesor)
+            .map(x => x.id_grado);
+        setFormGrados(gradosActuales);
+
+        const estaIncompleto = gradosActuales.length === 0;
 
         // Cargar sedes actuales
         let sedesActuales = profesorSedes
@@ -346,18 +361,13 @@ export default function ProfesoresManager() {
             sedesActuales = [...new Set([...disps, ...prefs])].filter(id => id != null);
         }
 
-        // Si es un profesor antiguo libre sin sedes, asignarle todas por defecto para que las pueda ver/editar
-        if (sedesActuales.length === 0) {
+        // Si NO está incompleto (es un profesor antiguo) y no tiene sedes, asignarle todas.
+        // Si ESTÁ incompleto, lo dejamos vacío para que el usuario las seleccione.
+        if (!estaIncompleto && sedesActuales.length === 0) {
             sedesActuales = sedes.map(s => s.id_sede);
         }
 
         setFormSedes(sedesActuales);
-
-        // Cargar grados actuales
-        const gradosActuales = gradoProfesores
-            .filter(x => x.id_profesor === prof.id_profesor)
-            .map(x => x.id_grado);
-        setFormGrados(gradosActuales);
 
         // Cargar dispo actual
         const dispoActual = disponibilidades
@@ -381,8 +391,9 @@ export default function ProfesoresManager() {
             }));
         setFormPreferencia(prefActual);
 
-        // Si no tiene disponibilidades ni preferencias, está libre todos los días
-        setEsDisponibilidadTotal(prof.es_disponibilidad_total || (dispoActual.length === 0 && prefActual.length === 0));
+        // Si es un profe válido y no tiene bloques, entonces sí tiene disponibilidad total.
+        const esDispoTotal = !estaIncompleto && dispoActual.length === 0 && prefActual.length === 0;
+        setEsDisponibilidadTotal(prof.es_disponibilidad_total === true || esDispoTotal);
         setModoPincel('disponible');
         setActiveSede(sedesActuales.length > 0 ? sedesActuales[0] : null);
         setActiveTurnoTab(null);
@@ -905,8 +916,8 @@ export default function ProfesoresManager() {
                         {/* Header Limpio */}
                         <div className="bg-white px-8 py-6 flex justify-between items-start border-b border-slate-100 shrink-0">
                             <div>
-                                <h2 className="text-2xl font-bold text-slate-800 tracking-tight">{isEditing ? 'Gestión de Docente' : 'Nuevo Docente'}</h2>
-                                <p className="text-sm text-slate-500 mt-1">{isEditing ? 'Edita los datos y disponibilidad del docente.' : 'Registra un nuevo docente en el sistema.'}</p>
+                                <h2 className="text-2xl font-bold text-slate-800 tracking-tight">{!isNewRegistration ? 'Gestión de Docente' : 'Nuevo Docente'}</h2>
+                                <p className="text-sm text-slate-500 mt-1">{!isNewRegistration ? 'Edita los datos y disponibilidad del docente.' : 'Registra un nuevo docente en el sistema.'}</p>
                             </div>
                             <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 bg-slate-50 hover:bg-slate-100 w-9 h-9 rounded-full flex items-center justify-center transition-colors cursor-pointer">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
@@ -918,21 +929,24 @@ export default function ProfesoresManager() {
 
                             {/* Sidebar Nav */}
                             <div className="w-full md:w-64 bg-slate-50 border-b md:border-b-0 md:border-r border-slate-100 flex md:flex-col shrink-0 p-4 gap-2 overflow-x-auto md:overflow-x-visible">
-                                <button onClick={() => setActiveTab('perfil')} className={`text-left px-4 py-3 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'perfil' ? 'bg-white shadow-sm border border-slate-200 text-hx-purple' : 'border border-transparent text-slate-500 hover:bg-slate-100/50 hover:text-slate-700 cursor-pointer'}`}>1. Perfil Personal</button>
-                                <button onClick={() => editId && setActiveTab('sedes')} disabled={!editId} className={`text-left px-4 py-3 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${!editId ? 'opacity-40 cursor-not-allowed border border-transparent' : activeTab === 'sedes' ? 'bg-white shadow-sm border border-slate-200 text-hx-purple' : 'border border-transparent text-slate-500 hover:bg-slate-100/50 hover:text-slate-700 cursor-pointer'}`}>2. Asignar Sedes</button>
-                                <button onClick={() => editId && setActiveTab('grados')} disabled={!editId} className={`text-left px-4 py-3 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${!editId ? 'opacity-40 cursor-not-allowed border border-transparent' : activeTab === 'grados' ? 'bg-white shadow-sm border border-slate-200 text-hx-purple' : 'border border-transparent text-slate-500 hover:bg-slate-100/50 hover:text-slate-700 cursor-pointer'}`}>3. Grados Permitidos</button>
-                                <button onClick={() => editId && setActiveTab('disponibilidad')} disabled={!editId} className={`text-left px-4 py-3 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${!editId ? 'opacity-40 cursor-not-allowed border border-transparent' : activeTab === 'disponibilidad' ? 'bg-white shadow-sm border border-slate-200 text-hx-purple' : 'border border-transparent text-slate-500 hover:bg-slate-100/50 hover:text-slate-700 cursor-pointer'}`}>4. Disponibilidad</button>
+                                <button onClick={() => !isNewRegistration && setActiveTab('perfil')} className={`text-left px-4 py-3 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'perfil' ? 'bg-white shadow-sm border border-slate-200 text-hx-purple' : 'border border-transparent text-slate-500 hover:bg-slate-100/50 hover:text-slate-700'} ${isNewRegistration && activeTab !== 'perfil' ? 'pointer-events-none opacity-50' : isNewRegistration ? 'cursor-default' : 'cursor-pointer'}`}>1. Perfil Personal</button>
+                                <button onClick={() => editId && !isNewRegistration && setActiveTab('sedes')} disabled={!editId || isNewRegistration} className={`text-left px-4 py-3 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${(!editId || (isNewRegistration && activeTab !== 'sedes')) ? 'opacity-40 cursor-not-allowed border border-transparent' : activeTab === 'sedes' ? 'bg-white shadow-sm border border-slate-200 text-hx-purple' : 'border border-transparent text-slate-500 hover:bg-slate-100/50 hover:text-slate-700 cursor-pointer'}`}>2. Asignar Sedes</button>
+                                <button onClick={() => editId && !isNewRegistration && setActiveTab('grados')} disabled={!editId || isNewRegistration} className={`text-left px-4 py-3 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${(!editId || (isNewRegistration && activeTab !== 'grados')) ? 'opacity-40 cursor-not-allowed border border-transparent' : activeTab === 'grados' ? 'bg-white shadow-sm border border-slate-200 text-hx-purple' : 'border border-transparent text-slate-500 hover:bg-slate-100/50 hover:text-slate-700 cursor-pointer'}`}>3. Grados Permitidos</button>
+                                <button onClick={() => editId && !isNewRegistration && setActiveTab('disponibilidad')} disabled={!editId || isNewRegistration} className={`text-left px-4 py-3 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${(!editId || (isNewRegistration && activeTab !== 'disponibilidad')) ? 'opacity-40 cursor-not-allowed border border-transparent' : activeTab === 'disponibilidad' ? 'bg-white shadow-sm border border-slate-200 text-hx-purple' : 'border border-transparent text-slate-500 hover:bg-slate-100/50 hover:text-slate-700 cursor-pointer'}`}>4. Disponibilidad</button>
                             </div>
 
                             {/* Tab Content */}
                             <div className="flex-1 p-6 md:p-8 overflow-y-auto">
                                 {/* TAB 1: PERFIL */}
                                 {activeTab === 'perfil' && (
-                                    <form onSubmit={handleGuardarPerfil} className="max-w-md mx-auto space-y-5">
+                                    <form onSubmit={handleGuardarPerfil} autoComplete="off" className="max-w-md mx-auto space-y-5">
                                         <div>
                                             <label className="text-sm font-bold text-slate-700 block mb-2">Nombre Completo del Docente</label>
                                             <input
-                                                type="text" value={formNombre}
+                                                type="text" 
+                                                value={formNombre}
+                                                autoComplete="off"
+                                                name={`profesor_nombre_${Date.now()}`}
                                                 onChange={(e) => {
                                                     setFormNombre(e.target.value);
                                                     if (e.target.value.trim()) setNombreError('');
@@ -1192,7 +1206,7 @@ export default function ProfesoresManager() {
                                                         {turnosRender.map(turno => {
                                                             if (turno.id_turno !== currentTurnoId) return null;
                                                             // Bloques del API para este turno
-                                                            const bloquesTurno = bloques.filter(b => b.id_turno === turno.id_turno);
+                                                            const bloquesTurno = bloques.filter(b => b.id_turno === turno.id_turno && !b.es_recreo);
                                                             // Usar: bloques del API si existen, si no generar desde grado-dia-config dinámico
                                                             const maxFromDispo = Math.max(
                                                                 ...formDispo.filter(x => x.id_turno === turno.id_turno).map(x => x.nro_bloque || 0),
