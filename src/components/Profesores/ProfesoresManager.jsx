@@ -44,11 +44,15 @@ const ProfesorCard = ({ prof, sedesStr, cantGrados, cantDispo, onEdit, onDelete,
                         {sedesStr !== 'Ninguna' ? sedesStr : 'Sin Sede Asignada'}
                     </p>
                     <div className="flex items-center gap-3 mt-2">
-                        <div className="flex items-center gap-1 text-slate-400" title="Bloques Disponibles">
-                            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
-                            <span className={`text-[10px] font-bold ${cantDispo === 'Total' ? 'text-hx-purple' : ''}`}>
+                        <div className="flex items-center gap-1 text-slate-400" title="Bloques de Disponibilidad Físicos">
+                            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                            <span className="text-[10px] font-bold truncate">
                                 {cantDispo === 'Total' ? 'Dispo. Total' : `${cantDispo} Blq.`}
                             </span>
+                        </div>
+                        <div className="flex items-center gap-1 text-slate-400" title="Horas Mínimas">
+                            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                            <span className="text-[10px] font-bold">{prof.horas_minimas || 0} H. Mín.</span>
                         </div>
                         <div className="flex items-center gap-1 text-slate-400" title="Grados Permitidos">
                             <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 14l9-5-9-5-9 5 9 5z" /><path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" /></svg>
@@ -105,6 +109,8 @@ export default function ProfesoresManager() {
     const [maxBloquesDia, setMaxBloquesDia] = useState(10);
     const [secciones, setSecciones] = useState([]);
     const [seccionTurnos, setSeccionTurnos] = useState([]);
+    const [profesorCursos, setProfesorCursos] = useState([]);
+    const [planes, setPlanes] = useState([]);
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -119,7 +125,9 @@ export default function ProfesoresManager() {
 
     // Form State
     const [formNombre, setFormNombre] = useState('');
+    const [formHorasMinimas, setFormHorasMinimas] = useState(0);
     const [nombreError, setNombreError] = useState('');
+    const [horasMinError, setHorasMinError] = useState('');
     const [sedesError, setSedesError] = useState('');
     const [gradosError, setGradosError] = useState('');
     const [dispoError, setDispoError] = useState('');
@@ -222,7 +230,8 @@ export default function ProfesoresManager() {
             const endpoints = [
                 'profesores', 'sedes', 'profesor-sedes',
                 'profesor-disponibilidad', 'profesor-preferencia', 'dias', 'turnos', 'bloques', 'grado-dia-config',
-                'grados', 'grado-profesor', 'secciones', 'seccion-turno'
+                'grados', 'grado-profesor', 'secciones', 'seccion-turno',
+                'profesor-curso', 'planes'
             ];
 
             const responses = await Promise.all(
@@ -249,6 +258,8 @@ export default function ProfesoresManager() {
             setGradoProfesores(data[10] || []);
             setSecciones(data[11] || []);
             setSeccionTurnos(data[12] || []);
+            setProfesorCursos(data[13] || []);
+            setPlanes(data[14] || []);
 
             // Calcular el máximo de bloques por día desde grado-dia-config
             const gdc = data[8] || [];
@@ -322,7 +333,10 @@ export default function ProfesoresManager() {
         setIsNewRegistration(true);
         setEditId(null);
         setFormNombre('');
+        setFormHorasMinimas(0);
         setNombreError('');
+        setHorasMinError('');
+        setHorasMinWarnings([]);
         setFormSedes([]);
         setFormGrados([]);
         setFormDispo([]);
@@ -340,7 +354,10 @@ export default function ProfesoresManager() {
         setIsNewRegistration(false);
         setEditId(prof.id_profesor);
         setFormNombre(prof.nombre_profesor);
+        setFormHorasMinimas(prof.horas_minimas || 0);
         setNombreError('');
+        setHorasMinError('');
+        setHorasMinWarnings([]);
 
         // Cargar grados actuales primero para saber si está incompleto
         const gradosActuales = gradoProfesores
@@ -401,40 +418,105 @@ export default function ProfesoresManager() {
         setIsModalOpen(true);
     };
 
-    const eliminarProfesor = async (id) => {
-        const confirmacion = window.confirm('¿Eliminar profesor y todas sus asignaciones?');
-        if (!confirmacion) return;
+    // ── Guardar Perfil (Nombre) ──
+    // ── Función de validación de horas mínimas ──
+    const validarHorasMinimas = (valor, profId = editId) => {
+        const val = parseInt(valor, 10);
+        const warnings = [];
+
+        // Errores bloqueantes
+        if (isNaN(val) || val === '' || valor === '') {
+            return { error: 'Debes ingresar un valor numérico.', warnings };
+        }
+        if (val < 1) {
+            return { error: 'Las horas mínimas deben ser al menos 1.', warnings };
+        }
+        if (val > 40) {
+            return { error: 'El máximo permitido es 40 horas semanales.', warnings };
+        }
+        if (!Number.isInteger(Number(valor)) || String(valor).includes('.')) {
+            return { error: 'Solo se permiten números enteros.', warnings };
+        }
+
+        // Validaciones con datos del profesor
+        if (profId) {
+            // 1. Validación física (Bloqueante): bloques de disponibilidad pintados
+            const bloquesDisponibles = disponibilidades.filter(d => d.id_profesor === profId).length;
+            if (bloquesDisponibles > 0 && val > bloquesDisponibles) {
+                return { error: `Excede la disponibilidad física. Solo tiene ${bloquesDisponibles} bloques pintados pero exiges ${val} horas.`, warnings };
+            }
+
+            // 2. Validación curricular (NO Bloqueante / Advertencia): horas máximas que podría dictar
+            const cursosDelProf = profesorCursos.filter(pc => pc.id_profesor === profId).map(pc => pc.id_curso);
+            const gradosDelProf = gradoProfesores.filter(gp => gp.id_profesor === profId).map(gp => gp.id_grado);
+
+            if (cursosDelProf.length > 0 && gradosDelProf.length > 0) {
+                let horasCurriculares = 0;
+                const seccionesPorGrado = {};
+                secciones.forEach(sec => {
+                    seccionesPorGrado[sec.id_grado] = (seccionesPorGrado[sec.id_grado] || 0) + 1;
+                });
+
+                for (const idGrado of gradosDelProf) {
+                    const numSecciones = seccionesPorGrado[idGrado] || 0;
+                    for (const idCurso of cursosDelProf) {
+                        const plan = planes.find(p => p.id_grado === idGrado && p.id_curso === idCurso);
+                        if (plan) {
+                            horasCurriculares += (plan.horas_semanales || 0) * numSecciones;
+                        }
+                    }
+                }
+
+                if (horasCurriculares > 0 && val > horasCurriculares) {
+                    warnings.push(`Advertencia: Sus cursos y grados actuales suman un máximo de ${horasCurriculares} horas, pero le exiges ${val}. Recuerda asignarle más cursos en Carga Académica.`);
+                }
+            }
+        }
+
+        return { error: '', warnings };
+    };
+
+    const [horasMinWarnings, setHorasMinWarnings] = useState([]);
+
+    const handleHorasMinChange = (e) => {
+        const raw = e.target.value;
+        setFormHorasMinimas(raw);
+        if (raw === '' || raw === '0') {
+            setHorasMinError('Las horas mínimas deben ser al menos 1.');
+            setHorasMinWarnings([]);
+            return;
+        }
+        const { error, warnings } = validarHorasMinimas(raw);
+        setHorasMinError(error);
+        setHorasMinWarnings(warnings);
+    };
+
+    const handleGuardarHorasMinimas = async () => {
+        if (!editId) return;
+
+        const { error } = validarHorasMinimas(formHorasMinimas);
+        if (error) {
+            setHorasMinError(error);
+            return;
+        }
+
+        setGuardando(true);
         try {
-            // Eliminar dependencias primero si el backend no hace cascade
-            const linkGrados = gradoProfesores.filter(x => x.id_profesor === id);
-            for (let lg of linkGrados) {
-                await fetch(`${API_BASE}/grado-profesor/${lg.id_grado_profesor}`, { method: 'DELETE' });
-            }
-            const linkSedes = profesorSedes.filter(x => x.id_profesor === id);
-            for (let ls of linkSedes) {
-                await fetch(`${API_BASE}/profesor-sedes/${ls.id_sede_profesor}`, { method: 'DELETE' });
-            }
-            const linkDispos = disponibilidades.filter(x => x.id_profesor === id);
-            for (let ld of linkDispos) {
-                await fetch(`${API_BASE}/profesor-disponibilidad/${ld.id_disponibilidad}`, { method: 'DELETE' });
-            }
-            const linkPrefs = preferencias.filter(x => x.id_profesor === id);
-            for (let lp of linkPrefs) {
-                await fetch(`${API_BASE}/profesor-preferencia/${lp.id_preferencia}`, { method: 'DELETE' });
-            }
-
-            // Finalmente eliminar profesor
-            const res = await fetch(`${API_BASE}/profesores/${id}`, { method: 'DELETE' });
-            if (!res.ok) throw new Error(await parseApiError(res, 'Error al eliminar'));
-
+            const res = await fetch(`${API_BASE}/profesores/${editId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nombre_profesor: formNombre.trim(), horas_minimas: parseInt(formHorasMinimas, 10) || 0 })
+            });
+            if (!res.ok) throw new Error(await parseApiError(res, 'Error al guardar horas mínimas'));
             await fetchDatos();
-            window.dispatchEvent(new Event('horarix_data_updated'));
+            setIsModalOpen(false);
         } catch (err) {
             alert(`Error: ${err.message}`);
+        } finally {
+            setGuardando(false);
         }
     };
 
-    // ── Guardar Perfil (Nombre) ──
     const handleGuardarPerfil = async (e) => {
         e.preventDefault();
         if (!formNombre.trim()) {
@@ -450,14 +532,14 @@ export default function ProfesoresManager() {
                 const res = await fetch(`${API_BASE}/profesores/${editId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nombre_profesor: formNombre.trim() })
+                    body: JSON.stringify({ nombre_profesor: formNombre.trim(), horas_minimas: parseInt(formHorasMinimas, 10) || 0 })
                 });
                 if (!res.ok) throw new Error(await parseApiError(res, 'Error al actualizar'));
             } else {
                 const res = await fetch(`${API_BASE}/profesores`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nombre_profesor: formNombre.trim() })
+                    body: JSON.stringify({ nombre_profesor: formNombre.trim(), horas_minimas: parseInt(formHorasMinimas, 10) || 0 })
                 });
                 if (!res.ok) throw new Error(await parseApiError(res, 'Error al crear'));
                 const newProf = await res.json();
@@ -625,7 +707,7 @@ export default function ProfesoresManager() {
                 setFormPreferencia(prev => [...prev.filter(x => x.id_sede !== activeSede), ...all]);
             } else {
                 setFormDispo(prev => [...prev.filter(x => x.id_sede !== activeSede), ...all]);
-                setFormPreferencia(prev => prev.filter(x => x.id_sede !== activeSede));
+                setFormPreferencia(prev => [...prev.filter(x => x.id_sede !== activeSede)]);
             }
         } else {
             setFormDispo(prev => prev.filter(x => x.id_sede !== activeSede));
@@ -693,7 +775,11 @@ export default function ProfesoresManager() {
             }
 
             await fetchDatos();
-            setIsModalOpen(false);
+            // Avanzar a la pestaña de Horas Mínimas en vez de cerrar
+            const { error, warnings } = validarHorasMinimas(formHorasMinimas);
+            setHorasMinError(error);
+            setHorasMinWarnings(warnings);
+            setActiveTab('horas_minimas');
         } catch (err) {
             alert(`Error: ${err.message}`);
         } finally {
@@ -933,6 +1019,7 @@ export default function ProfesoresManager() {
                                 <button onClick={() => editId && !isNewRegistration && setActiveTab('sedes')} disabled={!editId || isNewRegistration} className={`text-left px-4 py-3 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${(!editId || (isNewRegistration && activeTab !== 'sedes')) ? 'opacity-40 cursor-not-allowed border border-transparent' : activeTab === 'sedes' ? 'bg-white shadow-sm border border-slate-200 text-hx-purple' : 'border border-transparent text-slate-500 hover:bg-slate-100/50 hover:text-slate-700 cursor-pointer'}`}>2. Asignar Sedes</button>
                                 <button onClick={() => editId && !isNewRegistration && setActiveTab('grados')} disabled={!editId || isNewRegistration} className={`text-left px-4 py-3 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${(!editId || (isNewRegistration && activeTab !== 'grados')) ? 'opacity-40 cursor-not-allowed border border-transparent' : activeTab === 'grados' ? 'bg-white shadow-sm border border-slate-200 text-hx-purple' : 'border border-transparent text-slate-500 hover:bg-slate-100/50 hover:text-slate-700 cursor-pointer'}`}>3. Grados Permitidos</button>
                                 <button onClick={() => editId && !isNewRegistration && setActiveTab('disponibilidad')} disabled={!editId || isNewRegistration} className={`text-left px-4 py-3 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${(!editId || (isNewRegistration && activeTab !== 'disponibilidad')) ? 'opacity-40 cursor-not-allowed border border-transparent' : activeTab === 'disponibilidad' ? 'bg-white shadow-sm border border-slate-200 text-hx-purple' : 'border border-transparent text-slate-500 hover:bg-slate-100/50 hover:text-slate-700 cursor-pointer'}`}>4. Disponibilidad</button>
+                                <button onClick={() => editId && !isNewRegistration && setActiveTab('horas_minimas')} disabled={!editId || isNewRegistration} className={`text-left px-4 py-3 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${(!editId || (isNewRegistration && activeTab !== 'horas_minimas')) ? 'opacity-40 cursor-not-allowed border border-transparent' : activeTab === 'horas_minimas' ? 'bg-white shadow-sm border border-slate-200 text-hx-purple' : 'border border-transparent text-slate-500 hover:bg-slate-100/50 hover:text-slate-700 cursor-pointer'}`}>5. Horas Mínimas</button>
                             </div>
 
                             {/* Tab Content */}
@@ -941,22 +1028,17 @@ export default function ProfesoresManager() {
                                 {activeTab === 'perfil' && (
                                     <form onSubmit={handleGuardarPerfil} autoComplete="off" className="max-w-md mx-auto space-y-5">
                                         <div>
-                                            <label className="text-sm font-bold text-slate-700 block mb-2">Nombre Completo del Docente</label>
+                                            <label className="text-sm font-bold text-slate-700 block mb-2">Nombre del Docente</label>
                                             <input
-                                                type="text" 
+                                                type="text"
                                                 value={formNombre}
-                                                autoComplete="off"
-                                                name={`profesor_nombre_${Date.now()}`}
-                                                onChange={(e) => {
-                                                    setFormNombre(e.target.value);
-                                                    if (e.target.value.trim()) setNombreError('');
-                                                }}
-                                                placeholder="Ej. Juan Carlos Pérez"
-                                                className={`w-full px-4 py-3 rounded-xl border ${nombreError ? 'border-red-400 bg-red-50 focus:ring-red-400/20 text-red-900 placeholder-red-300' : 'border-slate-200 bg-slate-50 focus:border-hx-purple focus:ring-hx-purple/10 text-slate-800'} focus:bg-white focus:ring-4 outline-none transition-all text-sm font-medium`}
+                                                onChange={(e) => setFormNombre(e.target.value)}
+                                                className={`w-full px-4 py-3 rounded-xl border ${nombreError ? 'border-red-300 focus:border-red-500 focus:ring-red-500/10' : 'border-slate-200 focus:border-hx-purple focus:ring-hx-purple/10'} bg-slate-50 text-slate-800 focus:bg-white focus:ring-4 outline-none transition-all text-sm font-medium`}
+                                                placeholder="Ej. Juan Pérez"
                                             />
                                             {nombreError && (
-                                                <p className="text-red-500 text-xs font-bold mt-2 flex items-center gap-1.5 animate-fade-in">
-                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+                                                <p className="text-red-500 text-xs mt-1.5 flex items-center gap-1">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
                                                     {nombreError}
                                                 </p>
                                             )}
@@ -1309,7 +1391,64 @@ export default function ProfesoresManager() {
                                         <div className="flex gap-4 pt-4 border-t border-slate-100 mt-4">
                                             <button onClick={() => setIsModalOpen(false)} className="flex-1 py-3 text-sm font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all cursor-pointer">Cancelar</button>
                                             <button disabled={guardando} onClick={handleGuardarDispo} className={`flex-1 py-3 bg-hx-purple hover:bg-hx-purple/90 text-white font-bold rounded-xl shadow-md transition-all ${guardando ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'}`}>
-                                                {guardando ? 'Finalizando...' : 'Finalizar y Guardar'}
+                                                {guardando ? 'Guardando...' : 'Continuar'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* TAB 5: HORAS MÍNIMAS */}
+                                {activeTab === 'horas_minimas' && (
+                                    <div className="max-w-md mx-auto space-y-5">
+                                        <div className="flex items-center gap-3 mb-2 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                            <div className="w-9 h-9 bg-hx-purple/10 rounded-xl flex items-center justify-center text-hx-purple shrink-0">
+                                                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                            </div>
+                                            <div>
+                                                <p className="font-bold text-slate-700 text-sm">Horas Mínimas Exigidas</p>
+                                                <p className="text-[11px] text-slate-400">Define la carga horaria mínima semanal que debe cumplir este docente.</p>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <label className="text-sm font-bold text-slate-700 block mb-2">Cantidad de Horas</label>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                max="40"
+                                                step="1"
+                                                value={formHorasMinimas}
+                                                onChange={handleHorasMinChange}
+                                                className={`w-full px-4 py-3 rounded-xl border ${horasMinError ? 'border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-500/10' : 'border-slate-200 bg-slate-50 focus:border-hx-purple focus:ring-hx-purple/10'} text-slate-800 focus:bg-white focus:ring-4 outline-none transition-all text-sm font-medium`}
+                                            />
+                                            {horasMinError && (
+                                                <p className="text-red-500 text-xs mt-1.5 flex items-center gap-1">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+                                                    {horasMinError}
+                                                </p>
+                                            )}
+                                            {!horasMinError && horasMinWarnings.length > 0 && (
+                                                <div className="mt-2 space-y-1">
+                                                    {horasMinWarnings.map((w, i) => (
+                                                        <p key={i} className="text-amber-600 text-xs flex items-start gap-1.5 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                                                            <svg className="w-3.5 h-3.5 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                                                            <span>{w}</span>
+                                                        </p>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            {!horasMinError && horasMinWarnings.length === 0 && formHorasMinimas && parseInt(formHorasMinimas) >= 1 && (
+                                                <p className="text-emerald-600 text-xs mt-1.5 flex items-center gap-1">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                                    Valor válido. El motor priorizará asignarle al menos {formHorasMinimas} horas.
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        <div className="flex gap-4 pt-4 border-t border-slate-100 mt-4">
+                                            <button onClick={() => setIsModalOpen(false)} className="flex-1 py-3 text-sm font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all cursor-pointer">Cancelar</button>
+                                            <button disabled={guardando || !!horasMinError} onClick={handleGuardarHorasMinimas} className={`flex-1 py-3 bg-hx-purple hover:bg-hx-purple/90 text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 ${(guardando || !!horasMinError) ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
+                                                {guardando ? 'Guardando...' : 'Finalizar y Guardar'}
                                             </button>
                                         </div>
                                     </div>
