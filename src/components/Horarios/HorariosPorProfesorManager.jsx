@@ -480,10 +480,20 @@ export default function HorariosPorProfesorManager() {
             
             {/* ENCABEZADO */}
             {status !== 'empty' && (
-                <div className="flex items-center justify-between mb-8 w-full">
+                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8 w-full">
                     <div>
                         <h1 className="text-3xl font-black text-slate-800 tracking-tight">Horarios por Profesor</h1>
                         <p className="text-slate-500 text-[14px] mt-1 font-medium">Visualiza y exporta el horario individual de cada docente.</p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3 flex-shrink-0">
+                        <button onClick={handleDownloadExcel} className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl hover:bg-emerald-100 hover:shadow-md font-black text-[13px] transition-all cursor-pointer">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                            Descargar Excel (Todos)
+                        </button>
+                        <button onClick={handleDownloadPDF} disabled={isDownloadingPdf} className={`flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl hover:bg-rose-100 hover:shadow-md font-black text-[13px] transition-all cursor-pointer ${isDownloadingPdf ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                            <svg className={`w-4 h-4 ${isDownloadingPdf ? 'animate-bounce' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                            {isDownloadingPdf ? 'Generando PDF...' : 'Descargar PDF (Todos)'}
+                        </button>
                     </div>
                 </div>
             )}
@@ -610,16 +620,6 @@ export default function HorariosPorProfesorManager() {
                                             <div className="flex items-center gap-3">
                                                 <div className="w-3 h-3 rounded-full bg-hx-purple"></div>
                                                 <h3 className="text-[16px] font-black text-slate-800 uppercase tracking-widest">Turno {turno.nombre}</h3>
-                                            </div>
-                                            <div className="flex justify-start lg:justify-end gap-3 flex-shrink-0">
-                                                <button onClick={handleDownloadExcel} className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl hover:bg-emerald-100 hover:shadow-md font-black text-[13px] transition-all cursor-pointer">
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                                                    Descargar Excel (Todos)
-                                                </button>
-                                                <button onClick={handleDownloadPDF} disabled={isDownloadingPdf} className={`flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl hover:bg-rose-100 hover:shadow-md font-black text-[13px] transition-all cursor-pointer ${isDownloadingPdf ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                                                    <svg className={`w-4 h-4 ${isDownloadingPdf ? 'animate-bounce' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                                                    {isDownloadingPdf ? 'Generando PDF...' : 'Descargar PDF (Todos)'}
-                                                </button>
                                             </div>
                                         </div>
                                         <div id={`horario-profesor-table-${turno.nombre}`} className="w-full bg-white rounded-[24px] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-x-auto p-6 pt-4">

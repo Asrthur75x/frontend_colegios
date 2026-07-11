@@ -104,12 +104,15 @@ export async function startGeneracion() {
         state.intervalId = null;
 
         if (data.status === 'error' || data.errores) {
-            const msgs = data.errores ? data.errores.join(", ") : "Error desconocido";
-            state.errorMsg = `No se puede generar el horario por inconsistencias en los datos: ${msgs}`;
+            if (data.errores && Array.isArray(data.errores)) {
+                state.errorMsg = data.errores;
+            } else {
+                state.errorMsg = ["Error desconocido al generar el horario."];
+            }
             state.status = 'error';
             notify();
             // Disparar evento global para que el toast lo muestre
-            window.dispatchEvent(new CustomEvent('horarix_generacion_done', { detail: { success: false, error: state.errorMsg } }));
+            window.dispatchEvent(new CustomEvent('horarix_generacion_done', { detail: { success: false, error: "Validación fallida" } }));
             return;
         }
 

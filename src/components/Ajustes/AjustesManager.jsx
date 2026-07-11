@@ -26,7 +26,7 @@ export default function AjustesManager() {
     const [newSeccionGrado, setNewSeccionGrado] = useState('');
     const [newSeccionSede, setNewSeccionSede] = useState('');
     const [newSeccionNombre, setNewSeccionNombre] = useState('');
-    const [selectedSeccionId, setSelectedSeccionId] = useState(null);
+    const [selectedSeccionId, setSelectedSeccionId] = useState('');
     const [selectedTurnoId, setSelectedTurnoId] = useState('');
     const [filtroSeccionGrado, setFiltroSeccionGrado] = useState('');
     const [filtroSeccionSede, setFiltroSeccionSede] = useState('');
@@ -225,16 +225,12 @@ export default function AjustesManager() {
     };
 
     const handleUpdateGradoDiaConfig = async (id_grado, id_dia, bloques_dia) => {
-        // Encontrar si ya existe
         const existing = gradoDiaConfig.find(c => c.id_grado === id_grado && c.id_dia === id_dia);
         try {
             if (existing) {
                 if (bloques_dia === 0) {
                     await fetch(`${API_BASE}/grado-dia-config/${existing.id_config}`, { method: 'DELETE' });
                 } else {
-                    // El backend actual no tiene un PUT explícito en main.py para grado-dia-config, 
-                    // si lo hay, lo usamos, si no, eliminamos y creamos (esto es un workaround si no hay PUT)
-                    // Por simplicidad asumo que podríamos borrar y recrear:
                     await fetch(`${API_BASE}/grado-dia-config/${existing.id_config}`, { method: 'DELETE' });
                     await fetch(`${API_BASE}/grado-dia-config`, {
                         method: 'POST',
@@ -293,10 +289,6 @@ export default function AjustesManager() {
                 await fetch(`${API_BASE}/seccion-turno/${st.id_seccion_turno}`, { method: 'DELETE' });
             }
 
-            // Crear nuevo registro (el backend necesita id_seccion, id_turno, y opcionalmente id_dia, 
-            // asumimos que el wizard asignaba 1 dia representativo o creaba para todos los dias de ese grado)
-            // Para simplificar, insertaremos solo la vinculación general si el backend lo permite,
-            // pero el modelo pide id_dia. Insertaremos para el primer dia disponible del grado.
             const gradoId = secciones.find(s => s.id_seccion === parseInt(selectedSeccionId))?.id_grado;
             const primerDiaId = gradoDiaConfig.find(c => c.id_grado === gradoId && c.bloques_dia > 0)?.id_dia || dias[0]?.id_dia;
 
@@ -310,7 +302,7 @@ export default function AjustesManager() {
                 })
             });
             fetchData();
-            showToast("Turno asignado.");
+            showToast("Turno asignado correctamente.");
             setSelectedSeccionId('');
             setSelectedTurnoId('');
         } catch (err) { showToast("Error al asignar turno."); }
@@ -548,7 +540,37 @@ export default function AjustesManager() {
                                     type="text" placeholder="Nombre (Ej: A, B, 1A)" value={newSeccionNombre} onChange={e => setNewSeccionNombre(e.target.value)}
                                     className="bg-slate-50 border border-slate-200 text-slate-700 text-sm font-bold rounded-xl px-4 py-2 outline-none w-48"
                                 />
-                                <button onClick={handleAddSeccion} className="px-6 py-2 bg-[#790EEC] text-white font-bold text-sm rounded-xl">Añadir Sección</button>
+                                <button onClick={handleAddSeccion} className="px-6 py-2 bg-[#790EEC] text-white font-bold text-sm rounded-xl hover:shadow-md transition-all cursor-pointer">Añadir Sección</button>
+                            </div>
+
+                            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 mt-6 shadow-sm">
+                                <h4 className="text-sm font-black text-slate-800 uppercase tracking-wider mb-4 flex items-center gap-2">
+                                    <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    Asignar Turno a Sección
+                                </h4>
+                                <div className="flex flex-wrap items-end gap-4">
+                                    <div className="flex-1 min-w-[200px]">
+                                        <label className="text-[11px] font-bold text-slate-500 mb-1.5 block">Seleccionar Sección</label>
+                                        <select value={selectedSeccionId} onChange={e => setSelectedSeccionId(e.target.value)} className="w-full bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-xl px-4 py-2.5 outline-none">
+                                            <option value="">-- Elige una sección --</option>
+                                            {secciones.map(sec => (
+                                                <option key={sec.id_seccion} value={sec.id_seccion}>{sec.nombre} (Grado {grados.find(g => g.id_grado === sec.id_grado)?.numero})</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="flex-1 min-w-[200px]">
+                                        <label className="text-[11px] font-bold text-slate-500 mb-1.5 block">Seleccionar Turno</label>
+                                        <select value={selectedTurnoId} onChange={e => setSelectedTurnoId(e.target.value)} className="w-full bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-xl px-4 py-2.5 outline-none">
+                                            <option value="">-- Elige un turno --</option>
+                                            {turnos.map(t => (
+                                                <option key={t.id_turno} value={t.id_turno}>{t.nombre}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <button onClick={handleAssignTurno} disabled={!selectedSeccionId || !selectedTurnoId} className="px-6 py-2.5 bg-[#790EEC] disabled:opacity-50 text-white font-bold text-sm rounded-xl hover:shadow-md transition-all cursor-pointer">
+                                        Asignar Turno
+                                    </button>
+                                </div>
                             </div>
 
                             <div className="flex items-center justify-between mb-4 mt-8 pt-6 border-t border-slate-100">
@@ -577,22 +599,35 @@ export default function AjustesManager() {
                                     const turnoActual = st ? turnos.find(t => t.id_turno === st.id_turno)?.nombre : 'Sin Turno';
 
                                     return (
-                                        <div key={sec.id_seccion} className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col justify-between">
+                                        <div key={sec.id_seccion} className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col justify-between hover:shadow-sm transition-shadow">
                                             <div className="flex justify-between items-start mb-2">
                                                 <div>
-                                                    <h4 className="font-black text-slate-800 text-lg">{sec.nombre} <span className="text-slate-400 text-sm font-semibold ml-1">({g?.numero}°)</span></h4>
-                                                    <p className="text-xs font-bold text-slate-400 mt-0.5">{s?.nombre_sede}</p>
+                                                    <h4 className="font-black text-slate-800 text-lg flex items-baseline gap-1.5">
+                                                        {sec.nombre} 
+                                                        <span className="text-slate-400 text-[11px] uppercase tracking-wider font-bold">Grado {g?.numero}</span>
+                                                    </h4>
+                                                    <p className="text-xs font-bold text-slate-500 mt-0.5 flex items-center gap-1">
+                                                        <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                                        {s?.nombre_sede}
+                                                    </p>
                                                 </div>
-                                                <button onClick={() => handleDeleteSeccion(sec.id_seccion)} className="text-red-400 hover:text-red-600 p-1">
+                                                <button onClick={() => handleDeleteSeccion(sec.id_seccion)} className="text-red-400 hover:text-red-600 p-1 cursor-pointer bg-red-50 rounded-lg hover:bg-red-100 transition-colors">
                                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"></path></svg>
                                                 </button>
                                             </div>
-                                            <div className="mt-3 pt-3 border-t border-slate-200/60">
-                                                <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Turno Asignado: <span className="text-[#790EEC]">{turnoActual}</span></p>
+                                            <div className="mt-3 pt-3 border-t border-slate-200/60 flex items-center gap-2">
+                                                <p className="text-[10px] font-black uppercase text-slate-400 mb-1">
+                                                    Turno Asignado: <span className={st ? "text-[#790EEC]" : "text-slate-400"}>{turnoActual}</span>
+                                                </p>
                                             </div>
                                         </div>
                                     )
                                 })}
+                                {secciones.length === 0 && (
+                                    <div className="col-span-full py-8 text-center text-slate-400 font-medium bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                                        No hay secciones creadas todavía.
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>

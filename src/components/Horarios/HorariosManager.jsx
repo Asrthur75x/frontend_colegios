@@ -26,6 +26,43 @@ const CURSO_COLORS = [
 // Color único para encabezados de días
 const DIA_COLOR = { bg: 'var(--color-hx-purple)', text: '#ffffff' };
 
+const formatFriendlyError = (err, profesores) => {
+    if (typeof err !== 'string') return err;
+    let formattedErr = err;
+
+    // Check for the curricular potential validation error
+    const currMatch = err.match(/\[horas_minimas\]\[(PROF_\d+)\]\s*.+?exige (\d+) horas mínimas pero por su habilitación curricular.*?máximo de (\d+) horas/i);
+    if (currMatch) {
+        const profId = currMatch[1];
+        const prof = profesores.find(p => p.id_profesor == profId.replace('PROF_', ''));
+        const pName = prof ? prof.nombre_profesor : profId;
+        return `El profesor ${pName} exige ${currMatch[2]} horas mínimas, pero por los grados y cursos que tiene habilitados, solo es posible asignarle un máximo de ${currMatch[3]} horas de clase.`;
+    }
+
+    // Check for the physical availability validation error
+    const physMatch = err.match(/\[horas_minimas\]\[(PROF_\d+)\]\s*.+?exige (\d+) horas mínimas pero su disponibilidad física solo suma (\d+) slots/i);
+    if (physMatch) {
+        const profId = physMatch[1];
+        const prof = profesores.find(p => p.id_profesor == profId.replace('PROF_', ''));
+        const pName = prof ? prof.nombre_profesor : profId;
+        return `El profesor ${pName} exige ${physMatch[2]} horas mínimas, pero los horarios en los que está disponible solo suman ${physMatch[3]} horas en total.`;
+    }
+
+    // Fallback if it's another type of horas_minimas error
+    const profMatch = err.match(/\[horas_minimas\]\[(PROF_\d+)\]\s*(.)/);
+    if (profMatch) {
+        const profId = profMatch[1];
+        const firstChar = profMatch[2];
+        const prof = profesores.find(p => p.id_profesor == profId.replace('PROF_', ''));
+        const pName = prof ? prof.nombre_profesor : profId;
+        formattedErr = err.replace(/\[horas_minimas\]\[PROF_\d+\]\s*./, `${pName} ${firstChar.toLowerCase()}`);
+    }
+
+    // Clean any remaining tags
+    formattedErr = formattedErr.replace(/\[[a-zA-Z_]+\](?:\[[^\]]+\])?\s*/g, '');
+    return formattedErr;
+};
+
 export default function HorariosManager({ isEditPage = false }) {
     const [status, setStatus] = useState(() => {
         if (typeof window === 'undefined') return 'loading';
@@ -71,6 +108,10 @@ export default function HorariosManager({ isEditPage = false }) {
     const [swapConfirm, setSwapConfirm] = useState(null);
     const [originalAsignaciones, setOriginalAsignaciones] = useState(null);
     const [isSavingEdits, setIsSavingEdits] = useState(false);
+
+    // UI States
+    const [activeView, setActiveView] = useState('horario'); // 'horario' o 'metricas'
+    const [metricasMotor, setMetricasMotor] = useState(null);
 
     // Se eliminó la dependencia de localStorage para timeConfig
     // Ahora dependemos exclusivamente de la base de datos (fetchData).
@@ -118,7 +159,7 @@ export default function HorariosManager({ isEditPage = false }) {
         const fetchData = async () => {
             try {
                 // Hacer todas las peticiones en paralelo
-                const [secRes, curRes, profRes, diasRes, bloqRes, configRes, horarioRes, gradosRes, sedesRes, turnosRes, seccionTurnosRes, bloqReservRes] = await Promise.all([
+                const [secRes, curRes, profRes, diasRes, bloqRes, configRes, horarioRes, gradosRes, sedesRes, turnosRes, seccionTurnosRes, bloqReservRes, metricasRes] = await Promise.all([
                     fetch(`${API_BASE}/secciones`),
                     fetch(`${API_BASE}/cursos`),
                     fetch(`${API_BASE}/profesores`),
@@ -130,11 +171,12 @@ export default function HorariosManager({ isEditPage = false }) {
                     fetch(`${API_BASE}/sedes`),
                     fetch(`${API_BASE}/turnos`),
                     fetch(`${API_BASE}/seccion-turno`),
-                    fetch(`${API_BASE}/bloque-reservado`)
+                    fetch(`${API_BASE}/bloque-reservado`),
+                    fetch(`${API_BASE}/horario-metricas-motor`)
                 ]);
 
                 // Parsear todos los JSON juntos
-                const [secData, curData, profData, diasData, bloqData, configData, horarioData, gradosData, sedesData, turnosData, stData, bloqReservData] = await Promise.all([
+                const [secData, curData, profData, diasData, bloqData, configData, horarioData, gradosData, sedesData, turnosData, stData, bloqReservData, metricasData] = await Promise.all([
                     secRes.ok ? secRes.json() : Promise.resolve([]),
                     curRes.ok ? curRes.json() : Promise.resolve([]),
                     profRes.ok ? profRes.json() : Promise.resolve([]),
@@ -146,7 +188,8 @@ export default function HorariosManager({ isEditPage = false }) {
                     sedesRes.ok ? sedesRes.json() : Promise.resolve([]),
                     turnosRes.ok ? turnosRes.json() : Promise.resolve([]),
                     seccionTurnosRes.ok ? seccionTurnosRes.json() : Promise.resolve([]),
-                    bloqReservRes.ok ? bloqReservRes.json() : Promise.resolve([])
+                    bloqReservRes.ok ? bloqReservRes.json() : Promise.resolve([]),
+                    metricasRes.ok ? metricasRes.json() : Promise.resolve(null)
                 ]);
 
                 // Calcular valores derivados
@@ -175,6 +218,7 @@ export default function HorariosManager({ isEditPage = false }) {
                 setTurnos(turnosData);
                 setSeccionTurnos(stData);
                 setBloquesReservados(bloqReservData);
+                setMetricasMotor(metricasData);
                 setMaxBloquesDia(maxBlq > 0 ? maxBlq : 6);
                 setAsignaciones(asignacionesData);
                 setSelectedSeccion(primeraSeccion);
@@ -203,9 +247,9 @@ export default function HorariosManager({ isEditPage = false }) {
             const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
             let isFirstPage = true;
 
-            const seccionesAExportar = selectedSeccion && filteredSecciones.length > 0 
-                                       ? filteredSecciones 
-                                       : secciones; 
+            const seccionesAExportar = selectedSeccion && filteredSecciones.length > 0
+                ? filteredSecciones
+                : secciones;
 
             if (seccionesAExportar.length === 0) {
                 setIsDownloadingPdf(false);
@@ -219,10 +263,10 @@ export default function HorariosManager({ isEditPage = false }) {
 
                 if (!isFirstPage) pdf.addPage();
                 isFirstPage = false;
-                
+
                 const secGrado = grados.find(g => g.id_grado === sec.id_grado);
                 const titulo = `Horario General - ${secGrado ? secGrado.numero + ' Grado ' : ''}Seccion ${sec.nombre}`;
-                
+
                 pdf.setFontSize(14);
                 pdf.text(titulo, 14, 20);
 
@@ -288,7 +332,7 @@ export default function HorariosManager({ isEditPage = false }) {
                     styles: { fontSize: 8, cellPadding: 2, halign: 'center', valign: 'middle' },
                     headStyles: { fillColor: [139, 92, 246], textColor: [255, 255, 255], fontStyle: 'bold' },
                     columnStyles: { 0: { fontStyle: 'bold', cellWidth: 20 } },
-                    didParseCell: function(data) {
+                    didParseCell: function (data) {
                         if (data.row.raw[1] === 'RECREO' && data.column.index > 0) {
                             data.cell.styles.fillColor = [253, 230, 138];
                             data.cell.styles.textColor = [180, 83, 9];
@@ -297,7 +341,7 @@ export default function HorariosManager({ isEditPage = false }) {
                     }
                 });
             });
-            
+
             pdf.save(`Horarios_Completos_General.pdf`);
         } catch (error) {
             console.error("Error al generar el PDF: ", error);
@@ -311,19 +355,19 @@ export default function HorariosManager({ isEditPage = false }) {
             const normalize = (str) => str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim() : "";
             const wb = XLSX.utils.book_new();
 
-            const seccionesAExportar = selectedSeccion && filteredSecciones.length > 0 
-                                       ? filteredSecciones 
-                                       : secciones;
+            const seccionesAExportar = selectedSeccion && filteredSecciones.length > 0
+                ? filteredSecciones
+                : secciones;
 
             if (seccionesAExportar.length === 0) return;
 
             seccionesAExportar.forEach((sec) => {
                 const asignacionesSec = asignaciones.filter(a => String(a.seccion_id).replace('SEC_', '') === String(sec.id_seccion));
                 if (asignacionesSec.length === 0) return; // Evitar hojas vacías
-                
+
                 const secGrado = grados.find(g => g.id_grado === sec.id_grado);
                 const sheetName = `${secGrado ? secGrado.numero : ''}G Sec ${sec.nombre} ${sec.id_seccion}`;
-                
+
                 const wsData = [];
                 wsData.push(["Bloque", ...gridDias.map(d => d.nombre_dia.toUpperCase())]);
 
@@ -381,11 +425,11 @@ export default function HorariosManager({ isEditPage = false }) {
                 });
 
                 const ws = XLSX.utils.aoa_to_sheet(wsData);
-                
+
                 // Configurar ancho de columnas
                 const colWidths = [{ wch: 15 }, ...gridDias.map(() => ({ wch: 28 }))];
                 ws['!cols'] = colWidths;
-                
+
                 const safeSheetName = sheetName.substring(0, 31).replace(/[\\/?*[\]]/g, '');
                 XLSX.utils.book_append_sheet(wb, ws, safeSheetName);
             });
@@ -396,7 +440,7 @@ export default function HorariosManager({ isEditPage = false }) {
             }
 
             XLSX.writeFile(wb, `Horarios_Completos_General.xlsx`);
-        } catch(error) {
+        } catch (error) {
             console.error("Error al generar Excel: ", error);
         }
     };
@@ -802,23 +846,62 @@ export default function HorariosManager({ isEditPage = false }) {
             {status === 'empty' && (
                 <div className="relative flex flex-col items-center justify-center max-w-2xl w-full mx-auto mt-6 p-8 rounded-[40px] overflow-hidden group transition-all duration-500">
                     <div className="relative z-10 flex flex-col items-center text-center animate-fade-in-up w-full">
-                        {errorMsg && (
-                            <div className="w-full bg-red-50 text-red-600 border border-red-200 p-3 rounded-xl mb-4 font-bold text-sm text-left whitespace-pre-wrap">
-                                {errorMsg}
+                        {errorMsg ? (
+                            <div className="relative mt-8 mb-10 w-full max-w-2xl mx-auto text-left">
+                                {/* Sombra plana desplazada tipo tarjeta (roja) */}
+                                <div className="absolute top-2 -left-2 w-full h-full bg-[#da524e] rounded-sm"></div>
+
+                                {/* Contenedor principal blanco */}
+                                <div className="relative z-10 bg-white border border-gray-200 p-5 flex flex-col gap-2 rounded-sm shadow-md">
+                                    <h3 className="text-[#da524e] font-bold text-[18px] tracking-tight mb-1">
+                                        Error de configuración detectado
+                                    </h3>
+
+                                    <ul className="space-y-1.5 mb-1">
+                                        {Array.isArray(errorMsg) ? errorMsg.map((err, i) => (
+                                            <li key={i} className="flex items-start gap-2.5">
+                                                <svg className="w-5 h-5 text-[#da524e] shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                                <span className="text-[14.5px] text-[#da524e] font-medium leading-tight mt-0.5">
+                                                    {formatFriendlyError(err, profesores)}
+                                                </span>
+                                            </li>
+                                        )) : (
+                                            <li className="flex items-start gap-2.5">
+                                                <svg className="w-5 h-5 text-[#da524e] shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                                <span className="text-[14.5px] text-[#da524e] font-medium leading-tight mt-0.5">
+                                                    {formatFriendlyError(errorMsg, profesores)}
+                                                </span>
+                                            </li>
+                                        )}
+                                    </ul>
+
+                                    <div className="flex mt-2 border-t border-gray-100 pt-3">
+                                        <a href="/profesores" className="inline-flex items-center gap-2 px-5 py-2 bg-[#da524e] hover:bg-[#c74541] text-white font-bold text-[13px] rounded-sm transition-colors shadow-sm">
+                                            <span>Ir a corregir Profesores</span>
+                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                                        </a>
+                                    </div>
+                                </div>
                             </div>
+                        ) : (
+                            <>
+                                <div className="w-40 h-40 mb-6 flex items-center justify-center drop-shadow-xl hover:scale-105 transition-transform duration-500">
+                                    <img src="/imagen.svg" alt="Ilustración de horarios" className="w-full h-full object-contain" />
+                                </div>
+
+                                <h2 className="text-[28px] leading-tight font-black text-transparent bg-clip-text bg-gradient-to-r from-slate-800 to-slate-500 mb-3 tracking-tight">
+                                    Aún no hay horarios listos
+                                </h2>
+
+                                <p className="text-slate-500 text-[15px] font-medium max-w-[420px] mx-auto leading-relaxed mb-8">
+                                    Parece que todavía no has armado tus horarios. Haz clic en el botón inferior y nosotros haremos la magia por ti.
+                                </p>
+                            </>
                         )}
-
-                        <div className="w-40 h-40 mb-6 flex items-center justify-center drop-shadow-xl hover:scale-105 transition-transform duration-500">
-                            <img src="/imagen.svg" alt="Ilustración de horarios" className="w-full h-full object-contain" />
-                        </div>
-
-                        <h2 className="text-[28px] leading-tight font-black text-transparent bg-clip-text bg-gradient-to-r from-slate-800 to-slate-500 mb-3 tracking-tight">
-                            Aún no hay horarios listos
-                        </h2>
-
-                        <p className="text-slate-500 text-[15px] font-medium max-w-[420px] mx-auto leading-relaxed mb-8">
-                            Parece que todavía no has armado tus horarios. Haz clic en el botón inferior y nosotros haremos la magia por ti.
-                        </p>
 
                         <button
                             onClick={handleGenerar}
@@ -837,347 +920,467 @@ export default function HorariosManager({ isEditPage = false }) {
             {status === 'ready' && (
                 <div className="w-full flex flex-col gap-8 animate-fade-in-up">
 
-                    {/* PANEL DE FILTROS SUPERIOR (Full Width) */}
-                    <div className="w-full bg-white rounded-[24px] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
-                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-
-                            {/* Filtros Izquierda */}
-                            <div className="flex flex-wrap items-center gap-4">
-                                {sedes.length > 1 && (
-                                    <div className="flex flex-col">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Sede</label>
-                                        <select value={selectedSede} onChange={e => setSelectedSede(e.target.value)} className="bg-slate-50 border border-slate-200 text-slate-700 text-[13px] font-bold rounded-xl px-4 py-2.5 outline-none focus:border-hx-purple shadow-sm transition-all cursor-pointer">
-                                            <option value="">Todas las sedes</option>
-                                            {sedes.map(s => <option key={s.id_sede} value={s.id_sede}>{s.nombre_sede}</option>)}
-                                        </select>
-                                    </div>
-                                )}
-
-                                {turnos.length > 1 && (
-                                    <div className="flex flex-col">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Turno</label>
-                                        <select value={selectedTurno} onChange={e => setSelectedTurno(e.target.value)} className="bg-slate-50 border border-slate-200 text-slate-700 text-[13px] font-bold rounded-xl px-4 py-2.5 outline-none focus:border-hx-purple shadow-sm transition-all cursor-pointer">
-                                            <option value="">Todos los turnos</option>
-                                            {turnos.map(t => <option key={t.id_turno} value={t.id_turno}>{t.nombre}</option>)}
-                                        </select>
-                                    </div>
-                                )}
-
-                                {(sedes.length > 1 || turnos.length > 1) && (
-                                    <div className="hidden md:block w-px h-10 bg-slate-200 mx-2 mt-4"></div>
-                                )}
-
-                                <div className="flex flex-col">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Grado y Sección</label>
-                                    <select value={selectedSeccion} onChange={e => setSelectedSeccion(e.target.value)} className="bg-white border-2 border-slate-200 text-hx-purple text-[15px] font-black rounded-xl px-5 py-2 outline-none focus:border-hx-purple shadow-sm transition-all cursor-pointer">
-                                        {grados.map(g => {
-                                            const secs = filteredSecciones.filter(s => s.id_grado === g.id_grado);
-                                            if (secs.length === 0) return null;
-                                            return (
-                                                <optgroup key={g.id_grado} label={`${g.numero}°`}>
-                                                    {secs.map(sec => (
-                                                        <option key={sec.id_seccion} value={`SEC_${sec.id_seccion}`}>
-                                                            {g.numero}° - Sección {sec.nombre}
-                                                        </option>
-                                                    ))}
-                                                </optgroup>
-                                            )
-                                        })}
-                                    </select>
-                                </div>
-                            </div>
-
-                            {/* Botones Derecha */}
-                            <div className="flex items-center gap-3 mt-4 md:mt-0 flex-shrink-0">
-                                {isEditPage && (
-                                    <button
-                                        onClick={() => setIsTimeModalOpen(true)}
-                                        className="h-[44px] px-5 bg-white border-2 border-slate-200 text-slate-600 hover:text-hx-purple hover:border-hx-purple text-[13px] font-black rounded-xl transition-colors shadow-sm flex items-center gap-2 whitespace-nowrap cursor-pointer"
-                                    >
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                                        Editar Horario
-                                    </button>
-                                )}
-                                {isEditPage && (
-                                    <button onClick={handleDownloadExcel}
-                                        className="h-[44px] px-4 flex items-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl hover:bg-emerald-100 font-black text-[13px] transition-all cursor-pointer">
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                                        Excel
-                                    </button>
-                                )}
-                                {isEditPage && (
-                                    <button onClick={handleDownloadPDF} disabled={isDownloadingPdf}
-                                        className={`h-[44px] px-4 flex items-center gap-2 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl hover:bg-rose-100 font-black text-[13px] transition-all cursor-pointer ${isDownloadingPdf ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                                        <svg className={`w-4 h-4 ${isDownloadingPdf ? 'animate-bounce' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                                        {isDownloadingPdf ? 'PDF...' : 'PDF'}
-                                    </button>
-                                )}
-
-                                {!isEditPage && (
-                                    <button
-                                        onClick={handleGenerar}
-                                        className="group relative flex items-center justify-center gap-2 px-6 h-[44px] bg-[var(--color-hx-purple)] text-white font-black text-sm rounded-xl hover:shadow-lg hover:-translate-y-0.5 transition-all overflow-hidden cursor-pointer"
-                                    >
-                                        <div className="absolute inset-0 w-full h-full -ml-16 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 animate-shine" />
-                                        <svg className="w-5 h-5 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                        </svg>
-                                        <span className="relative z-10 tracking-wide">Generar Horarios</span>
-                                    </button>
-                                )}
+                    {/* TABS DE VISTA */}
+                    {!isEditPage && (
+                        <div className="flex items-center justify-center w-full">
+                            <div className="bg-slate-100/80 p-1.5 rounded-2xl flex items-center gap-1 border border-slate-200/60 shadow-sm backdrop-blur-sm">
+                                <button
+                                    onClick={() => setActiveView('horario')}
+                                    className={`cursor-pointer px-6 py-2.5 rounded-xl font-bold text-[14px] transition-all duration-300 flex items-center gap-2 ${activeView === 'horario' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
+                                >
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                                    Vista por Secciones
+                                </button>
+                                <button
+                                    onClick={() => setActiveView('metricas')}
+                                    className={`cursor-pointer px-6 py-2.5 rounded-xl font-bold text-[14px] transition-all duration-300 flex items-center gap-2 ${activeView === 'metricas' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
+                                >
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                                    Estadísticas Generales
+                                </button>
                             </div>
                         </div>
-                    </div>
+                    )}
 
+                    {activeView === 'metricas' ? (
+                        <div className="w-full flex flex-col gap-6 animate-fade-in-up">
+                            {metricasMotor ? (
+                                <div className="space-y-6">
+                                    {/* Cards de Resumen */}
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                        <div className="bg-white p-6 rounded-[24px] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+                                            <div className="flex items-center gap-3 mb-4">
+                                                <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-500">
+                                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                                </div>
+                                                <h3 className="font-bold text-slate-700">Slots Dictados</h3>
+                                            </div>
+                                            <div className="flex items-end gap-2">
+                                                <span className="text-4xl font-black text-slate-800">{metricasMotor.resumen_slots?.total_ocupados || 0}</span>
+                                                <span className="text-slate-500 text-sm font-medium mb-1">/ {metricasMotor.resumen_slots?.total_disponibles || 0}</span>
+                                            </div>
+                                            <div className="mt-4 h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                                                <div className="h-full bg-blue-500 rounded-full transition-all duration-1000" style={{ width: `${((metricasMotor.resumen_slots?.total_ocupados || 0) / (metricasMotor.resumen_slots?.total_disponibles || 1)) * 100}%` }}></div>
+                                            </div>
+                                        </div>
 
+                                        <div className="bg-white p-6 rounded-[24px] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+                                            <div className="flex items-center gap-3 mb-4">
+                                                <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-500">
+                                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                                </div>
+                                                <h3 className="font-bold text-slate-700">Huecos en Horario</h3>
+                                            </div>
+                                            <div className="flex items-end gap-2">
+                                                <span className="text-4xl font-black text-slate-800">{metricasMotor.resumen_slots?.total_huecos || 0}</span>
+                                                <span className="text-slate-500 text-sm font-medium mb-1">slots vacíos</span>
+                                            </div>
+                                            <p className="mt-4 text-xs font-semibold text-slate-400">
+                                                {metricasMotor.resumen_slots?.total_huecos === 0 ? "¡Horario perfecto sin huecos!" : "Algunas secciones tienen horas libres intermedias."}
+                                            </p>
+                                        </div>
 
-                    {/* CONTENIDO DEL HORARIO */}
-                    <div className="w-full flex flex-col gap-4">
-                        {/* Cabecera Dinámica del Aula */}
-                        {selectedSeccion && (() => {
-                            const currSec = secciones.find(s => `SEC_${s.id_seccion}` === selectedSeccion);
-                            if (!currSec) return null;
-                            const currGrado = grados.find(g => g.id_grado === currSec.id_grado);
-                            const currSede = sedes.find(s => s.id_sede === currSec.id_sede);
-                            const currTurnoLinks = seccionTurnos.filter(st => st.id_seccion === currSec.id_seccion);
-                            const turnosNombres = currTurnoLinks.map(l => turnos.find(t => t.id_turno === l.id_turno)?.nombre).filter(Boolean).join(" / ");
-                            return (
-                                <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-2 ml-2">
-                                    <div className="flex flex-col">
-                                        <h2 className="text-[28px] md:text-[34px] font-black text-slate-800 tracking-tight leading-none mb-3">
-                                            {currGrado ? `${currGrado.numero}° - ` : ''}Sección {currSec.nombre}
-                                        </h2>
-                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                                            <span className="text-hx-purple font-black text-[15px]">{currGrado ? `Grado: ${currGrado.numero}°` : 'Sin Grado'}</span>
-                                            <span className="text-slate-300">•</span>
-                                            <span className="text-slate-500 font-bold text-[15px]">{currSede ? `Sede: ${currSede.nombre_sede}` : 'Sin Sede'}</span>
+                                        <div className="bg-white p-6 rounded-[24px] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+                                            <div className="flex items-center gap-3 mb-4">
+                                                <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-purple-500">
+                                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                                                </div>
+                                                <h3 className="font-bold text-slate-700">Profesores Activos</h3>
+                                            </div>
+                                            <div className="flex items-end gap-2">
+                                                <span className="text-4xl font-black text-slate-800">{Object.keys(metricasMotor.profesores || {}).length}</span>
+                                                <span className="text-slate-500 text-sm font-medium mb-1">docentes</span>
+                                            </div>
+                                            <p className="mt-4 text-xs font-semibold text-slate-400">Con al menos 1 clase asignada</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Ranking de Profesores */}
+                                    <div className="bg-white rounded-[24px] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden mb-8">
+                                        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+                                            <h3 className="font-black text-slate-800 text-lg">Carga Académica de Profesores</h3>
+                                            <span className="text-xs font-bold text-slate-400 bg-slate-100 px-3 py-1.5 rounded-lg">Ordenado por horas</span>
+                                        </div>
+                                        <div className="p-6">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                {Object.entries(metricasMotor.profesores || {})
+                                                    .sort(([, a], [, b]) => b.total_horas_semanales - a.total_horas_semanales)
+                                                    .map(([profId, info]) => {
+                                                        const p = profesores.find(x => `PROF_${x.id_profesor}` === profId);
+                                                        const name = p ? p.nombre_profesor : profId;
+                                                        return (
+                                                            <div key={profId} className="flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl hover:border-hx-purple/30 hover:shadow-sm transition-all group">
+                                                                <div>
+                                                                    <p className="font-bold text-slate-700 text-[14px] group-hover:text-hx-purple transition-colors">{name}</p>
+                                                                    <p className="text-[12px] text-slate-500 mt-1 font-medium">{info.cantidad_secciones} Secc. • {info.cantidad_cursos} Cursos</p>
+                                                                </div>
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className="text-right">
+                                                                        <p className="font-black text-hx-purple text-xl leading-none">{info.total_horas_semanales}h</p>
+                                                                        <p className="text-[10px] text-slate-400 uppercase tracking-wider font-bold mt-1">semana</p>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })
+                                                }
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            );
-                        })()}
-
-                        {/* Tabla de Horario */}
-                        {selectedSeccion ? (
-                            <div className="flex flex-col gap-4 w-full mt-4">
-                                <div id="horario-table-container" className="bg-white rounded-[24px] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-x-auto p-6 w-full">
-                                    <table className="w-full border-collapse min-w-[600px] table-fixed">
-                                    <thead>
-                                        <tr>
-                                            <th className="w-16 pb-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Blq</th>
-                                            {gridDias.map((dia) => (
-                                                <th key={dia.id_dia} className="pb-3 px-1">
-                                                    <div className="rounded-xl py-2.5 px-3 text-center" style={{ backgroundColor: DIA_COLOR.bg }}>
-                                                        <p className="text-[9px] font-black uppercase tracking-widest text-white/70">{dia.nombre_dia.slice(0, 3).toUpperCase()}</p>
-                                                        <p className="text-[14px] font-black text-white">{dia.nombre_dia}</p>
-                                                    </div>
-                                                </th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {mappedBlocks.map((bloque, idx) => {
-                                            if (bloque.type === 'recreo') {
-                                                if (!isEditPage) return null;
-                                                return (
-                                                    <tr key={`recreo-${idx}`} style={{ height: '65px' }} className="bg-slate-50">
-                                                        <td className="py-2 pr-3 text-center align-middle" style={{ width: '70px' }}>
-                                                            <div className="flex flex-col items-center justify-center bg-amber-50 border border-amber-200 shadow-sm rounded-xl py-2 px-1">
-                                                                <span className="text-[13px] font-black text-amber-800 leading-none mb-1">{bloque.inicio}</span>
-                                                                <div className="w-4 h-px bg-amber-300 my-0.5"></div>
-                                                                <span className="text-[11px] font-bold text-amber-600/80 leading-none mt-1">{bloque.fin}</span>
-                                                            </div>
-                                                        </td>
-                                                        <td colSpan={gridDias.length} className="px-1 py-1 h-[65px]">
-                                                            <div className="w-full h-full min-h-[50px] flex items-center justify-center gap-4 bg-gradient-to-r from-amber-50/50 via-amber-100/50 to-amber-50/50 py-3 rounded-[16px] border border-amber-200/50 shadow-sm relative overflow-hidden">
-                                                                <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'repeating-linear-gradient(45deg, #f59e0b 25%, transparent 25%, transparent 75%, #f59e0b 75%, #f59e0b)', backgroundSize: '10px 10px' }}></div>
-                                                                <div className="h-px bg-amber-300/60 flex-1 ml-8 relative z-10"></div>
-                                                                <div className="flex items-center gap-3 relative z-10">
-                                                                    <svg className="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                                                    <span className="text-[13px] font-black text-amber-700 tracking-[0.4em] uppercase mt-0.5">R E C R E O</span>
-                                                                </div>
-                                                                <div className="h-px bg-amber-300/60 flex-1 mr-8 relative z-10"></div>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            }
-
-                                            const bNum = bloque.numero;
-                                            return (
-                                                <tr key={`clase-${bNum}`} style={{ height: '100px' }}>
-                                                    {/* Número de bloque o Hora */}
-                                                    <td className="py-2 pr-3 text-center align-middle" style={{ width: '70px' }}>
-                                                        {(isEditPage && bloque.inicio) ? (
-                                                            <div className="flex flex-col items-center justify-center bg-white border border-slate-100 shadow-sm rounded-xl py-2 px-1">
-                                                                <span className="text-[13px] font-black text-slate-700 leading-none mb-1">{bloque.inicio}</span>
-                                                                <div className="w-4 h-px bg-slate-200 my-0.5"></div>
-                                                                <span className="text-[11px] font-bold text-slate-400 leading-none mt-1">{bloque.fin}</span>
-                                                            </div>
-                                                        ) : (
-                                                            <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center mx-auto">
-                                                                <span className="text-[11px] font-black text-slate-600">{bNum}</span>
-                                                            </div>
-                                                        )}
-                                                    </td>
-                                                    {gridDias.map((dia) => {
-                                                        // Chequear Bloques Reservados Especiales
-                                                        const reservaOriginal = reservacionesSeccion.find(r =>
-                                                            r.id_dia === dia.id_dia
-                                                            && r.slot_inicio <= bNum
-                                                            && (r.slot_inicio + r.horas - 1) >= bNum
-                                                        );
-
-                                                        let renderReserva = null;
-                                                        if (reservaOriginal) {
-                                                            const startBlock = reservaOriginal.slot_inicio;
-                                                            const endBlock = reservaOriginal.slot_inicio + reservaOriginal.horas - 1;
-                                                            const isStart = bNum === startBlock;
-                                                            const isAfterRecreo = isEditPage && bNum > startBlock && mappedBlocks.some(b => b.type === 'recreo' && b.despuesDeBloque === (bNum - 1));
-
-                                                            if (isStart || isAfterRecreo) {
-                                                                let currentSpan = 0;
-                                                                for (let r = bNum; r <= endBlock; r++) {
-                                                                    currentSpan++;
-                                                                    if (isEditPage && r < endBlock && mappedBlocks.some(b => b.type === 'recreo' && b.despuesDeBloque === r)) {
-                                                                        break;
-                                                                    }
-                                                                }
-                                                                renderReserva = { a: reservaOriginal, span: currentSpan };
-                                                            } else {
-                                                                return null; // Ocupado por span superior
-                                                            }
-                                                        }
-
-                                                        if (renderReserva) {
-                                                            const span = renderReserva.span;
-                                                            const reservaActiva = renderReserva.a;
-                                                            return (
-                                                                <td key={dia.id_dia} rowSpan={span} className="py-1 px-1" style={{ verticalAlign: 'middle' }}>
-                                                                    <div className={`rounded-2xl p-3 flex flex-col items-center justify-center text-center shadow-sm border-2 overflow-hidden relative`}
-                                                                        style={{ backgroundColor: '#fffbeb', borderColor: '#f59e0b', height: `calc(${span} * 100px - 8px)` }}>
-
-                                                                        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'repeating-linear-gradient(45deg, #f59e0b 25%, transparent 25%, transparent 75%, #f59e0b 75%, #f59e0b), repeating-linear-gradient(45deg, #f59e0b 25%, transparent 25%, transparent 75%, #f59e0b 75%, #f59e0b)', backgroundPosition: '0 0, 10px 10px', backgroundSize: '20px 20px' }}></div>
-
-                                                                        <div className="relative z-10 flex flex-col items-center">
-                                                                            <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-500 flex items-center justify-center mb-2 shadow-sm border border-amber-200">
-                                                                                <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                                                                            </div>
-                                                                            {span > 1 && (
-                                                                                <span className="inline-block mb-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border border-amber-500 text-amber-600 bg-amber-50/80">
-                                                                                    {span} horas
-                                                                                </span>
-                                                                            )}
-                                                                            <p className="text-[14px] font-black leading-tight text-amber-700">
-                                                                                {reservaActiva.nombre}
-                                                                            </p>
-                                                                        </div>
-                                                                    </div>
-                                                                </td>
-                                                            );
-                                                        }
-
-                                                        // Buscar asignación
-                                                        const asigOriginal = filteredAsignaciones.find(x =>
-                                                            normalize(x.dia) === normalize(dia.nombre_dia)
-                                                            && (x.slot_inicio + 1) <= bNum
-                                                            && (x.slot_inicio + x.horas) >= bNum
-                                                        );
-
-                                                        let renderAsignacion = null;
-                                                        if (asigOriginal) {
-                                                            const startBlock = asigOriginal.slot_inicio + 1;
-                                                            const endBlock = asigOriginal.slot_inicio + asigOriginal.horas;
-                                                            const isStart = bNum === startBlock;
-                                                            const isAfterRecreo = isEditPage && bNum > startBlock && mappedBlocks.some(b => b.type === 'recreo' && b.despuesDeBloque === (bNum - 1));
-
-                                                            if (isStart || isAfterRecreo) {
-                                                                let currentSpan = 0;
-                                                                for (let r = bNum; r <= endBlock; r++) {
-                                                                    currentSpan++;
-                                                                    if (isEditPage && r < endBlock && mappedBlocks.some(b => b.type === 'recreo' && b.despuesDeBloque === r)) {
-                                                                        break;
-                                                                    }
-                                                                }
-                                                                renderAsignacion = { a: asigOriginal, span: currentSpan };
-                                                            } else {
-                                                                return null; // Ocupado por span superior
-                                                            }
-                                                        }
-
-                                                        if (renderAsignacion) {
-                                                            const a = renderAsignacion.a;
-                                                            const col = getColor(a.curso_id);
-                                                            const span = renderAsignacion.span;
-                                                            const isDragging = isEditMode && dragData && dragData.raw === a;
-
-                                                            return (
-                                                                <td key={dia.id_dia} rowSpan={span} className="py-1 px-1" style={{ verticalAlign: 'middle' }}>
-                                                                    <div
-                                                                        className={`rounded-2xl p-3 flex flex-col items-center justify-center text-center transition-all duration-200 border-2 relative z-10`}
-                                                                        style={{ backgroundColor: col.pastel, borderColor: col.solid, height: `calc(${span} * 100px - 8px)` }}>
-                                                                        <div>
-                                                                            {span > 1 && (
-                                                                                <span className="inline-block mb-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border" style={{ borderColor: col.solid, color: col.solid, backgroundColor: 'transparent' }}>
-                                                                                    {span} horas
-                                                                                </span>
-                                                                            )}
-                                                                            <p className="text-[18px] font-black leading-snug" style={{ color: col.text }}>
-                                                                                {getCurso(a.curso_id)}
-                                                                            </p>
-                                                                            <p className="text-[11px] font-semibold mt-2" style={{ color: col.text, opacity: 0.75 }}>
-                                                                                <span className="font-black" style={{ opacity: 1 }}>Profesor: </span>{getProfesor(a.profesor_id)}
-                                                                            </p>
-                                                                        </div>
-                                                                    </div>
-                                                                </td>
-                                                            );
-                                                        } else {
-                                                            const isDropHere = isEditMode && dropTarget && dropTarget.diaId === dia.id_dia && dropTarget.bloqueNum === bNum;
-                                                            return (
-                                                                <td key={dia.id_dia} className="py-1 px-1" style={{ verticalAlign: 'middle' }}
-                                                                    onDragOver={isEditMode ? (e) => handleDragOver(e, dia.id_dia, bNum) : undefined}
-                                                                    onDragLeave={isEditMode ? handleDragLeave : undefined}
-                                                                    onDrop={isEditMode ? (e) => handleDrop(e, dia, bNum) : undefined}
-                                                                >
-                                                                    <div className={`rounded-xl flex items-center justify-center transition-all duration-200 ${
-                                                                        isDropHere
-                                                                        ? 'bg-violet-100 border-2 border-dashed border-[var(--color-hx-purple)] scale-105 shadow-md'
-                                                                        : isEditMode
-                                                                        ? 'bg-slate-50/80 border-2 border-dashed border-slate-200 hover:border-violet-300 hover:bg-violet-50/50'
-                                                                        : 'bg-slate-50 border border-dashed border-slate-200'
-                                                                    }`} style={{ height: 'calc(100px - 8px)' }}>
-                                                                        {isDropHere ? (
-                                                                            <svg className="w-5 h-5 text-[var(--color-hx-purple)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m0 0l-4-4m4 4l4-4"/></svg>
-                                                                        ) : (
-                                                                            <div className="w-1 h-1 rounded-full bg-slate-300" />
-                                                                        )}
-                                                                    </div>
-                                                                </td>
-                                                            );
-                                                        }
-                                                    })}
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                        ) : (
-                            <div className="w-full mt-8 p-12 bg-white rounded-3xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-center">
-                                <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4">
-                                    <svg className="w-10 h-10 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                    </svg>
+                            ) : (
+                                <div className="text-center py-20 text-slate-400 font-medium">
+                                    <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                        <svg className="w-8 h-8 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    </div>
+                                    <p>No se encontraron métricas. Intente generar el horario nuevamente.</p>
                                 </div>
-                                <h3 className="text-xl font-black text-slate-700 mb-2">No hay horario disponible</h3>
-                                <p className="text-slate-500 font-medium max-w-sm">
-                                    No se encontraron secciones para los filtros seleccionados o aún no se han asignado horarios.
-                                </p>
+                            )}
+                        </div>
+                    ) : (
+                        <>
+                            {/* PANEL DE FILTROS SUPERIOR (Full Width) */}
+                            <div className="w-full bg-white rounded-[24px] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
+                                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+
+                                    {/* Filtros Izquierda */}
+                                    <div className="flex flex-wrap items-center gap-4">
+                                        {sedes.length > 1 && (
+                                            <div className="flex flex-col">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Sede</label>
+                                                <select value={selectedSede} onChange={e => setSelectedSede(e.target.value)} className="bg-slate-50 border border-slate-200 text-slate-700 text-[13px] font-bold rounded-xl px-4 py-2.5 outline-none focus:border-hx-purple shadow-sm transition-all cursor-pointer">
+                                                    <option value="">Todas las sedes</option>
+                                                    {sedes.map(s => <option key={s.id_sede} value={s.id_sede}>{s.nombre_sede}</option>)}
+                                                </select>
+                                            </div>
+                                        )}
+
+                                        {turnos.length > 1 && (
+                                            <div className="flex flex-col">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Turno</label>
+                                                <select value={selectedTurno} onChange={e => setSelectedTurno(e.target.value)} className="bg-slate-50 border border-slate-200 text-slate-700 text-[13px] font-bold rounded-xl px-4 py-2.5 outline-none focus:border-hx-purple shadow-sm transition-all cursor-pointer">
+                                                    <option value="">Todos los turnos</option>
+                                                    {turnos.map(t => <option key={t.id_turno} value={t.id_turno}>{t.nombre}</option>)}
+                                                </select>
+                                            </div>
+                                        )}
+
+                                        {(sedes.length > 1 || turnos.length > 1) && (
+                                            <div className="hidden md:block w-px h-10 bg-slate-200 mx-2 mt-4"></div>
+                                        )}
+
+                                        <div className="flex flex-col">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Grado y Sección</label>
+                                            <select value={selectedSeccion} onChange={e => setSelectedSeccion(e.target.value)} className="bg-white border-2 border-slate-200 text-hx-purple text-[15px] font-black rounded-xl px-5 py-2 outline-none focus:border-hx-purple shadow-sm transition-all cursor-pointer">
+                                                {grados.map(g => {
+                                                    const secs = filteredSecciones.filter(s => s.id_grado === g.id_grado);
+                                                    if (secs.length === 0) return null;
+                                                    return (
+                                                        <optgroup key={g.id_grado} label={`${g.numero}°`}>
+                                                            {secs.map(sec => (
+                                                                <option key={sec.id_seccion} value={`SEC_${sec.id_seccion}`}>
+                                                                    {g.numero}° - Sección {sec.nombre}
+                                                                </option>
+                                                            ))}
+                                                        </optgroup>
+                                                    )
+                                                })}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    {/* Botones Derecha */}
+                                    <div className="flex items-center gap-3 mt-4 md:mt-0 flex-shrink-0">
+                                        {isEditPage && (
+                                            <button
+                                                onClick={() => setIsTimeModalOpen(true)}
+                                                className="h-[44px] px-5 bg-white border-2 border-slate-200 text-slate-600 hover:text-hx-purple hover:border-hx-purple text-[13px] font-black rounded-xl transition-colors shadow-sm flex items-center gap-2 whitespace-nowrap cursor-pointer"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                                                Editar Horario
+                                            </button>
+                                        )}
+                                        {isEditPage && (
+                                            <button onClick={handleDownloadExcel}
+                                                className="h-[44px] px-4 flex items-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl hover:bg-emerald-100 font-black text-[13px] transition-all cursor-pointer">
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                                Excel
+                                            </button>
+                                        )}
+                                        {isEditPage && (
+                                            <button onClick={handleDownloadPDF} disabled={isDownloadingPdf}
+                                                className={`h-[44px] px-4 flex items-center gap-2 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl hover:bg-rose-100 font-black text-[13px] transition-all cursor-pointer ${isDownloadingPdf ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                                <svg className={`w-4 h-4 ${isDownloadingPdf ? 'animate-bounce' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                                {isDownloadingPdf ? 'PDF...' : 'PDF'}
+                                            </button>
+                                        )}
+
+                                        {!isEditPage && (
+                                            <button
+                                                onClick={handleGenerar}
+                                                className="group relative flex items-center justify-center gap-2 px-6 h-[44px] bg-[var(--color-hx-purple)] text-white font-black text-sm rounded-xl hover:shadow-lg hover:-translate-y-0.5 transition-all overflow-hidden cursor-pointer"
+                                            >
+                                                <div className="absolute inset-0 w-full h-full -ml-16 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 animate-shine" />
+                                                <svg className="w-5 h-5 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                                </svg>
+                                                <span className="relative z-10 tracking-wide">Generar Horarios</span>
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
-                        )}
-                    </div>
+
+
+
+                            {/* CONTENIDO DEL HORARIO */}
+                            <div className="w-full flex flex-col gap-4">
+                                {/* Cabecera Dinámica del Aula */}
+                                {selectedSeccion && (() => {
+                                    const currSec = secciones.find(s => `SEC_${s.id_seccion}` === selectedSeccion);
+                                    if (!currSec) return null;
+                                    const currGrado = grados.find(g => g.id_grado === currSec.id_grado);
+                                    const currSede = sedes.find(s => s.id_sede === currSec.id_sede);
+                                    const currTurnoLinks = seccionTurnos.filter(st => st.id_seccion === currSec.id_seccion);
+                                    const turnosNombres = currTurnoLinks.map(l => turnos.find(t => t.id_turno === l.id_turno)?.nombre).filter(Boolean).join(" / ");
+                                    return (
+                                        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-2 ml-2">
+                                            <div className="flex flex-col">
+                                                <h2 className="text-[28px] md:text-[34px] font-black text-slate-800 tracking-tight leading-none mb-3">
+                                                    {currGrado ? `${currGrado.numero}° - ` : ''}Sección {currSec.nombre}
+                                                </h2>
+                                                <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                                                    <span className="text-hx-purple font-black text-[15px]">{currGrado ? `Grado: ${currGrado.numero}°` : 'Sin Grado'}</span>
+                                                    <span className="text-slate-300">•</span>
+                                                    <span className="text-slate-500 font-bold text-[15px]">{currSede ? `Sede: ${currSede.nombre_sede}` : 'Sin Sede'}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+
+                                {/* Tabla de Horario */}
+                                {selectedSeccion ? (
+                                    <div className="flex flex-col gap-4 w-full mt-4">
+                                        <div id="horario-table-container" className="bg-white rounded-[24px] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-x-auto p-6 w-full">
+                                            <table className="w-full border-collapse min-w-[600px] table-fixed">
+                                                <thead>
+                                                    <tr>
+                                                        <th className="w-16 pb-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Blq</th>
+                                                        {gridDias.map((dia) => (
+                                                            <th key={dia.id_dia} className="pb-3 px-1">
+                                                                <div className="rounded-xl py-2.5 px-3 text-center" style={{ backgroundColor: DIA_COLOR.bg }}>
+                                                                    <p className="text-[9px] font-black uppercase tracking-widest text-white/70">{dia.nombre_dia.slice(0, 3).toUpperCase()}</p>
+                                                                    <p className="text-[14px] font-black text-white">{dia.nombre_dia}</p>
+                                                                </div>
+                                                            </th>
+                                                        ))}
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {mappedBlocks.map((bloque, idx) => {
+                                                        if (bloque.type === 'recreo') {
+                                                            if (!isEditPage) return null;
+                                                            return (
+                                                                <tr key={`recreo-${idx}`} style={{ height: '65px' }} className="bg-slate-50">
+                                                                    <td className="py-2 pr-3 text-center align-middle" style={{ width: '70px' }}>
+                                                                        <div className="flex flex-col items-center justify-center bg-amber-50 border border-amber-200 shadow-sm rounded-xl py-2 px-1">
+                                                                            <span className="text-[13px] font-black text-amber-800 leading-none mb-1">{bloque.inicio}</span>
+                                                                            <div className="w-4 h-px bg-amber-300 my-0.5"></div>
+                                                                            <span className="text-[11px] font-bold text-amber-600/80 leading-none mt-1">{bloque.fin}</span>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td colSpan={gridDias.length} className="px-1 py-1 h-[65px]">
+                                                                        <div className="w-full h-full min-h-[50px] flex items-center justify-center gap-4 bg-gradient-to-r from-amber-50/50 via-amber-100/50 to-amber-50/50 py-3 rounded-[16px] border border-amber-200/50 shadow-sm relative overflow-hidden">
+                                                                            <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'repeating-linear-gradient(45deg, #f59e0b 25%, transparent 25%, transparent 75%, #f59e0b 75%, #f59e0b)', backgroundSize: '10px 10px' }}></div>
+                                                                            <div className="h-px bg-amber-300/60 flex-1 ml-8 relative z-10"></div>
+                                                                            <div className="flex items-center gap-3 relative z-10">
+                                                                                <svg className="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                                                                <span className="text-[13px] font-black text-amber-700 tracking-[0.4em] uppercase mt-0.5">R E C R E O</span>
+                                                                            </div>
+                                                                            <div className="h-px bg-amber-300/60 flex-1 mr-8 relative z-10"></div>
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        }
+
+                                                        const bNum = bloque.numero;
+                                                        return (
+                                                            <tr key={`clase-${bNum}`} style={{ height: '100px' }}>
+                                                                {/* Número de bloque o Hora */}
+                                                                <td className="py-2 pr-3 text-center align-middle" style={{ width: '70px' }}>
+                                                                    {(isEditPage && bloque.inicio) ? (
+                                                                        <div className="flex flex-col items-center justify-center bg-white border border-slate-100 shadow-sm rounded-xl py-2 px-1">
+                                                                            <span className="text-[13px] font-black text-slate-700 leading-none mb-1">{bloque.inicio}</span>
+                                                                            <div className="w-4 h-px bg-slate-200 my-0.5"></div>
+                                                                            <span className="text-[11px] font-bold text-slate-400 leading-none mt-1">{bloque.fin}</span>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center mx-auto">
+                                                                            <span className="text-[11px] font-black text-slate-600">{bNum}</span>
+                                                                        </div>
+                                                                    )}
+                                                                </td>
+                                                                {gridDias.map((dia) => {
+                                                                    // Chequear Bloques Reservados Especiales
+                                                                    const reservaOriginal = reservacionesSeccion.find(r =>
+                                                                        r.id_dia === dia.id_dia
+                                                                        && r.slot_inicio <= bNum
+                                                                        && (r.slot_inicio + r.horas - 1) >= bNum
+                                                                    );
+
+                                                                    let renderReserva = null;
+                                                                    if (reservaOriginal) {
+                                                                        const startBlock = reservaOriginal.slot_inicio;
+                                                                        const endBlock = reservaOriginal.slot_inicio + reservaOriginal.horas - 1;
+                                                                        const isStart = bNum === startBlock;
+                                                                        const isAfterRecreo = isEditPage && bNum > startBlock && mappedBlocks.some(b => b.type === 'recreo' && b.despuesDeBloque === (bNum - 1));
+
+                                                                        if (isStart || isAfterRecreo) {
+                                                                            let currentSpan = 0;
+                                                                            for (let r = bNum; r <= endBlock; r++) {
+                                                                                currentSpan++;
+                                                                                if (isEditPage && r < endBlock && mappedBlocks.some(b => b.type === 'recreo' && b.despuesDeBloque === r)) {
+                                                                                    break;
+                                                                                }
+                                                                            }
+                                                                            renderReserva = { a: reservaOriginal, span: currentSpan };
+                                                                        } else {
+                                                                            return null; // Ocupado por span superior
+                                                                        }
+                                                                    }
+
+                                                                    if (renderReserva) {
+                                                                        const span = renderReserva.span;
+                                                                        const reservaActiva = renderReserva.a;
+                                                                        return (
+                                                                            <td key={dia.id_dia} rowSpan={span} className="py-1 px-1" style={{ verticalAlign: 'middle' }}>
+                                                                                <div className={`rounded-2xl p-3 flex flex-col items-center justify-center text-center shadow-sm border-2 overflow-hidden relative`}
+                                                                                    style={{ backgroundColor: '#fffbeb', borderColor: '#f59e0b', height: `calc(${span} * 100px - 8px)` }}>
+
+                                                                                    <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'repeating-linear-gradient(45deg, #f59e0b 25%, transparent 25%, transparent 75%, #f59e0b 75%, #f59e0b), repeating-linear-gradient(45deg, #f59e0b 25%, transparent 25%, transparent 75%, #f59e0b 75%, #f59e0b)', backgroundPosition: '0 0, 10px 10px', backgroundSize: '20px 20px' }}></div>
+
+                                                                                    <div className="relative z-10 flex flex-col items-center">
+                                                                                        <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-500 flex items-center justify-center mb-2 shadow-sm border border-amber-200">
+                                                                                            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                                                                                        </div>
+                                                                                        {span > 1 && (
+                                                                                            <span className="inline-block mb-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border border-amber-500 text-amber-600 bg-amber-50/80">
+                                                                                                {span} horas
+                                                                                            </span>
+                                                                                        )}
+                                                                                        <p className="text-[14px] font-black leading-tight text-amber-700">
+                                                                                            {reservaActiva.nombre}
+                                                                                        </p>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </td>
+                                                                        );
+                                                                    }
+
+                                                                    // Buscar asignación
+                                                                    const asigOriginal = filteredAsignaciones.find(x =>
+                                                                        normalize(x.dia) === normalize(dia.nombre_dia)
+                                                                        && (x.slot_inicio + 1) <= bNum
+                                                                        && (x.slot_inicio + x.horas) >= bNum
+                                                                    );
+
+                                                                    let renderAsignacion = null;
+                                                                    if (asigOriginal) {
+                                                                        const startBlock = asigOriginal.slot_inicio + 1;
+                                                                        const endBlock = asigOriginal.slot_inicio + asigOriginal.horas;
+                                                                        const isStart = bNum === startBlock;
+                                                                        const isAfterRecreo = isEditPage && bNum > startBlock && mappedBlocks.some(b => b.type === 'recreo' && b.despuesDeBloque === (bNum - 1));
+
+                                                                        if (isStart || isAfterRecreo) {
+                                                                            let currentSpan = 0;
+                                                                            for (let r = bNum; r <= endBlock; r++) {
+                                                                                currentSpan++;
+                                                                                if (isEditPage && r < endBlock && mappedBlocks.some(b => b.type === 'recreo' && b.despuesDeBloque === r)) {
+                                                                                    break;
+                                                                                }
+                                                                            }
+                                                                            renderAsignacion = { a: asigOriginal, span: currentSpan };
+                                                                        } else {
+                                                                            return null; // Ocupado por span superior
+                                                                        }
+                                                                    }
+
+                                                                    if (renderAsignacion) {
+                                                                        const a = renderAsignacion.a;
+                                                                        const col = getColor(a.curso_id);
+                                                                        const span = renderAsignacion.span;
+                                                                        const isDragging = isEditMode && dragData && dragData.raw === a;
+
+                                                                        return (
+                                                                            <td key={dia.id_dia} rowSpan={span} className="py-1 px-1" style={{ verticalAlign: 'middle' }}>
+                                                                                <div
+                                                                                    className={`rounded-2xl p-3 flex flex-col items-center justify-center text-center transition-all duration-200 border-2 relative z-10`}
+                                                                                    style={{ backgroundColor: col.pastel, borderColor: col.solid, height: `calc(${span} * 100px - 8px)` }}>
+                                                                                    <div>
+                                                                                        {span > 1 && (
+                                                                                            <span className="inline-block mb-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border" style={{ borderColor: col.solid, color: col.solid, backgroundColor: 'transparent' }}>
+                                                                                                {span} horas
+                                                                                            </span>
+                                                                                        )}
+                                                                                        <p className="text-[18px] font-black leading-snug" style={{ color: col.text }}>
+                                                                                            {getCurso(a.curso_id)}
+                                                                                        </p>
+                                                                                        <p className="text-[11px] font-semibold mt-2" style={{ color: col.text, opacity: 0.75 }}>
+                                                                                            <span className="font-black" style={{ opacity: 1 }}>Profesor: </span>{getProfesor(a.profesor_id)}
+                                                                                        </p>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </td>
+                                                                        );
+                                                                    } else {
+                                                                        const isDropHere = isEditMode && dropTarget && dropTarget.diaId === dia.id_dia && dropTarget.bloqueNum === bNum;
+                                                                        return (
+                                                                            <td key={dia.id_dia} className="py-1 px-1" style={{ verticalAlign: 'middle' }}
+                                                                                onDragOver={isEditMode ? (e) => handleDragOver(e, dia.id_dia, bNum) : undefined}
+                                                                                onDragLeave={isEditMode ? handleDragLeave : undefined}
+                                                                                onDrop={isEditMode ? (e) => handleDrop(e, dia, bNum) : undefined}
+                                                                            >
+                                                                                <div className={`rounded-xl flex items-center justify-center transition-all duration-200 ${isDropHere
+                                                                                        ? 'bg-violet-100 border-2 border-dashed border-[var(--color-hx-purple)] scale-105 shadow-md'
+                                                                                        : isEditMode
+                                                                                            ? 'bg-slate-50/80 border-2 border-dashed border-slate-200 hover:border-violet-300 hover:bg-violet-50/50'
+                                                                                            : 'bg-slate-50 border border-dashed border-slate-200'
+                                                                                    }`} style={{ height: 'calc(100px - 8px)' }}>
+                                                                                    {isDropHere ? (
+                                                                                        <svg className="w-5 h-5 text-[var(--color-hx-purple)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m0 0l-4-4m4 4l4-4" /></svg>
+                                                                                    ) : (
+                                                                                        <div className="w-1 h-1 rounded-full bg-slate-300" />
+                                                                                    )}
+                                                                                </div>
+                                                                            </td>
+                                                                        );
+                                                                    }
+                                                                })}
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="w-full mt-8 p-12 bg-white rounded-3xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-center">
+                                        <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+                                            <svg className="w-10 h-10 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                            </svg>
+                                        </div>
+                                        <h3 className="text-xl font-black text-slate-700 mb-2">No hay horario disponible</h3>
+                                        <p className="text-slate-500 font-medium max-w-sm">
+                                            No se encontraron secciones para los filtros seleccionados o aún no se han asignado horarios.
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        </>
+                    )}
                 </div>
             )}
             {/* Modal de Conflictos */}
@@ -1186,20 +1389,20 @@ export default function HorariosManager({ isEditPage = false }) {
                     <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
                         <div className="px-6 py-4 bg-red-50 border-b border-red-100 flex items-center gap-3">
                             <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
-                                <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                             </div>
                             <h3 className="text-lg font-black text-red-800">No se puede mover</h3>
                         </div>
                         <div className="p-6 space-y-3">
                             {moveConflicts.conflicts.map((c, i) => (
                                 <div key={i} className="flex items-start gap-2 p-3 bg-red-50 rounded-xl border border-red-100">
-                                    <svg className="w-4 h-4 text-red-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                                    <svg className="w-4 h-4 text-red-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                                     <p className="text-red-700 text-[13px] font-semibold">{c}</p>
                                 </div>
                             ))}
                             {moveConflicts.warnings.map((w, i) => (
                                 <div key={`w-${i}`} className="flex items-start gap-2 p-3 bg-amber-50 rounded-xl border border-amber-100">
-                                    <svg className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01"/></svg>
+                                    <svg className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01" /></svg>
                                     <p className="text-amber-700 text-[13px] font-semibold">{w}</p>
                                 </div>
                             ))}
@@ -1219,7 +1422,7 @@ export default function HorariosManager({ isEditPage = false }) {
                     <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
                         <div className="px-6 py-4 bg-amber-50 border-b border-amber-100 flex items-center gap-3">
                             <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
-                                <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
+                                <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" /></svg>
                             </div>
                             <h3 className="text-lg font-black text-amber-800">Intercambiar materias</h3>
                         </div>

@@ -218,7 +218,7 @@ export default function GeneracionToast() {
                             Error de generación
                         </p>
                         <p style={{ margin: '2px 0 0 0', fontSize: '11px', color: '#ef4444', maxHeight: '40px', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                            {genState.errorMsg}
+                            {Array.isArray(genState.errorMsg) ? "Se encontraron conflictos físicos o curriculares en la validación." : genState.errorMsg}
                         </p>
                     </div>
                     <button
