@@ -6,7 +6,7 @@ const ProfesorCard = ({ prof, sedesStr, cantGrados, cantDispo, onEdit, onDelete,
     return (
         <div
             className={`relative bg-white rounded-[20px] border p-6 flex flex-col gap-5 hover:shadow-md transition-all group cursor-pointer
-                ${isSelected ? 'border-hx-purple shadow-sm ring-1 ring-hx-purple/20 bg-hx-purple/10' : 'border-slate-100 shadow-sm'}
+                ${isSelected ? 'border-brand-primary shadow-sm ring-1 ring-brand-primary/20 bg-brand-primary/10' : 'border-slate-100 shadow-sm'}
                 ${faltanDatos ? 'border-amber-200 bg-amber-50/30' : ''}
             `}
             onClick={() => isSelectionMode && onToggleSelect(prof.id_profesor)}
@@ -22,7 +22,7 @@ const ProfesorCard = ({ prof, sedesStr, cantGrados, cantDispo, onEdit, onDelete,
             {/* Checkbox (solo visible en modo selección) */}
             {isSelectionMode && (
                 <div className="absolute top-4 right-4 z-10">
-                    <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-all border-2 ${isSelected ? 'bg-hx-purple border-hx-purple text-white' : 'bg-white border-slate-300 hover:border-hx-purple'}`}>
+                    <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-all border-2 ${isSelected ? 'bg-brand-primary border-brand-primary text-white' : 'bg-white border-slate-300 hover:border-brand-primary'}`}>
                         {isSelected && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>}
                     </div>
                 </div>
@@ -31,7 +31,7 @@ const ProfesorCard = ({ prof, sedesStr, cantGrados, cantDispo, onEdit, onDelete,
             {/* Cabecera de la Tarjeta */}
             <div className={`flex items-center gap-4 ${isSelectionMode ? 'pr-8' : ''}`}>
                 {/* Avatar */}
-                <div className={`w-16 h-16 rounded-full flex items-center justify-center shadow-sm flex-shrink-0 border-2 border-white ring-2 transition-colors ${isSelected ? 'bg-hx-purple text-white ring-hx-purple/30' : 'bg-hx-purple/10 text-hx-purple ring-hx-purple/20'}`}>
+                <div className={`w-16 h-16 rounded-full flex items-center justify-center shadow-sm flex-shrink-0 border-2 border-white ring-2 transition-colors ${isSelected ? 'bg-brand-primary text-white ring-brand-primary/30' : 'bg-brand-primary/10 text-brand-primary ring-brand-primary/20'}`}>
                     <span className="font-black text-2xl uppercase tracking-wider">{prof.nombre_profesor.charAt(0)}</span>
                 </div>
 
@@ -67,7 +67,7 @@ const ProfesorCard = ({ prof, sedesStr, cantGrados, cantDispo, onEdit, onDelete,
                 <div className="grid grid-cols-2 gap-3 mt-auto">
                     <button
                         onClick={(e) => { e.stopPropagation(); onEdit(prof); }}
-                        className="py-2 px-3 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:text-hx-purple hover:border-hx-purple hover:bg-hx-purple/5 transition-all flex justify-center items-center gap-1.5 cursor-pointer"
+                        className="py-2 px-3 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:text-brand-primary hover:border-brand-primary hover:bg-brand-primary/5 transition-all flex justify-center items-center gap-1.5 cursor-pointer"
                     >
                         <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                         Editar
@@ -793,7 +793,7 @@ export default function ProfesoresManager() {
             {/* Cabecera Superior (Banner + Espacio Derecho) */}
             <div className="flex flex-col md:flex-row gap-6">
                 {/* Banner Principal (Izquierda) */}
-                <div className="md:w-2/3 bg-[var(--color-hx-purple)]/10 rounded-[24px] p-8 shadow-md relative overflow-hidden flex flex-col justify-center min-h-[180px] border border-[var(--color-hx-purple)]/70">
+                <div className="md:w-2/3 bg-[var(--color-brand-primary)]/10 rounded-[24px] p-8 shadow-md relative overflow-hidden flex flex-col justify-center min-h-[180px] border border-[var(--color-brand-primary)]/70">
                     <div className="relative z-10 flex flex-col md:flex-row justify-between items-center md:items-start gap-6">
                         <div className="max-w-md">
                             <h2 className="text-3xl md:text-4xl font-black text-slate-800 tracking-tight leading-tight mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -805,7 +805,7 @@ export default function ProfesoresManager() {
 
                             <button
                                 onClick={abrirModalNueva}
-                                className="bg-hx-purple text-white hover:bg-hx-purple/80 font-extrabold py-2.5 px-6 rounded-xl shadow-[0_4px_12px_rgba(121,14,236,0.3)] hover:shadow-[0_6px_16px_rgba(121,14,236,0.4)] hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2 text-sm w-max cursor-pointer">
+                                className="bg-brand-primary text-white hover:bg-brand-primary/80 font-extrabold py-2.5 px-6 rounded-xl shadow-[0_4px_12px_rgba(47, 91, 255,0.3)] hover:shadow-[0_6px_16px_rgba(47, 91, 255,0.4)] hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2 text-sm w-max cursor-pointer">
                                 <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
                                 Añadir Nuevo Docente
                             </button>
@@ -826,7 +826,7 @@ export default function ProfesoresManager() {
 
                 {/* Espacio Derecho Reservado */}
                 <div className="md:w-1/3 bg-white border-2 border-slate-200 border-dashed rounded-[24px] flex flex-col items-center justify-center p-8 min-h-[180px]">
-                    <div className="w-12 h-12 bg-hx-purple/10 rounded-full flex items-center justify-center text-hx-purple mb-3">
+                    <div className="w-12 h-12 bg-brand-primary/10 rounded-full flex items-center justify-center text-brand-primary mb-3">
                         <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
                     </div>
                     <p className="text-slate-400 font-extrabold text-sm">Plana Docente</p>
@@ -849,7 +849,7 @@ export default function ProfesoresManager() {
                     <div className="flex items-center justify-between mb-8 bg-white py-2 px-4 rounded-[20px] border border-slate-100 shadow-sm h-16 w-full overflow-hidden">
                         {/* Izquierda: Título */}
                         <div className="flex-shrink-0 flex items-center gap-3 w-1/4">
-                            <div className="w-10 h-10 bg-hx-purple/10 rounded-xl flex items-center justify-center text-hx-purple">
+                            <div className="w-10 h-10 bg-brand-primary/10 rounded-xl flex items-center justify-center text-brand-primary">
                                 <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
                             </div>
                             <h2 className="text-[20px] font-black text-slate-800 tracking-tight whitespace-nowrap">Docentes <span className="text-slate-400 text-[15px] font-bold ml-1">({filteredProfesores.length})</span></h2>
@@ -857,7 +857,7 @@ export default function ProfesoresManager() {
 
                         {/* Medio: Buscador Pill */}
                         <div className="flex-1 max-w-lg mx-4">
-                            <div className="relative group flex items-center bg-white rounded-full p-1.5 border-2 border-slate-200 focus-within:border-hx-purple transition-all h-12 w-full">
+                            <div className="relative group flex items-center bg-white rounded-full p-1.5 border-2 border-slate-200 focus-within:border-brand-primary transition-all h-12 w-full">
                                 <input
                                     type="text"
                                     placeholder="Buscar docente por nombre..."
@@ -870,7 +870,7 @@ export default function ProfesoresManager() {
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                                     </button>
                                 )}
-                                <div className="w-9 h-9 rounded-full bg-hx-purple flex items-center justify-center text-white flex-shrink-0 shadow-sm mr-0.5">
+                                <div className="w-9 h-9 rounded-full bg-brand-primary flex items-center justify-center text-white flex-shrink-0 shadow-sm mr-0.5">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
                                 </div>
                             </div>
@@ -951,15 +951,15 @@ export default function ProfesoresManager() {
                             {/* Paginación */}
                             {totalPages > 1 && (
                                 <div className="flex items-center justify-center gap-2 mt-12 mb-4">
-                                    <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="w-10 h-10 rounded-xl flex items-center justify-center border border-slate-200 text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 hover:text-hx-purple transition-colors cursor-pointer">
+                                    <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="w-10 h-10 rounded-xl flex items-center justify-center border border-slate-200 text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 hover:text-brand-primary transition-colors cursor-pointer">
                                         <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
                                     </button>
                                     <div className="flex items-center gap-1">
                                         {[...Array(totalPages)].map((_, i) => (
-                                            <button key={i + 1} onClick={() => setCurrentPage(i + 1)} className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold transition-all cursor-pointer ${currentPage === i + 1 ? 'bg-hx-purple text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}`}>{i + 1}</button>
+                                            <button key={i + 1} onClick={() => setCurrentPage(i + 1)} className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold transition-all cursor-pointer ${currentPage === i + 1 ? 'bg-brand-primary text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}`}>{i + 1}</button>
                                         ))}
                                     </div>
-                                    <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages} className="w-10 h-10 rounded-xl flex items-center justify-center border border-slate-200 text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 hover:text-hx-purple transition-colors cursor-pointer">
+                                    <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages} className="w-10 h-10 rounded-xl flex items-center justify-center border border-slate-200 text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 hover:text-brand-primary transition-colors cursor-pointer">
                                         <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
                                     </button>
                                 </div>
@@ -1015,11 +1015,11 @@ export default function ProfesoresManager() {
 
                             {/* Sidebar Nav */}
                             <div className="w-full md:w-64 bg-slate-50 border-b md:border-b-0 md:border-r border-slate-100 flex md:flex-col shrink-0 p-4 gap-2 overflow-x-auto md:overflow-x-visible">
-                                <button onClick={() => !isNewRegistration && setActiveTab('perfil')} className={`text-left px-4 py-3 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'perfil' ? 'bg-white shadow-sm border border-slate-200 text-hx-purple' : 'border border-transparent text-slate-500 hover:bg-slate-100/50 hover:text-slate-700'} ${isNewRegistration && activeTab !== 'perfil' ? 'pointer-events-none opacity-50' : isNewRegistration ? 'cursor-default' : 'cursor-pointer'}`}>1. Perfil Personal</button>
-                                <button onClick={() => editId && !isNewRegistration && setActiveTab('sedes')} disabled={!editId || isNewRegistration} className={`text-left px-4 py-3 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${(!editId || (isNewRegistration && activeTab !== 'sedes')) ? 'opacity-40 cursor-not-allowed border border-transparent' : activeTab === 'sedes' ? 'bg-white shadow-sm border border-slate-200 text-hx-purple' : 'border border-transparent text-slate-500 hover:bg-slate-100/50 hover:text-slate-700 cursor-pointer'}`}>2. Asignar Sedes</button>
-                                <button onClick={() => editId && !isNewRegistration && setActiveTab('grados')} disabled={!editId || isNewRegistration} className={`text-left px-4 py-3 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${(!editId || (isNewRegistration && activeTab !== 'grados')) ? 'opacity-40 cursor-not-allowed border border-transparent' : activeTab === 'grados' ? 'bg-white shadow-sm border border-slate-200 text-hx-purple' : 'border border-transparent text-slate-500 hover:bg-slate-100/50 hover:text-slate-700 cursor-pointer'}`}>3. Grados Permitidos</button>
-                                <button onClick={() => editId && !isNewRegistration && setActiveTab('disponibilidad')} disabled={!editId || isNewRegistration} className={`text-left px-4 py-3 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${(!editId || (isNewRegistration && activeTab !== 'disponibilidad')) ? 'opacity-40 cursor-not-allowed border border-transparent' : activeTab === 'disponibilidad' ? 'bg-white shadow-sm border border-slate-200 text-hx-purple' : 'border border-transparent text-slate-500 hover:bg-slate-100/50 hover:text-slate-700 cursor-pointer'}`}>4. Disponibilidad</button>
-                                <button onClick={() => editId && !isNewRegistration && setActiveTab('horas_minimas')} disabled={!editId || isNewRegistration} className={`text-left px-4 py-3 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${(!editId || (isNewRegistration && activeTab !== 'horas_minimas')) ? 'opacity-40 cursor-not-allowed border border-transparent' : activeTab === 'horas_minimas' ? 'bg-white shadow-sm border border-slate-200 text-hx-purple' : 'border border-transparent text-slate-500 hover:bg-slate-100/50 hover:text-slate-700 cursor-pointer'}`}>5. Horas Mínimas</button>
+                                <button onClick={() => !isNewRegistration && setActiveTab('perfil')} className={`text-left px-4 py-3 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'perfil' ? 'bg-white shadow-sm border border-slate-200 text-brand-primary' : 'border border-transparent text-slate-500 hover:bg-slate-100/50 hover:text-slate-700'} ${isNewRegistration && activeTab !== 'perfil' ? 'pointer-events-none opacity-50' : isNewRegistration ? 'cursor-default' : 'cursor-pointer'}`}>1. Perfil Personal</button>
+                                <button onClick={() => editId && !isNewRegistration && setActiveTab('sedes')} disabled={!editId || isNewRegistration} className={`text-left px-4 py-3 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${(!editId || (isNewRegistration && activeTab !== 'sedes')) ? 'opacity-40 cursor-not-allowed border border-transparent' : activeTab === 'sedes' ? 'bg-white shadow-sm border border-slate-200 text-brand-primary' : 'border border-transparent text-slate-500 hover:bg-slate-100/50 hover:text-slate-700 cursor-pointer'}`}>2. Asignar Sedes</button>
+                                <button onClick={() => editId && !isNewRegistration && setActiveTab('grados')} disabled={!editId || isNewRegistration} className={`text-left px-4 py-3 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${(!editId || (isNewRegistration && activeTab !== 'grados')) ? 'opacity-40 cursor-not-allowed border border-transparent' : activeTab === 'grados' ? 'bg-white shadow-sm border border-slate-200 text-brand-primary' : 'border border-transparent text-slate-500 hover:bg-slate-100/50 hover:text-slate-700 cursor-pointer'}`}>3. Grados Permitidos</button>
+                                <button onClick={() => editId && !isNewRegistration && setActiveTab('disponibilidad')} disabled={!editId || isNewRegistration} className={`text-left px-4 py-3 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${(!editId || (isNewRegistration && activeTab !== 'disponibilidad')) ? 'opacity-40 cursor-not-allowed border border-transparent' : activeTab === 'disponibilidad' ? 'bg-white shadow-sm border border-slate-200 text-brand-primary' : 'border border-transparent text-slate-500 hover:bg-slate-100/50 hover:text-slate-700 cursor-pointer'}`}>4. Disponibilidad</button>
+                                <button onClick={() => editId && !isNewRegistration && setActiveTab('horas_minimas')} disabled={!editId || isNewRegistration} className={`text-left px-4 py-3 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${(!editId || (isNewRegistration && activeTab !== 'horas_minimas')) ? 'opacity-40 cursor-not-allowed border border-transparent' : activeTab === 'horas_minimas' ? 'bg-white shadow-sm border border-slate-200 text-brand-primary' : 'border border-transparent text-slate-500 hover:bg-slate-100/50 hover:text-slate-700 cursor-pointer'}`}>5. Horas Mínimas</button>
                             </div>
 
                             {/* Tab Content */}
@@ -1033,7 +1033,7 @@ export default function ProfesoresManager() {
                                                 type="text"
                                                 value={formNombre}
                                                 onChange={(e) => setFormNombre(e.target.value)}
-                                                className={`w-full px-4 py-3 rounded-xl border ${nombreError ? 'border-red-300 focus:border-red-500 focus:ring-red-500/10' : 'border-slate-200 focus:border-hx-purple focus:ring-hx-purple/10'} bg-slate-50 text-slate-800 focus:bg-white focus:ring-4 outline-none transition-all text-sm font-medium`}
+                                                className={`w-full px-4 py-3 rounded-xl border ${nombreError ? 'border-red-300 focus:border-red-500 focus:ring-red-500/10' : 'border-slate-200 focus:border-brand-primary focus:ring-brand-primary/10'} bg-slate-50 text-slate-800 focus:bg-white focus:ring-4 outline-none transition-all text-sm font-medium`}
                                                 placeholder="Ej. Juan Pérez"
                                             />
                                             {nombreError && (
@@ -1045,7 +1045,7 @@ export default function ProfesoresManager() {
                                         </div>
                                         <div className="flex gap-4 pt-2">
                                             <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3.5 text-sm font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all cursor-pointer">Cancelar</button>
-                                            <button disabled={guardando} type="submit" className={`flex-1 py-3.5 bg-hx-purple hover:bg-hx-purple/90 text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 ${guardando ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'}`}>
+                                            <button disabled={guardando} type="submit" className={`flex-1 py-3.5 bg-brand-primary hover:bg-brand-primary/90 text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 ${guardando ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'}`}>
                                                 {guardando ? 'Guardando...' : 'Continuar'}
                                             </button>
                                         </div>
@@ -1056,7 +1056,7 @@ export default function ProfesoresManager() {
                                 {activeTab === 'sedes' && (
                                     <div className="max-w-2xl mx-auto">
                                         <div className="flex items-center gap-3 mb-6 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                            <div className="w-9 h-9 bg-hx-purple/10 rounded-xl flex items-center justify-center text-hx-purple shrink-0">
+                                            <div className="w-9 h-9 bg-brand-primary/10 rounded-xl flex items-center justify-center text-brand-primary shrink-0">
                                                 <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
                                             </div>
                                             <div>
@@ -1071,18 +1071,18 @@ export default function ProfesoresManager() {
                                                     <div
                                                         key={s.id_sede}
                                                         onClick={() => toggleSede(s.id_sede)}
-                                                        className={`cursor-pointer p-4 rounded-2xl border-2 transition-all flex items-center gap-4 ${activo ? 'border-hx-purple bg-hx-purple/5 shadow-sm shadow-hx-purple/10' : 'border-slate-100 hover:border-slate-200 bg-white hover:shadow-sm'
+                                                        className={`cursor-pointer p-4 rounded-2xl border-2 transition-all flex items-center gap-4 ${activo ? 'border-brand-primary bg-brand-primary/5 shadow-sm shadow-brand-primary/10' : 'border-slate-100 hover:border-slate-200 bg-white hover:shadow-sm'
                                                             }`}
                                                     >
-                                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${activo ? 'bg-hx-purple text-white' : 'bg-slate-100 text-slate-400'
+                                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${activo ? 'bg-brand-primary text-white' : 'bg-slate-100 text-slate-400'
                                                             }`}>
                                                             <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
                                                         </div>
                                                         <div className="flex-1 min-w-0">
                                                             <p className="text-[12px] text-slate-500 mt-0.5 truncate">Nombre de la sede:</p>
-                                                            <p className={`font-bold text-sm truncate ${activo ? 'text-hx-purple' : 'text-slate-700'}`}>{s.nombre_sede}</p>
+                                                            <p className={`font-bold text-sm truncate ${activo ? 'text-brand-primary' : 'text-slate-700'}`}>{s.nombre_sede}</p>
                                                         </div>
-                                                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${activo ? 'border-hx-purple bg-hx-purple' : 'border-slate-200'
+                                                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${activo ? 'border-brand-primary bg-brand-primary' : 'border-slate-200'
                                                             }`}>
                                                             {activo && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5"><polyline points="20 6 9 17 4 12" /></svg>}
                                                         </div>
@@ -1104,7 +1104,7 @@ export default function ProfesoresManager() {
                                         )}
                                         <div className="flex gap-4 mt-6">
                                             <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3.5 text-sm font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all cursor-pointer">Cancelar</button>
-                                            <button disabled={guardando} onClick={handleGuardarSedes} className={`flex-1 py-3.5 bg-hx-purple hover:bg-hx-purple/90 text-white font-bold rounded-xl shadow-md shadow-hx-purple/20 transition-all flex items-center justify-center gap-2 text-sm ${guardando ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'}`}>
+                                            <button disabled={guardando} onClick={handleGuardarSedes} className={`flex-1 py-3.5 bg-brand-primary hover:bg-brand-primary/90 text-white font-bold rounded-xl shadow-md shadow-brand-primary/20 transition-all flex items-center justify-center gap-2 text-sm ${guardando ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'}`}>
                                                 {guardando ? (<><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Guardando...</>) : (<>Continuar <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg></>)}
                                             </button>
                                         </div>
@@ -1115,7 +1115,7 @@ export default function ProfesoresManager() {
                                 {activeTab === 'grados' && (
                                     <div className="max-w-2xl mx-auto animate-fade-in">
                                         <div className="flex items-center gap-3 mb-6 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                            <div className="w-9 h-9 bg-hx-purple/10 rounded-xl flex items-center justify-center text-hx-purple shrink-0">
+                                            <div className="w-9 h-9 bg-brand-primary/10 rounded-xl flex items-center justify-center text-brand-primary shrink-0">
                                                 <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 14l9-5-9-5-9 5 9 5z" /><path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" /></svg>
                                             </div>
                                             <div>
@@ -1131,16 +1131,16 @@ export default function ProfesoresManager() {
                                                     <div
                                                         key={g.id_grado}
                                                         onClick={() => toggleGrado(g.id_grado)}
-                                                        className={`cursor-pointer p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 text-center ${activo ? 'border-hx-purple bg-hx-purple/5 shadow-sm shadow-hx-purple/10' : 'border-slate-100 hover:border-slate-200 bg-white hover:shadow-sm'}`}
+                                                        className={`cursor-pointer p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 text-center ${activo ? 'border-brand-primary bg-brand-primary/5 shadow-sm shadow-brand-primary/10' : 'border-slate-100 hover:border-slate-200 bg-white hover:shadow-sm'}`}
                                                     >
-                                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors ${activo ? 'bg-hx-purple text-white' : 'bg-slate-100 text-slate-400'}`}>
+                                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors ${activo ? 'bg-brand-primary text-white' : 'bg-slate-100 text-slate-400'}`}>
                                                             <span className="font-black text-sm">{g.nombre_grado?.charAt(0) || g.id_grado}</span>
                                                         </div>
                                                         <div className="flex-1 min-w-0 w-full">
-                                                            <p className={`font-bold text-xs truncate ${activo ? 'text-hx-purple' : 'text-slate-700'}`}>{g.nombre_grado || `Grado ${g.id_grado}`}</p>
+                                                            <p className={`font-bold text-xs truncate ${activo ? 'text-brand-primary' : 'text-slate-700'}`}>{g.nombre_grado || `Grado ${g.id_grado}`}</p>
                                                             {g.nivel && <p className="text-[10px] text-slate-400 mt-0.5 truncate uppercase">{g.nivel}</p>}
                                                         </div>
-                                                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors mt-1 ${activo ? 'border-hx-purple bg-hx-purple' : 'border-slate-200'}`}>
+                                                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors mt-1 ${activo ? 'border-brand-primary bg-brand-primary' : 'border-slate-200'}`}>
                                                             {activo && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5"><polyline points="20 6 9 17 4 12" /></svg>}
                                                         </div>
                                                     </div>
@@ -1161,7 +1161,7 @@ export default function ProfesoresManager() {
                                         )}
                                         <div className="flex gap-4 mt-6">
                                             <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3.5 text-sm font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all cursor-pointer">Cancelar</button>
-                                            <button disabled={guardando} onClick={handleGuardarGrados} className={`flex-1 py-3.5 bg-hx-purple hover:bg-hx-purple/90 text-white font-bold rounded-xl shadow-md shadow-hx-purple/20 transition-all flex items-center justify-center gap-2 text-sm ${guardando ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'}`}>
+                                            <button disabled={guardando} onClick={handleGuardarGrados} className={`flex-1 py-3.5 bg-brand-primary hover:bg-brand-primary/90 text-white font-bold rounded-xl shadow-md shadow-brand-primary/20 transition-all flex items-center justify-center gap-2 text-sm ${guardando ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'}`}>
                                                 {guardando ? (<><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Guardando...</>) : (<>Continuar <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg></>)}
                                             </button>
                                         </div>
@@ -1183,7 +1183,7 @@ export default function ProfesoresManager() {
                                                             <button
                                                                 key={sid}
                                                                 onClick={() => setActiveSede(sid)}
-                                                                className={`px-6 py-2.5 rounded-xl font-extrabold text-sm transition-all cursor-pointer ${activeSede === sid ? 'bg-hx-purple text-white shadow-md shadow-hx-purple/20' : 'bg-white text-slate-500 hover:text-hx-purple border border-slate-200 hover:border-hx-purple'} ${esDisponibilidadTotal ? 'opacity-30 pointer-events-none grayscale' : ''}`}
+                                                                className={`px-6 py-2.5 rounded-xl font-extrabold text-sm transition-all cursor-pointer ${activeSede === sid ? 'bg-brand-primary text-white shadow-md shadow-brand-primary/20' : 'bg-white text-slate-500 hover:text-brand-primary border border-slate-200 hover:border-brand-primary'} ${esDisponibilidadTotal ? 'opacity-30 pointer-events-none grayscale' : ''}`}
                                                             >
                                                                 {sObj.nombre_sede}
                                                             </button>
@@ -1198,8 +1198,8 @@ export default function ProfesoresManager() {
                                             <div className="flex flex-wrap items-center justify-between gap-4 p-2.5 bg-slate-50 rounded-xl border border-slate-100">
                                                 <div className="flex items-center gap-3">
                                                     <div className="flex bg-slate-200/50 p-1 rounded-lg">
-                                                        <button onClick={() => setModoPincel('disponible')} className={`px-3 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${modoPincel === 'disponible' ? 'bg-white text-hx-purple shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-                                                            <div className={`w-1.5 h-1.5 rounded-full ${modoPincel === 'disponible' ? 'bg-hx-purple' : 'bg-slate-300'}`}></div> Disponible
+                                                        <button onClick={() => setModoPincel('disponible')} className={`px-3 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${modoPincel === 'disponible' ? 'bg-white text-brand-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                                                            <div className={`w-1.5 h-1.5 rounded-full ${modoPincel === 'disponible' ? 'bg-brand-primary' : 'bg-slate-300'}`}></div> Disponible
                                                         </button>
                                                         <button onClick={() => setModoPincel('preferido')} className={`px-3 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${modoPincel === 'preferido' ? 'bg-white text-amber-500 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
                                                             <div className={`w-1.5 h-1.5 rounded-full ${modoPincel === 'preferido' ? 'bg-amber-400' : 'bg-slate-300'}`}></div> Preferido
@@ -1209,7 +1209,7 @@ export default function ProfesoresManager() {
                                                 <div className="flex items-center gap-4">
                                                     {/* Leyenda compacta */}
                                                     <div className="hidden sm:flex items-center gap-3 text-[10px] font-bold text-slate-500">
-                                                        <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded bg-hx-purple"></div>Disp</div>
+                                                        <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded bg-brand-primary"></div>Disp</div>
                                                         <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded bg-amber-400"></div>Pref</div>
                                                         <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded border border-red-200 bg-red-50"></div>No Disp</div>
                                                     </div>
@@ -1258,7 +1258,7 @@ export default function ProfesoresManager() {
                                                                 <button
                                                                     key={t.id_turno}
                                                                     onClick={() => setActiveTurnoTab(t.id_turno)}
-                                                                    className={`px-4 py-2 rounded-xl font-bold text-xs transition-all cursor-pointer whitespace-nowrap ${currentTurnoId === t.id_turno ? 'bg-hx-purple text-white shadow-md shadow-hx-purple/20' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'} ${esDisponibilidadTotal ? 'opacity-30 pointer-events-none grayscale' : ''}`}
+                                                                    className={`px-4 py-2 rounded-xl font-bold text-xs transition-all cursor-pointer whitespace-nowrap ${currentTurnoId === t.id_turno ? 'bg-brand-primary text-white shadow-md shadow-brand-primary/20' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'} ${esDisponibilidadTotal ? 'opacity-30 pointer-events-none grayscale' : ''}`}
                                                                 >
                                                                     {t.nombre}
                                                                 </button>
@@ -1266,8 +1266,8 @@ export default function ProfesoresManager() {
                                                         </div>
 
                                                         {/* Toggle Total (Movido a esta fila) */}
-                                                        <div className="flex items-center gap-2 bg-hx-purple/5 px-3 py-1.5 rounded-lg border border-hx-purple/20 shrink-0">
-                                                            <span className="font-bold text-hx-purple text-xs">Disponibilidad Total</span>
+                                                        <div className="flex items-center gap-2 bg-brand-primary/5 px-3 py-1.5 rounded-lg border border-brand-primary/20 shrink-0">
+                                                            <span className="font-bold text-brand-primary text-xs">Disponibilidad Total</span>
                                                             <div
                                                                 onClick={() => {
                                                                     setEsDisponibilidadTotal(!esDisponibilidadTotal);
@@ -1276,7 +1276,7 @@ export default function ProfesoresManager() {
                                                                         setFormPreferencia([]);
                                                                     }
                                                                 }}
-                                                                className={`w-8 h-4 rounded-full transition-colors cursor-pointer relative shrink-0 ${esDisponibilidadTotal ? 'bg-hx-purple' : 'bg-slate-300'}`}
+                                                                className={`w-8 h-4 rounded-full transition-colors cursor-pointer relative shrink-0 ${esDisponibilidadTotal ? 'bg-brand-primary' : 'bg-slate-300'}`}
                                                             >
                                                                 <div className={`absolute top-0.5 left-0.5 bg-white w-3 h-3 rounded-full transition-transform ${esDisponibilidadTotal ? 'translate-x-4' : 'translate-x-0'}`}></div>
                                                             </div>
@@ -1317,7 +1317,7 @@ export default function ProfesoresManager() {
                                                             return (
                                                                 <div key={turno.id_turno} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
                                                                     <div className="px-5 py-3 bg-slate-50 border-b border-slate-100 flex items-center gap-2">
-                                                                        <div className="w-2 h-2 rounded-full bg-hx-purple"></div>
+                                                                        <div className="w-2 h-2 rounded-full bg-brand-primary"></div>
                                                                         <h3 className="font-extrabold text-slate-700 text-xs uppercase tracking-widest">{turno.nombre}</h3>
                                                                     </div>
                                                                     <div className="overflow-x-auto">
@@ -1354,7 +1354,7 @@ export default function ProfesoresManager() {
                                                                                                         <div className={`mx-auto w-10 h-8 rounded-xl flex items-center justify-center transition-colors border ${isPref
                                                                                                             ? 'bg-amber-400 border-transparent shadow-md shadow-amber-400/20 text-white'
                                                                                                             : isDispo
-                                                                                                                ? 'bg-hx-purple border-transparent shadow-md shadow-hx-purple/20 text-white'
+                                                                                                                ? 'bg-brand-primary border-transparent shadow-md shadow-brand-primary/20 text-white'
                                                                                                                 : 'bg-red-50 hover:bg-red-100 border-red-100 text-red-400'
                                                                                                             }`}>
                                                                                                             {isPref ? (
@@ -1390,7 +1390,7 @@ export default function ProfesoresManager() {
                                         )}
                                         <div className="flex gap-4 pt-4 border-t border-slate-100 mt-4">
                                             <button onClick={() => setIsModalOpen(false)} className="flex-1 py-3 text-sm font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all cursor-pointer">Cancelar</button>
-                                            <button disabled={guardando} onClick={handleGuardarDispo} className={`flex-1 py-3 bg-hx-purple hover:bg-hx-purple/90 text-white font-bold rounded-xl shadow-md transition-all ${guardando ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'}`}>
+                                            <button disabled={guardando} onClick={handleGuardarDispo} className={`flex-1 py-3 bg-brand-primary hover:bg-brand-primary/90 text-white font-bold rounded-xl shadow-md transition-all ${guardando ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'}`}>
                                                 {guardando ? 'Guardando...' : 'Continuar'}
                                             </button>
                                         </div>
@@ -1401,7 +1401,7 @@ export default function ProfesoresManager() {
                                 {activeTab === 'horas_minimas' && (
                                     <div className="max-w-md mx-auto space-y-5">
                                         <div className="flex items-center gap-3 mb-2 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                            <div className="w-9 h-9 bg-hx-purple/10 rounded-xl flex items-center justify-center text-hx-purple shrink-0">
+                                            <div className="w-9 h-9 bg-brand-primary/10 rounded-xl flex items-center justify-center text-brand-primary shrink-0">
                                                 <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                                             </div>
                                             <div>
@@ -1419,7 +1419,7 @@ export default function ProfesoresManager() {
                                                 step="1"
                                                 value={formHorasMinimas}
                                                 onChange={handleHorasMinChange}
-                                                className={`w-full px-4 py-3 rounded-xl border ${horasMinError ? 'border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-500/10' : 'border-slate-200 bg-slate-50 focus:border-hx-purple focus:ring-hx-purple/10'} text-slate-800 focus:bg-white focus:ring-4 outline-none transition-all text-sm font-medium`}
+                                                className={`w-full px-4 py-3 rounded-xl border ${horasMinError ? 'border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-500/10' : 'border-slate-200 bg-slate-50 focus:border-brand-primary focus:ring-brand-primary/10'} text-slate-800 focus:bg-white focus:ring-4 outline-none transition-all text-sm font-medium`}
                                             />
                                             {horasMinError && (
                                                 <p className="text-red-500 text-xs mt-1.5 flex items-center gap-1">
@@ -1447,7 +1447,7 @@ export default function ProfesoresManager() {
 
                                         <div className="flex gap-4 pt-4 border-t border-slate-100 mt-4">
                                             <button onClick={() => setIsModalOpen(false)} className="flex-1 py-3 text-sm font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all cursor-pointer">Cancelar</button>
-                                            <button disabled={guardando || !!horasMinError} onClick={handleGuardarHorasMinimas} className={`flex-1 py-3 bg-hx-purple hover:bg-hx-purple/90 text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 ${(guardando || !!horasMinError) ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
+                                            <button disabled={guardando || !!horasMinError} onClick={handleGuardarHorasMinimas} className={`flex-1 py-3 bg-brand-primary hover:bg-brand-primary/90 text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 ${(guardando || !!horasMinError) ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
                                                 {guardando ? 'Guardando...' : 'Finalizar y Guardar'}
                                             </button>
                                         </div>

@@ -63,7 +63,7 @@ export default function Sidebar({ currentPath: initialPath = '' }) {
     };
 
     // Color activo (Dashboard morado, Ajustes amarillo)
-    const activeColor = currentPath.startsWith('/ajustes') ? 'var(--color-hx-purple)' : 'var(--color-hx-purple)';
+    const activeColor = currentPath.startsWith('/ajustes') ? 'var(--color-brand-primary)' : 'var(--color-brand-primary)';
 
     const activeItemStyle = {
         backgroundColor: '#fff',
@@ -180,7 +180,7 @@ export default function Sidebar({ currentPath: initialPath = '' }) {
         <aside
             className="w-64 flex flex-col justify-between fixed h-screen top-0 left-0 z-50 overflow-hidden shadow-2xl transition-colors duration-500"
             style={{ 
-                backgroundColor: currentPath.startsWith('/ajustes') ? 'var(--color-hx-purple)' : 'rgba(121, 14, 236, 0.95)'
+                backgroundColor: currentPath.startsWith('/ajustes') ? 'var(--color-brand-primary)' : 'rgba(47, 91, 255, 0.95)'
             }}
         >
             <div className="pt-6 pb-4 flex flex-col h-full overflow-y-auto">

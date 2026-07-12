@@ -184,7 +184,7 @@ export default function ConfiguracionTiemposModal({ isOpen, onClose, maxBloques,
                                     onClick={() => handleTurnoChange(turno.id_turno)}
                                     className={`flex-1 py-2 px-4 rounded-lg text-[13px] font-bold transition-all cursor-pointer ${
                                         String(selectedTurno) === String(turno.id_turno)
-                                        ? 'bg-hx-purple text-white shadow-md'
+                                        ? 'bg-brand-primary text-white shadow-md'
                                         : 'text-slate-500 hover:bg-slate-200 hover:text-slate-700'
                                     }`}
                                 >
@@ -207,7 +207,7 @@ export default function ConfiguracionTiemposModal({ isOpen, onClose, maxBloques,
                                         type="time"
                                         value={currentConfig.horaInicio}
                                         onChange={e => setHoraInicio(e.target.value)}
-                                        className="w-full bg-white border-2 border-slate-200 text-slate-800 text-[14px] font-bold rounded-xl px-4 py-2.5 outline-none focus:border-hx-purple transition-all"
+                                        className="w-full bg-white border-2 border-slate-200 text-slate-800 text-[14px] font-bold rounded-xl px-4 py-2.5 outline-none focus:border-brand-primary transition-all"
                                     />
                                 </div>
                                 <div className="flex flex-col">
@@ -219,7 +219,7 @@ export default function ConfiguracionTiemposModal({ isOpen, onClose, maxBloques,
                                         onChange={e => setDuracionBloque(e.target.value)}
                                         min="1"
                                         placeholder="Ej: 45"
-                                        className="w-full bg-white border-2 border-slate-200 text-slate-800 text-[14px] font-bold rounded-xl px-4 py-2.5 outline-none focus:border-hx-purple transition-all placeholder:text-slate-300 placeholder:font-normal"
+                                        className="w-full bg-white border-2 border-slate-200 text-slate-800 text-[14px] font-bold rounded-xl px-4 py-2.5 outline-none focus:border-brand-primary transition-all placeholder:text-slate-300 placeholder:font-normal"
                                     />
                                 </div>
                             </div>
@@ -231,7 +231,7 @@ export default function ConfiguracionTiemposModal({ isOpen, onClose, maxBloques,
                                     <button
                                         type="button"
                                         onClick={addRecreo}
-                                        className="text-[11px] font-bold text-hx-purple hover:text-purple-700 bg-purple-50 px-3 py-1 rounded-full transition-colors cursor-pointer"
+                                        className="text-[11px] font-bold text-brand-primary hover:text-[var(--color-brand-dark)] bg-[var(--color-brand-light)] px-3 py-1 rounded-full transition-colors cursor-pointer"
                                     >
                                         + Añadir Recreo
                                     </button>
@@ -294,7 +294,7 @@ export default function ConfiguracionTiemposModal({ isOpen, onClose, maxBloques,
                     </button>
                     <button
                         onClick={handleSave}
-                        className="px-6 py-2.5 text-[13px] font-black text-white bg-hx-purple hover:bg-purple-700 rounded-xl shadow-md transition-all cursor-pointer"
+                        className="px-6 py-2.5 text-[13px] font-black text-white bg-brand-primary hover:bg-[var(--color-brand-dark)] rounded-xl shadow-md transition-all cursor-pointer"
                     >
                         Guardar Configuración
                     </button>

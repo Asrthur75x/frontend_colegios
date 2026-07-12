@@ -133,15 +133,15 @@ export default function DashboardManager() {
                 <div className="flex-1 flex flex-col gap-8">
 
                     {/* 1. BANNER PRINCIPAL */}
-                    <div className="relative overflow-hidden rounded-[24px] bg-[var(--color-hx-purple)]/10 flex flex-col md:flex-row items-center justify-between p-8 md:p-10 shadow-sm border border-[var(--color-hx-purple)]/70">
+                    <div className="relative overflow-hidden rounded-[24px] bg-[var(--color-brand-primary)]/10 flex flex-col md:flex-row items-center justify-between p-8 md:p-10 shadow-sm border border-[var(--color-brand-primary)]/70">
                         {/* Text Content */}
                         <div className="relative z-10 max-w-sm xl:max-w-lg">
                             <h1 className="text-4xl md:text-5xl font-black text-slate-800 tracking-tight leading-tight mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
                                 Hola, colegio
                                 {colegio?.nombre_colegio && (
                                     <span className="relative">
-                                        <span className="absolute inset-0 bg-[var(--color-hx-purple)] rounded-xl blur-md opacity-40 animate-pulse"></span>
-                                        <span className="relative bg-[var(--color-hx-purple)]/60 text-white px-4 py-1.5 rounded-xl inline-block shadow-sm text-3xl md:text-4xl">
+                                        <span className="absolute inset-0 bg-[var(--color-brand-primary)] rounded-xl blur-md opacity-40 animate-pulse"></span>
+                                        <span className="relative bg-[var(--color-brand-primary)]/60 text-white px-4 py-1.5 rounded-xl inline-block shadow-sm text-3xl md:text-4xl">
                                             {colegio.nombre_colegio}
                                         </span>
                                     </span>
@@ -156,7 +156,7 @@ export default function DashboardManager() {
                         <div className="relative mt-8 md:mt-0 w-full md:w-[360px] h-48 flex items-center justify-center flex-shrink-0">
                             {/* Background glows */}
                             <div className="absolute w-48 h-48 bg-blue-200 rounded-full blur-3xl opacity-60 mix-blend-multiply animate-pulse" style={{ animationDuration: '4s' }}></div>
-                            <div className="absolute w-36 h-36 bg-purple-200 rounded-full blur-3xl opacity-60 mix-blend-multiply right-8 top-0 animate-pulse" style={{ animationDuration: '5s' }}></div>
+                            <div className="absolute w-36 h-36 bg-[var(--color-brand-light)] rounded-full blur-3xl opacity-60 mix-blend-multiply right-8 top-0 animate-pulse" style={{ animationDuration: '5s' }}></div>
 
                             {/* School Illustration */}
                             <svg width="100%" height="100%" viewBox="0 0 340 220" className="relative z-10 drop-shadow-xl">
@@ -225,7 +225,7 @@ export default function DashboardManager() {
                                 label="Profesores"
                                 value={v(stats.profesores)}
                                 colorLight="#f3e8ff"
-                                colorDark="#790EEC"
+                                colorDark="var(--color-brand-primary)"
                                 icon={<svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></svg>}
                             />
                             <StatCard
@@ -258,7 +258,7 @@ export default function DashboardManager() {
                         {/* 1. Progreso de Llenado (Izquierda) */}
                         <div className="bg-white rounded-[24px] p-8 border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex-[0.75] flex flex-col justify-start min-w-[280px]">
                             <div className="flex items-center gap-3 mb-6">
-                                <div className="w-10 h-10 rounded-xl bg-purple-50 text-[var(--color-hx-purple)] flex items-center justify-center border border-purple-100/50">
+                                <div className="w-10 h-10 rounded-xl bg-[var(--color-brand-light)] text-[var(--color-brand-primary)] flex items-center justify-center border border-[var(--color-brand-light)]/50">
                                     <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><path d="M22 4L12 14.01l-3-3" /></svg>
                                 </div>
                                 <div>
@@ -277,7 +277,7 @@ export default function DashboardManager() {
                                     {/* Animated Progress Fill */}
                                     <div
                                         className="h-full rounded-full transition-all duration-1000 ease-out relative"
-                                        style={{ width: `${progresoHorarios}%`, backgroundColor: 'var(--color-hx-purple)' }}
+                                        style={{ width: `${progresoHorarios}%`, backgroundColor: 'var(--color-brand-primary)' }}
                                     >
                                         <div className="absolute inset-0 bg-white/20 w-full animate-pulse"></div>
                                     </div>
@@ -293,7 +293,7 @@ export default function DashboardManager() {
                         {/* 2. Mapa de Áreas (Derecha) */}
                         <div className="bg-white rounded-[24px] p-8 border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex-[1.5] flex flex-col">
                             <div className="flex items-center gap-3 mb-6">
-                                <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-500 flex items-center justify-center border border-purple-100/50">
+                                <div className="w-10 h-10 rounded-xl bg-[var(--color-brand-light)] text-[var(--color-brand-light)]0 flex items-center justify-center border border-[var(--color-brand-light)]/50">
                                     <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" /></svg>
                                 </div>
                                 <div>
@@ -330,15 +330,15 @@ export default function DashboardManager() {
                     <div className="bg-white rounded-[24px] h-full flex flex-col overflow-hidden border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.09)]">
                         {/* Header */}
                         <div className="px-6 pt-7 pb-5 flex items-center justify-between border-b border-slate-50 relative overflow-hidden">
-                            <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-purple-50/80 via-white to-blue-50/50"></div>
+                            <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-[var(--color-brand-light)]/80 via-white to-blue-50/50"></div>
                             <div className="flex items-center gap-3 relative z-10">
-                                <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white shadow-[0_2px_10px_rgb(0,0,0,0.05)] text-[var(--color-hx-purple)] border border-[var(--color-hx-purple)]/20">
+                                <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white shadow-[0_2px_10px_rgb(0,0,0,0.05)] text-[var(--color-brand-primary)] border border-[var(--color-brand-primary)]/20">
                                     <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
                                 </div>
                                 <h3 className="text-slate-800 font-black text-[18px] tracking-tight">Docentes</h3>
                             </div>
                             <div className="relative z-10">
-                                <span className="bg-white border border-[var(--color-hx-purple)]/20 text-[var(--color-hx-purple)] text-[12px] font-bold px-3 py-1.5 rounded-full shadow-sm">
+                                <span className="bg-white border border-[var(--color-brand-primary)]/20 text-[var(--color-brand-primary)] text-[12px] font-bold px-3 py-1.5 rounded-full shadow-sm">
                                     {displayProfs.length} docente{displayProfs.length !== 1 ? 's' : ''}
                                 </span>
                             </div>
@@ -347,7 +347,7 @@ export default function DashboardManager() {
                         {/* Tabs for Sedes (if multiple) */}
                         {sedesList.length >= 2 && (
                             <div className="px-6 py-4 bg-slate-50/30 border-b border-slate-50">
-                                <div className="bg-slate-200/60 p-1.5 rounded-2xl flex gap-1 relative shadow-inner border border-[var(--color-hx-purple)]">
+                                <div className="bg-slate-200/60 p-1.5 rounded-2xl flex gap-1 relative shadow-inner border border-[var(--color-brand-primary)]">
                                     {sedesList.map(sede => {
                                         const isActive = activeTab === sede.id_sede || (!activeTab && sedesList[0].id_sede === sede.id_sede);
                                         const countInSede = sedeProfesor.length > 0
@@ -358,7 +358,7 @@ export default function DashboardManager() {
                                             <button
                                                 key={sede.id_sede}
                                                 onClick={() => { setActiveTab(sede.id_sede); setCurrentPage(1); }}
-                                                className={`flex-1 text-[13px] font-bold py-2 rounded-xl transition-all duration-300 cursor-pointer flex items-center justify-center gap-1.5 ${isActive ? 'bg-[var(--color-hx-purple)]/60 text-white shadow-[0_2px_10px_rgb(0,0,0,0.06)]' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
+                                                className={`flex-1 text-[13px] font-bold py-2 rounded-xl transition-all duration-300 cursor-pointer flex items-center justify-center gap-1.5 ${isActive ? 'bg-[var(--color-brand-primary)]/60 text-white shadow-[0_2px_10px_rgb(0,0,0,0.06)]' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
                                             >
                                                 {sede.nombre_sede}
                                             </button>
@@ -385,12 +385,12 @@ export default function DashboardManager() {
                                             return (
                                                 <div key={prof.id_profesor} className="rounded-2xl p-2.5 flex items-center gap-3.5 bg-transparent hover:bg-slate-50 transition-all border border-transparent hover:border-slate-100 group cursor-default">
                                                     {/* Avatar */}
-                                                    <div className="w-[42px] h-[42px] rounded-full flex items-center justify-center font-black text-[14px] flex-shrink-0 bg-[var(--color-hx-purple)]/10 text-[var(--color-hx-purple)] shadow-sm">
+                                                    <div className="w-[42px] h-[42px] rounded-full flex items-center justify-center font-black text-[14px] flex-shrink-0 bg-[var(--color-brand-primary)]/10 text-[var(--color-brand-primary)] shadow-sm">
                                                         {initials}
                                                     </div>
                                                     {/* Info */}
                                                     <div className="flex-1 min-w-0 flex items-center justify-between gap-3">
-                                                        <p className="text-slate-800 font-bold text-[14px] truncate leading-tight group-hover:text-[var(--color-hx-purple)] transition-colors">
+                                                        <p className="text-slate-800 font-bold text-[14px] truncate leading-tight group-hover:text-[var(--color-brand-primary)] transition-colors">
                                                             {prof.nombre_profesor}
                                                         </p>
                                                         <div className="flex items-center gap-1.5 flex-shrink-0 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100 group-hover:bg-white group-hover:border-slate-200 transition-colors">
@@ -411,7 +411,7 @@ export default function DashboardManager() {
                                             <button
                                                 disabled={currentPage === 1}
                                                 onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                                                className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-600 hover:bg-slate-100 hover:text-[var(--color-hx-purple)] disabled:opacity-30 disabled:hover:bg-transparent transition-all cursor-pointer shadow-sm border border-slate-100 bg-slate-50"
+                                                className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-600 hover:bg-slate-100 hover:text-[var(--color-brand-primary)] disabled:opacity-30 disabled:hover:bg-transparent transition-all cursor-pointer shadow-sm border border-slate-100 bg-slate-50"
                                             >
                                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
                                             </button>
@@ -421,7 +421,7 @@ export default function DashboardManager() {
                                             <button
                                                 disabled={currentPage === totalPages}
                                                 onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                                                className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-600 hover:bg-slate-100 hover:text-[var(--color-hx-purple)] disabled:opacity-30 disabled:hover:bg-transparent transition-all cursor-pointer shadow-sm border border-slate-100 bg-slate-50"
+                                                className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-600 hover:bg-slate-100 hover:text-[var(--color-brand-primary)] disabled:opacity-30 disabled:hover:bg-transparent transition-all cursor-pointer shadow-sm border border-slate-100 bg-slate-50"
                                             >
                                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
                                             </button>

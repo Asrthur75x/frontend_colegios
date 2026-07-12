@@ -176,12 +176,12 @@ export default function Paso5Turnos({ data, setData, isSaved, onEnableEdit, isEd
                 <p className="text-slate-500 text-center mb-8 text-lg w-full">
                     Selecciona a qué turno pertenece cada sección.{' '}
                     <span className="font-semibold text-slate-600">Si una sección cambia de turno según el día</span>
-                    , usa el botón <span className="font-semibold text-[#790EEC]">Variar por día</span>.
+                    , usa el botón <span className="font-semibold text-[var(--color-brand-primary)]">Variar por día</span>.
                 </p>
                 {isSaved && (
                     <button
                         onClick={onEnableEdit}
-                        className="px-4 py-1.5 rounded-full border-2 border-[#790EEC] text-[#ffffff] text-sm font-bold bg-[#790EEC] hover:bg-[#6b0bc9] hover:border-[#6b0bc9] transition-colors shadow-sm cursor-pointer flex items-center justify-center gap-2"
+                        className="px-4 py-1.5 rounded-full border-2 border-[var(--color-brand-primary)] text-[#ffffff] text-sm font-bold bg-[var(--color-brand-primary)] hover:bg-[var(--color-brand-dark)] hover:border-[var(--color-brand-dark)] transition-colors shadow-sm cursor-pointer flex items-center justify-center gap-2"
                     >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
                         Activar Edición
@@ -190,7 +190,7 @@ export default function Paso5Turnos({ data, setData, isSaved, onEnableEdit, isEd
                 {isEditing && (
                     <button
                         onClick={onCancelEdit}
-                        className="px-4 py-1.5 rounded-full border-2 border-[#790EEC] text-slate-500 text-sm font-bold bg-white hover:bg-slate-50 transition-colors shadow-sm cursor-pointer flex items-center justify-center gap-2"
+                        className="px-4 py-1.5 rounded-full border-2 border-[var(--color-brand-primary)] text-slate-500 text-sm font-bold bg-white hover:bg-slate-50 transition-colors shadow-sm cursor-pointer flex items-center justify-center gap-2"
                     >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                         Cancelar Edición
@@ -206,7 +206,7 @@ export default function Paso5Turnos({ data, setData, isSaved, onEnableEdit, isEd
                     {sedes.map(sede => (
                         <button key={sede} onClick={() => setActiveSede(sede)}
                             className={`cursor-pointer px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 ${activeSede === sede
-                                ? 'bg-[#790EEC] text-white shadow-lg shadow-[#790EEC]/30 scale-105'
+                                ? 'bg-[var(--color-brand-primary)] text-white shadow-lg shadow-[var(--color-brand-primary)]/30 scale-105'
                                 : 'bg-transparent text-slate-500 hover:bg-slate-200 hover:text-slate-700'
                                 }`}>
                             Sede {sede}
@@ -253,22 +253,22 @@ export default function Paso5Turnos({ data, setData, isSaved, onEnableEdit, isEd
                                     const turnoGlobal = typeof valor === 'string' ? valor : (isMixed ? null : Object.values(valor)[0] || data.turnos[0]);
 
                                     const getBtnClass = () => {
-                                        if (isAdvanced && isMixed) return 'px-3 py-1.5 text-white bg-[#790EEC] border-[#790EEC] shadow-md shadow-[#790EEC]/30 hover:bg-[#790EEC]';
+                                        if (isAdvanced && isMixed) return 'px-3 py-1.5 text-white bg-[var(--color-brand-primary)] border-[var(--color-brand-primary)] shadow-md shadow-[var(--color-brand-primary)]/30 hover:bg-[var(--color-brand-primary)]';
                                         if (isAdvanced && !isMixed) return 'px-3 py-1.5 text-slate-500 bg-white border-slate-300 hover:bg-slate-100 shadow-sm';
-                                        if (!isAdvanced && isMixed) return 'px-3 py-1.5 text-white bg-[#790EEC] border-[#790EEC] shadow-md shadow-[#790EEC]/30 hover:bg-[#790EEC]';
-                                        return 'px-3 py-2 text-[#790EEC] bg-[#790EEC]/8 border-[#790EEC]/40 hover:bg-[#790EEC]/15 hover:border-[#790EEC] shadow-sm';
+                                        if (!isAdvanced && isMixed) return 'px-3 py-1.5 text-white bg-[var(--color-brand-primary)] border-[var(--color-brand-primary)] shadow-md shadow-[var(--color-brand-primary)]/30 hover:bg-[var(--color-brand-primary)]';
+                                        return 'px-3 py-2 text-[var(--color-brand-primary)] bg-[var(--color-brand-primary)]/8 border-[var(--color-brand-primary)]/40 hover:bg-[var(--color-brand-primary)]/15 hover:border-[var(--color-brand-primary)] shadow-sm';
                                     };
 
                                     return (
                                         <div key={seccion}
-                                            className={`bg-white border-2 rounded-2xl p-3 shadow-sm flex flex-col gap-3 transition-all duration-300 ${isAdvanced ? 'border-[#790EEC]/50 col-span-2 sm:col-span-3' : 'border-slate-100 items-center hover:border-[#790EEC]/30'
+                                            className={`bg-white border-2 rounded-2xl p-3 shadow-sm flex flex-col gap-3 transition-all duration-300 ${isAdvanced ? 'border-[var(--color-brand-primary)]/50 col-span-2 sm:col-span-3' : 'border-slate-100 items-center hover:border-[var(--color-brand-primary)]/30'
                                                 }`}>
 
                                             {/* Header de la tarjeta */}
                                             <div className={`flex items-center ${isAdvanced ? 'justify-between' : 'flex-col gap-5 w-full'}`}>
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Sección</span>
-                                                    <span className="text-xl font-black text-[#790EEC]">{seccion}</span>
+                                                    <span className="text-xl font-black text-[var(--color-brand-primary)]">{seccion}</span>
                                                 </div>
 
                                                 {/* MODO SIMPLE: un selector de turno para todos los días */}
@@ -278,7 +278,7 @@ export default function Paso5Turnos({ data, setData, isSaved, onEnableEdit, isEd
                                                             <button key={turno}
                                                                 onClick={() => handleTurnoGlobal(grado, seccion, turno)}
                                                                 className={`cursor-pointer flex-1 min-w-0 px-2 py-2 rounded-lg text-xs font-bold transition-all border-2 ${turnoGlobal === turno
-                                                                    ? 'bg-[#790EEC]/10 border-[#790EEC] text-[#790EEC]'
+                                                                    ? 'bg-[var(--color-brand-primary)]/10 border-[var(--color-brand-primary)] text-[var(--color-brand-primary)]'
                                                                     : 'bg-slate-50 border-transparent text-slate-400 hover:border-slate-200 hover:text-slate-600'
                                                                     }`}>
                                                                 {turno}
@@ -330,7 +330,7 @@ export default function Paso5Turnos({ data, setData, isSaved, onEnableEdit, isEd
                                                                         <button key={turno}
                                                                             onClick={() => handleTurnoPorDia(grado, seccion, dia.id, turno)}
                                                                             className={`cursor-pointer flex-1 py-1.5 rounded-lg text-xs font-bold transition-all border-2 ${turnoDelDia === turno
-                                                                                ? 'bg-[#790EEC]/10 border-[#790EEC] text-[#790EEC]'
+                                                                                ? 'bg-[var(--color-brand-primary)]/10 border-[var(--color-brand-primary)] text-[var(--color-brand-primary)]'
                                                                                 : 'bg-slate-50 border-transparent text-slate-400 hover:border-slate-200 hover:text-slate-600'
                                                                                 }`}>
                                                                             {turno}

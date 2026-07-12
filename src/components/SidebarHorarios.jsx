@@ -22,7 +22,7 @@ export default function SidebarHorarios({ currentPath: initialPath = '' }) {
 
     const activeItemStyle = {
         backgroundColor: '#fff',
-        color: 'var(--color-hx-purple)',
+        color: 'var(--color-brand-primary)',
         borderTopLeftRadius: '32px',
         borderBottomLeftRadius: '32px',
         position: 'relative',
@@ -70,7 +70,7 @@ export default function SidebarHorarios({ currentPath: initialPath = '' }) {
     return (
         <aside
             className="w-64 flex flex-col justify-between fixed h-screen top-0 left-0 z-50 overflow-hidden shadow-2xl transition-colors"
-            style={{ backgroundColor: 'var(--color-hx-purple)' }}
+            style={{ backgroundColor: 'var(--color-brand-primary)' }}
         >
             <div className="pt-6 pb-4 flex flex-col h-full overflow-y-auto">
                 {/* Logo */}

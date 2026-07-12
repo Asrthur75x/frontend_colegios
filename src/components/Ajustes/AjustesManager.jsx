@@ -326,7 +326,7 @@ export default function AjustesManager() {
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
                             className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm ${activeTab === tab.id
-                                ? 'bg-[#790EEC] text-white shadow-md shadow-[#790EEC]/20'
+                                ? 'bg-[var(--color-brand-primary)] text-white shadow-md shadow-[var(--color-brand-primary)]/20'
                                 : 'bg-white text-slate-500 hover:bg-slate-50 border border-transparent'
                                 }`}
                         >
@@ -361,7 +361,7 @@ export default function AjustesManager() {
                                             type="text"
                                             value={colegio.nombre_colegio}
                                             onChange={e => setColegio({ ...colegio, nombre_colegio: e.target.value })}
-                                            className="w-full bg-slate-50 border border-slate-200 text-slate-700 text-sm font-bold rounded-xl px-4 py-3 outline-none focus:border-[#790EEC]"
+                                            className="w-full bg-slate-50 border border-slate-200 text-slate-700 text-sm font-bold rounded-xl px-4 py-3 outline-none focus:border-[var(--color-brand-primary)]"
                                         />
                                     ) : (
                                         <div className="w-full bg-slate-50 border border-transparent text-slate-700 text-sm font-bold rounded-xl px-4 py-3">
@@ -370,7 +370,7 @@ export default function AjustesManager() {
                                     )}
                                 </div>
                                 {isEditingColegio ? (
-                                    <button onClick={() => { handleUpdateColegio(); setIsEditingColegio(false); }} className="px-6 py-3 bg-[#790EEC] text-white font-bold text-sm rounded-xl hover:shadow-md transition-all">Guardar</button>
+                                    <button onClick={() => { handleUpdateColegio(); setIsEditingColegio(false); }} className="px-6 py-3 bg-[var(--color-brand-primary)] text-white font-bold text-sm rounded-xl hover:shadow-md transition-all">Guardar</button>
                                 ) : (
                                     <button onClick={() => setIsEditingColegio(true)} className="px-6 py-3 bg-slate-100 text-slate-600 font-bold text-sm rounded-xl hover:bg-slate-200 transition-all">Editar</button>
                                 )}
@@ -384,9 +384,9 @@ export default function AjustesManager() {
                                 <div className="flex gap-2 mb-4">
                                     <input
                                         type="text" placeholder="Nueva Sede..." value={newSede} onChange={e => setNewSede(e.target.value)}
-                                        className="flex-1 bg-slate-50 border border-slate-200 text-sm font-bold rounded-xl px-4 py-2 outline-none focus:border-[#790EEC]"
+                                        className="flex-1 bg-slate-50 border border-slate-200 text-sm font-bold rounded-xl px-4 py-2 outline-none focus:border-[var(--color-brand-primary)]"
                                     />
-                                    <button onClick={handleAddSede} className="px-4 py-2 bg-[#790EEC] text-white cursor-pointer font-bold text-sm rounded-xl">Agregar</button>
+                                    <button onClick={handleAddSede} className="px-4 py-2 bg-[var(--color-brand-primary)] text-white cursor-pointer font-bold text-sm rounded-xl">Agregar</button>
                                 </div>
                                 <ul className="space-y-2">
                                     {sedes.map(s => (
@@ -403,7 +403,7 @@ export default function AjustesManager() {
                                             )}
                                             <div className="flex gap-1">
                                                 {editingSedeId === s.id_sede ? (
-                                                    <button onClick={() => handleUpdateSede(s.id_sede)} className="text-[#790EEC] hover:text-[#790EEC] p-1 font-bold text-xs bg-[#790EEC]/10 rounded px-2">Guardar</button>
+                                                    <button onClick={() => handleUpdateSede(s.id_sede)} className="text-[var(--color-brand-primary)] hover:text-[var(--color-brand-primary)] p-1 font-bold text-xs bg-[var(--color-brand-primary)]/10 rounded px-2">Guardar</button>
                                                 ) : (
                                                     <button onClick={() => { setEditingSedeId(s.id_sede); setEditSedeValue(s.nombre_sede); }} className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
                                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
@@ -424,9 +424,9 @@ export default function AjustesManager() {
                                 <div className="flex gap-2 mb-4">
                                     <input
                                         type="text" placeholder="Nuevo Turno..." value={newTurno} onChange={e => setNewTurno(e.target.value)}
-                                        className="flex-1 bg-slate-50 border border-slate-200 text-sm font-bold rounded-xl px-4 py-2 outline-none focus:border-[#790EEC]"
+                                        className="flex-1 bg-slate-50 border border-slate-200 text-sm font-bold rounded-xl px-4 py-2 outline-none focus:border-[var(--color-brand-primary)]"
                                     />
-                                    <button onClick={handleAddTurno} className="px-4 py-2 bg-[#790EEC] text-white font-bold text-sm rounded-xl cursor-pointer">Agregar</button>
+                                    <button onClick={handleAddTurno} className="px-4 py-2 bg-[var(--color-brand-primary)] text-white font-bold text-sm rounded-xl cursor-pointer">Agregar</button>
                                 </div>
                                 <ul className="space-y-2">
                                     {turnos.map(t => (
@@ -443,7 +443,7 @@ export default function AjustesManager() {
                                             )}
                                             <div className="flex gap-1">
                                                 {editingTurnoId === t.id_turno ? (
-                                                    <button onClick={() => handleUpdateTurno(t.id_turno)} className="text-[#790EEC] hover:text-[#790EEC] p-1 font-bold text-xs bg-[#790EEC]/10 rounded px-2">Guardar</button>
+                                                    <button onClick={() => handleUpdateTurno(t.id_turno)} className="text-[var(--color-brand-primary)] hover:text-[var(--color-brand-primary)] p-1 font-bold text-xs bg-[var(--color-brand-primary)]/10 rounded px-2">Guardar</button>
                                                 ) : (
                                                     <button onClick={() => { setEditingTurnoId(t.id_turno); setEditTurnoValue(t.nombre); }} className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
                                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
@@ -469,9 +469,9 @@ export default function AjustesManager() {
                             <div className="flex gap-2 mb-6 max-w-sm">
                                 <input
                                     type="number" placeholder="Número de Grado (Ej: 1)" value={newGrado} onChange={e => setNewGrado(e.target.value)}
-                                    className="flex-1 bg-slate-50 border border-slate-200 text-sm font-bold rounded-xl px-4 py-2 outline-none focus:border-[#790EEC]"
+                                    className="flex-1 bg-slate-50 border border-slate-200 text-sm font-bold rounded-xl px-4 py-2 outline-none focus:border-[var(--color-brand-primary)]"
                                 />
-                                <button onClick={handleAddGrado} className="px-4 py-2 bg-[#790EEC] text-white font-bold text-sm rounded-xl">Añadir Grado</button>
+                                <button onClick={handleAddGrado} className="px-4 py-2 bg-[var(--color-brand-primary)] text-white font-bold text-sm rounded-xl">Añadir Grado</button>
                             </div>
 
                             <div className="overflow-x-auto">
@@ -500,7 +500,7 @@ export default function AjustesManager() {
                                                                 type="number" min="0" max="15"
                                                                 value={bloques}
                                                                 onChange={(e) => handleUpdateGradoDiaConfig(g.id_grado, d.id_dia, parseInt(e.target.value) || 0)}
-                                                                className="w-16 text-center bg-slate-50 border border-slate-200 rounded-lg py-1.5 text-sm font-bold outline-none focus:border-[#790EEC] mx-auto"
+                                                                className="w-16 text-center bg-slate-50 border border-slate-200 rounded-lg py-1.5 text-sm font-bold outline-none focus:border-[var(--color-brand-primary)] mx-auto"
                                                             />
                                                         </td>
                                                     );
@@ -540,7 +540,7 @@ export default function AjustesManager() {
                                     type="text" placeholder="Nombre (Ej: A, B, 1A)" value={newSeccionNombre} onChange={e => setNewSeccionNombre(e.target.value)}
                                     className="bg-slate-50 border border-slate-200 text-slate-700 text-sm font-bold rounded-xl px-4 py-2 outline-none w-48"
                                 />
-                                <button onClick={handleAddSeccion} className="px-6 py-2 bg-[#790EEC] text-white font-bold text-sm rounded-xl hover:shadow-md transition-all cursor-pointer">Añadir Sección</button>
+                                <button onClick={handleAddSeccion} className="px-6 py-2 bg-[var(--color-brand-primary)] text-white font-bold text-sm rounded-xl hover:shadow-md transition-all cursor-pointer">Añadir Sección</button>
                             </div>
 
                             <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 mt-6 shadow-sm">
@@ -567,7 +567,7 @@ export default function AjustesManager() {
                                             ))}
                                         </select>
                                     </div>
-                                    <button onClick={handleAssignTurno} disabled={!selectedSeccionId || !selectedTurnoId} className="px-6 py-2.5 bg-[#790EEC] disabled:opacity-50 text-white font-bold text-sm rounded-xl hover:shadow-md transition-all cursor-pointer">
+                                    <button onClick={handleAssignTurno} disabled={!selectedSeccionId || !selectedTurnoId} className="px-6 py-2.5 bg-[var(--color-brand-primary)] disabled:opacity-50 text-white font-bold text-sm rounded-xl hover:shadow-md transition-all cursor-pointer">
                                         Asignar Turno
                                     </button>
                                 </div>
@@ -617,7 +617,7 @@ export default function AjustesManager() {
                                             </div>
                                             <div className="mt-3 pt-3 border-t border-slate-200/60 flex items-center gap-2">
                                                 <p className="text-[10px] font-black uppercase text-slate-400 mb-1">
-                                                    Turno Asignado: <span className={st ? "text-[#790EEC]" : "text-slate-400"}>{turnoActual}</span>
+                                                    Turno Asignado: <span className={st ? "text-[var(--color-brand-primary)]" : "text-slate-400"}>{turnoActual}</span>
                                                 </p>
                                             </div>
                                         </div>

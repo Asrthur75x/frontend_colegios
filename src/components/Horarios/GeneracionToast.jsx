@@ -80,8 +80,8 @@ export default function GeneracionToast() {
         background: 'white',
         borderRadius: '16px',
         // Sombra más difuminada con un toque morado tipo "humo" y borde sutil
-        boxShadow: '0 20px 50px rgba(121, 14, 236, 0.15), 0 0 0 1px rgba(121, 14, 236, 0.05)',
-        border: '1px solid rgba(121, 14, 236, 0.15)',
+        boxShadow: '0 20px 50px rgba(47, 91, 255, 0.15), 0 0 0 1px rgba(47, 91, 255, 0.05)',
+        border: '1px solid rgba(47, 91, 255, 0.15)',
         padding: '16px',
         animation: 'slideUpFadeIn 0.3s ease-out',
         display: 'flex',
@@ -106,8 +106,8 @@ export default function GeneracionToast() {
                         <div style={{
                             position: 'absolute', inset: 0,
                             border: '3px solid transparent',
-                            borderTopColor: 'var(--color-hx-purple, #790EEC)',
-                            borderRightColor: 'var(--color-hx-purple, #790EEC)',
+                            borderTopColor: 'var(--color-brand-primary, var(--color-brand-primary))',
+                            borderRightColor: 'var(--color-brand-primary, var(--color-brand-primary))',
                             borderRadius: '50%',
                             animation: 'spin 0.8s linear infinite'
                         }} />
@@ -132,7 +132,7 @@ export default function GeneracionToast() {
                     <div style={{
                         height: '100%',
                         width: `${progress}%`,
-                        background: 'var(--color-hx-purple, #790EEC)',
+                        background: 'var(--color-brand-primary, var(--color-brand-primary))',
                         borderRadius: '2px',
                         transition: 'width 0.5s ease'
                     }} />
@@ -181,7 +181,7 @@ export default function GeneracionToast() {
                     onClick={handleGoToHorarios}
                     style={{
                         padding: '8px',
-                        background: 'var(--color-hx-purple, #790EEC)',
+                        background: 'var(--color-brand-primary, var(--color-brand-primary))',
                         color: 'white',
                         border: 'none',
                         borderRadius: '8px',

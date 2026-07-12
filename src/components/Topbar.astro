@@ -25,7 +25,7 @@ const isAjustes = pathname.startsWith("/ajustes");
 // Si no es la app de Horarios ni Ajustes, se asume que estamos navegando dentro del ecosistema "Dashboard"
 const isDashboard = !isHorarios && !isAjustes;
 
-const sidebarColor = "rgba(121, 14, 236, 0.95)";
+const sidebarColor = "rgba(47, 91, 255, 0.95)";
 ---
 
 <header
@@ -82,7 +82,7 @@ const sidebarColor = "rgba(121, 14, 236, 0.95)";
                 <span class="relative z-10">Dashboard</span>
                 {
                     !isDashboard && (
-                        <span class="absolute bottom-0 left-1/2 w-0 h-[3px] bg-hx-purple transition-all duration-300 ease-out group-hover:w-full group-hover:left-0 rounded-full" />
+                        <span class="absolute bottom-0 left-1/2 w-0 h-[3px] bg-brand-primary transition-all duration-300 ease-out group-hover:w-full group-hover:left-0 rounded-full" />
                     )
                 }
             </a>
@@ -115,7 +115,7 @@ const sidebarColor = "rgba(121, 14, 236, 0.95)";
                     !isHorarios && (
                         <span
                             id="horarios-underline"
-                            class="absolute bottom-0 left-1/2 w-0 h-[3px] bg-hx-purple transition-all duration-300 ease-out group-hover:w-full group-hover:left-0 rounded-full"
+                            class="absolute bottom-0 left-1/2 w-0 h-[3px] bg-brand-primary transition-all duration-300 ease-out group-hover:w-full group-hover:left-0 rounded-full"
                         />
                     )
                 }
@@ -131,7 +131,7 @@ const sidebarColor = "rgba(121, 14, 236, 0.95)";
                 href="/ajustes"
                 class={`relative w-11 h-11 bg-white rounded-full border flex items-center justify-center transition-all cursor-pointer hover:rotate-90 duration-300 ${
                     isAjustes
-                        ? "border-hx-purple text-hx-purple shadow-md shadow-hx-purple/20"
+                        ? "border-brand-primary text-brand-primary shadow-md shadow-brand-primary/20"
                         : "shadow-sm border-slate-100 text-slate-600 hover:text-[#111827] hover:shadow-md"
                 }`}
             >
@@ -161,7 +161,7 @@ const sidebarColor = "rgba(121, 14, 236, 0.95)";
             class="flex items-center gap-3 cursor-pointer group hover:opacity-80 transition-opacity"
         >
             <div
-                class="w-11 h-11 rounded-full bg-hx-purple text-white flex items-center justify-center font-black text-xl shadow-sm border-2 border-white"
+                class="w-11 h-11 rounded-full bg-brand-primary text-white flex items-center justify-center font-black text-xl shadow-sm border-2 border-white"
             >
                 <span id="user-initial">A</span>
             </div>
@@ -230,7 +230,7 @@ const sidebarColor = "rgba(121, 14, 236, 0.95)";
                     if (underline) underline.classList.add("hidden");
 
                     nav.classList.add(
-                        "text-[#790EEC]",
+                        "text-[var(--color-brand-primary)]",
                         "shadow-sm",
                         "border",
                         "border-transparent",
@@ -246,7 +246,7 @@ const sidebarColor = "rgba(121, 14, 236, 0.95)";
                     if (underline) underline.classList.remove("hidden");
 
                     nav.classList.remove(
-                        "text-[#790EEC]",
+                        "text-[var(--color-brand-primary)]",
                         "shadow-sm",
                         "border",
                         "border-transparent",
@@ -274,7 +274,7 @@ const sidebarColor = "rgba(121, 14, 236, 0.95)";
         background: conic-gradient(
             from 0deg,
             transparent 0 300deg,
-            #790EEC 360deg
+            var(--color-brand-primary) 360deg
         );
         animation: customSpin 2s linear infinite;
     }

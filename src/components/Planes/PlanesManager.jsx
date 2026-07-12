@@ -347,7 +347,7 @@ export default function PlanesManager() {
         <div className="w-full space-y-8 animate-fade-in relative pb-10">
             {/* Cabecera Superior (Restaurada al estilo morado) */}
             <div className="flex flex-col md:flex-row gap-6 mb-8">
-                <div className="md:w-2/3 bg-[var(--color-hx-purple)]/10 rounded-[24px] p-8 shadow-md relative overflow-hidden flex flex-col justify-center min-h-[180px] border border-[var(--color-hx-purple)]/70">
+                <div className="md:w-2/3 bg-[var(--color-brand-primary)]/10 rounded-[24px] p-8 shadow-md relative overflow-hidden flex flex-col justify-center min-h-[180px] border border-[var(--color-brand-primary)]/70">
                     <div className="relative z-10 flex flex-col md:flex-row justify-between items-center md:items-start gap-6">
                         <div className="max-w-md">
                             <h2 className="text-3xl md:text-4xl font-black text-slate-800 tracking-tight leading-tight mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -359,7 +359,7 @@ export default function PlanesManager() {
 
                             <button
                                 onClick={() => abrirModalEdicionMalla()}
-                                className="bg-hx-purple text-white hover:bg-hx-purple/80 font-extrabold py-2.5 px-6 rounded-xl shadow-[0_4px_12px_rgba(121,14,236,0.3)] hover:shadow-[0_6px_16px_rgba(121,14,236,0.4)] hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2 text-sm w-max cursor-pointer">
+                                className="bg-brand-primary text-white hover:bg-brand-primary/80 font-extrabold py-2.5 px-6 rounded-xl shadow-[0_4px_12px_rgba(47, 91, 255,0.3)] hover:shadow-[0_6px_16px_rgba(47, 91, 255,0.4)] hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2 text-sm w-max cursor-pointer">
                                 <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
                                 Añadir a la Malla
                             </button>
@@ -403,7 +403,7 @@ export default function PlanesManager() {
 
             {loading ? (
                 <div className="flex justify-center py-12">
-                    <div className="w-8 h-8 border-4 border-hx-purple/30 border-t-hx-purple rounded-full animate-spin"></div>
+                    <div className="w-8 h-8 border-4 border-brand-primary/30 border-t-brand-primary rounded-full animate-spin"></div>
                 </div>
             ) : (
                 <div className="space-y-8 pt-4">
@@ -473,7 +473,7 @@ export default function PlanesManager() {
                                                 <div className="flex items-center gap-2 mt-2">
                                                     <button 
                                                         onClick={() => abrirModalEdicionMalla(grado.id_grado)}
-                                                        className="cursor-pointer text-[11px] font-bold text-slate-500 hover:text-hx-purple bg-slate-100 hover:bg-purple-50 rounded-lg border border-slate-200 hover:border-purple-200 transition-colors px-2 py-1 flex items-center gap-1 shadow-sm"
+                                                        className="cursor-pointer text-[11px] font-bold text-slate-500 hover:text-brand-primary bg-slate-100 hover:bg-[var(--color-brand-light)] rounded-lg border border-slate-200 hover:border-[var(--color-brand-light)] transition-colors px-2 py-1 flex items-center gap-1 shadow-sm"
                                                     >
                                                         <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                                                         Editar Malla

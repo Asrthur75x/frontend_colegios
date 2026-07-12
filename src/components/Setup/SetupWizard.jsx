@@ -50,6 +50,7 @@ export default function SetupWizard() {
     const [savedSteps, setSavedSteps] = useState([]);
     const [dataLoaded, setDataLoaded] = useState(false); // guardia para no sobreescribir localStorage en el primer render
     const [errorMsg, setErrorMsg] = useState('');
+    const [fieldErrors, setFieldErrors] = useState({});
     const errorTimeoutRef = useRef(null);
 
     const showError = (msg) => {
@@ -64,6 +65,7 @@ export default function SetupWizard() {
 
     useEffect(() => {
         setErrorMsg('');
+        setFieldErrors({});
         if (errorTimeoutRef.current) {
             clearTimeout(errorTimeoutRef.current);
         }
@@ -751,15 +753,17 @@ export default function SetupWizard() {
     const handleNext = () => {
         if (step === 1) {
             setErrorMsg('');
+            setFieldErrors({});
             const { colegio, tipo_sede, sedes, turnos } = wizardData;
 
-            if (!colegio.nombre.trim() ||
-                tipo_sede === null ||
-                !sedes ||
-                sedes.length === 0 ||
-                sedes.some(s => !s.trim()) ||
-                turnos.length === 0) {
-                showError('Por favor, completa todos los campos obligatorios.');
+            let errors = {};
+            if (!colegio.nombre.trim()) errors.colegio = 'Por favor, ingresa el nombre de la institución.';
+            if (tipo_sede === null) errors.tipo_sede = 'Por favor, selecciona el tipo de sede.';
+            else if (!sedes || sedes.length === 0 || sedes.some(s => !s.trim())) errors.sedes = tipo_sede === false ? 'Por favor, ingresa el nombre de la sede.' : 'Por favor, ingresa el nombre de todas las sedes.';
+            if (turnos.length === 0) errors.turnos = 'Por favor, selecciona al menos un horario de operación.';
+
+            if (Object.keys(errors).length > 0) {
+                setFieldErrors(errors);
                 return;
             }
 
@@ -870,101 +874,129 @@ export default function SetupWizard() {
         if (step > 1) setStep(step - 1);
     };
 
+    // --- TIMELINE HELPERS ---
+    const nodes = Array.from({length: totalSteps}).map((_, i) => {
+        const x = [50, 75, 25, 75, 25, 50][i];
+        const y = (i + 1) * (100 / (totalSteps + 1));
+        return { x, y, stepNum: i + 1 };
+    });
+
+    const generatePath = () => {
+        if (nodes.length === 0) return "";
+        let path = `M ${nodes[0].x} ${nodes[0].y}`;
+        for (let i = 1; i < nodes.length; i++) {
+            const prev = nodes[i-1];
+            const curr = nodes[i];
+            const cp1y = prev.y + (curr.y - prev.y) / 2;
+            path += ` C ${prev.x} ${cp1y}, ${curr.x} ${cp1y}, ${curr.x} ${curr.y}`;
+        }
+        return path;
+    };
+
+    const generateActivePath = () => {
+        if (nodes.length === 0 || step <= 1) return "";
+        let path = `M ${nodes[0].x} ${nodes[0].y}`;
+        const limit = Math.min(step, totalSteps);
+        const activeNodes = nodes.slice(0, limit); 
+        for (let i = 1; i < activeNodes.length; i++) {
+            const prev = activeNodes[i-1];
+            const curr = activeNodes[i];
+            const cp1y = prev.y + (curr.y - prev.y) / 2;
+            path += ` C ${prev.x} ${cp1y}, ${curr.x} ${cp1y}, ${curr.x} ${curr.y}`;
+        }
+        return path;
+    };
+
     return (
         <div
-            className="flex font-sans text-slate-800 overflow-hidden"
+            className="flex font-sans text-slate-800 overflow-hidden w-screen h-screen bg-[var(--color-brand-light)]"
             style={{
-                width: '100vw',
-                height: '100vh',
-                background: '#f8fafc',
                 opacity: mounted ? 1 : 0,
                 visibility: mounted ? 'visible' : 'hidden',
                 transition: mounted ? 'opacity 0.35s ease' : 'none',
             }}
         >
-            {/* ===== LEFT PANEL ===== */}
-            <div
-                className="hidden lg:flex flex-col justify-between relative z-10"
-                style={{
-                    width: '35%',
-                    flexShrink: 0,
-                    background: 'var(--color-hx-purple)',
-                    padding: '48px',
-                    transform: entered ? 'translateX(0)' : 'translateX(-110%)',
-                    transition: 'transform 0.7s ease-in-out, background 0.5s ease',
-                }}
-            >
-                <div style={{
-                    position: 'absolute', top: 0, right: -150,
-                    height: '100%', width: 152,
-                    overflow: 'hidden', pointerEvents: 'none',
-                }}>
-                    <svg viewBox="0 0 100 1000" preserveAspectRatio="none"
-                        style={{
-                            width: '100%', height: '100%', display: 'block',
-                            fill: 'var(--color-hx-purple)',
-                            transition: 'fill 0.5s ease'
-                        }}>
-                        <path d="M0,0 L0,1000 L20,1000 C150,750 -50,250 20,0 Z"></path>
+            {/* ===== LEFT PANEL: MAP TIMELINE ===== */}
+            <div className="hidden lg:block w-[30%] max-w-[350px] h-full relative border-r border-[var(--color-brand-white)]/50 z-10 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
+                {/* Branding Top Left */}
+                <div className="absolute top-8 left-8 flex items-center gap-2 z-50">
+                    <span className="text-[22px] font-black tracking-wide text-[var(--color-brand-primary)] drop-shadow-sm">PlanificaPro</span>
+                </div>
+
+                <div className="absolute inset-0 top-24 bottom-12 pointer-events-none">
+                    {/* SVG PATHS */}
+                    <svg className="w-full h-full absolute top-0 left-0" viewBox="0 0 100 100" preserveAspectRatio="none">
+                        {/* Background Path */}
+                        <path d={generatePath()} fill="none" stroke="var(--color-brand-primary)" strokeOpacity="0.2" strokeWidth="0.8" strokeDasharray="2 3" strokeLinecap="round" />
+                        {/* Active Path */}
+                        <path d={generateActivePath()} fill="none" stroke="var(--color-brand-primary)" strokeWidth="1.2" strokeDasharray="2 3" strokeLinecap="round" className="transition-all duration-700 ease-out" />
                     </svg>
-                </div>
 
-                <div style={{ position: 'absolute', top: '-10%', right: '-10%', width: 256, height: 256, background: '#790EEC', opacity: 0.2, borderRadius: '50%', filter: 'blur(60px)' }}></div>
-                <div style={{ position: 'absolute', top: '40%', left: '-20%', width: 320, height: 320, background: '#790EEC', opacity: 0.2, borderRadius: '50%', filter: 'blur(60px)' }}></div>
+                    {/* Nodes */}
+                    {nodes.map((node) => {
+                        const stepNum = node.stepNum;
+                        const isActive = step === stepNum;
+                        const isCompleted = step > stepNum;
+                        
+                        let stepName = "";
+                        if (stepNum === 1) stepName = "Institución";
+                        else if (stepNum === 2) stepName = "Días / Grados";
+                        else if (stepNum === 3) stepName = "Bloques";
+                        else if (stepNum === 4) stepName = "Secciones";
+                        else if (stepNum === 5 && totalSteps === 6) stepName = "Turnos";
+                        else if (stepNum === totalSteps) stepName = "Finalizado";
 
-                <div className="relative z-10 flex items-center gap-3 group cursor-default">
-                    <div className="relative w-8 h-8 rounded-lg border-[2px] border-white/80 rotate-45 flex items-center justify-center shadow-[0_0_15px_rgba(255,255,255,0.2)] group-hover:rotate-180 transition-transform duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)]">
-                        <div className="w-2.5 h-2.5 bg-white rounded-full shadow-[0_0_10px_rgba(255,255,255,0.9)] animate-pulse"></div>
-                    </div>
-                    <span className="text-white text-[22px] font-black tracking-widest uppercase ml-3 opacity-90 drop-shadow-sm">HorariX</span>
-                </div>
-
-                <div className="relative z-10 flex flex-col items-center justify-center flex-grow mt-12">
-                    {/* Espacio reservado para la imagen que agregará el usuario */}
-                    <div className="w-full flex justify-center mb-10">
-                        <img
-                            src={`/office.svg`}
-                            alt={`Ilustración del paso ${step}`}
-                            className="w-64 h-64 object-contain hover:scale-105 transition-transform duration-700 drop-shadow-2xl"
-                            onError={(e) => {
-                                // Fallback visual si la imagen aún no existe en la carpeta public/
-                                e.target.onerror = null;
-                                e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'%3E%3Crect width='240' height='240' fill='rgba(255,255,255,0.15)' rx='24'/%3E%3Ctext x='50%25' y='45%25' dominant-baseline='middle' text-anchor='middle' fill='rgba(255,255,255,0.8)' font-family='sans-serif' font-size='16' font-weight='bold'%3EColoca tu imagen en:%3C/text%3E%3Ctext x='50%25' y='55%25' dominant-baseline='middle' text-anchor='middle' fill='white' font-family='sans-serif' font-size='14'%3Epublic/imagen-wizard-paso" + step + ".png%3C/text%3E%3C/svg%3E";
-                            }}
-                        />
-                    </div>
-
-                    <h2 className="text-white text-3xl font-extrabold text-center mb-3">
-                        {step === 1 && "Configuración Inicial"}
-                        {step === 2 && "Días y Grados"}
-                        {step === 3 && "Estructura de Bloques"}
-                        {step === 4 && "Creación de Secciones"}
-                        {step === 5 && "Asignación de Turnos"}
-                    </h2>
-                    <p className="text-white/85 text-center text-[15px] max-w-xs leading-relaxed">
-                        {step === 1 && "Establece el nombre de tu institución y configura la cantidad de sedes y turnos disponibles."}
-                        {step === 2 && "Selecciona los días de la semana laborables y los grados académicos que impartes."}
-                        {step === 3 && "Define exactamente cuántos bloques de clases se dictarán por cada día y grado."}
-                        {step === 4 && "Crea las secciones o aulas específicas para los grados en cada una de tus sedes."}
-                        {step === 5 && "Asigna un turno de estudio (ej. Mañana o Tarde) a las secciones creadas."}
-                    </p>
-                </div>
-
-                <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, position: 'relative', zIndex: 10 }}>
-                    © 2026 HorariX.
+                        return (
+                            <div 
+                                key={stepNum} 
+                                className="absolute flex flex-col items-center pointer-events-auto"
+                                style={{ 
+                                    left: `${node.x}%`, 
+                                    top: `${node.y}%`, 
+                                    transform: 'translate(-50%, -50%)',
+                                    transition: 'all 0.5s ease'
+                                }}
+                            >
+                                <div 
+                                    className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-[15px] transition-all duration-500 shadow-xl border-4 ${
+                                        isActive 
+                                            ? "bg-[var(--color-brand-primary)] text-[var(--color-brand-white)] scale-110 shadow-[var(--color-brand-primary)]/40 border-[var(--color-brand-white)]" 
+                                            : isCompleted 
+                                                ? "bg-[var(--color-brand-primary)] text-[var(--color-brand-white)] border-[var(--color-brand-white)]" 
+                                                : "bg-[var(--color-brand-white)] text-[var(--color-brand-primary)] border-[var(--color-brand-light)]"
+                                    }`}
+                                >
+                                    {isCompleted ? (
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                    ) : (
+                                        stepNum
+                                    )}
+                                </div>
+                                <span 
+                                    className={`absolute top-full mt-2 px-2 py-0.5 rounded-md bg-[var(--color-brand-white)]/80 backdrop-blur-sm text-[11px] font-extrabold text-center tracking-widest uppercase transition-colors whitespace-nowrap ${
+                                        isActive ? 'text-[var(--color-brand-primary)] drop-shadow-sm' : isCompleted ? 'text-[var(--color-brand-dark)] opacity-70' : 'text-[var(--color-brand-primary)] opacity-50'
+                                    }`}
+                                >
+                                    {stepName}
+                                </span>
+                            </div>
+                        )
+                    })}
                 </div>
             </div>
 
-            {/* ===== RIGHT PANEL ===== */}
+            {/* ===== RIGHT PANEL: CONTENT ===== */}
             <div
-                className="flex-1 bg-white relative z-0 overflow-y-auto"
+                className="flex-1 relative z-0 overflow-y-auto w-full flex flex-col bg-[var(--color-brand-white)]"
                 style={{
-                    transform: entered ? 'translateX(0)' : 'translateX(110%)',
-                    transition: 'transform 0.7s ease-in-out',
+                    transform: entered ? 'translateY(0)' : 'translateY(20px)',
+                    opacity: entered ? 1 : 0,
+                    transition: 'all 0.7s ease-in-out',
                 }}
             >
+                {/* Top Right Profile/Logout */}
                 <div className="absolute top-6 right-8 flex items-center gap-2 z-50">
-                    <div className="w-10 h-10 rounded-full bg-[#790EEC]/10 flex items-center justify-center text-[#790EEC] font-bold cursor-pointer hover:bg-[#790EEC]/20 transition-colors" title="Perfil">
+                    <div className="w-10 h-10 rounded-full bg-[var(--color-brand-primary)]/10 flex items-center justify-center text-[var(--color-brand-primary)] font-bold cursor-pointer hover:bg-[var(--color-brand-primary)]/20 transition-colors" title="Perfil">
                         A
                     </div>
                     <button
@@ -976,39 +1008,25 @@ export default function SetupWizard() {
                     </button>
                 </div>
 
-                <div className="min-h-full w-full flex flex-col items-center py-8">
-                    <div style={{
-                        width: '100%', maxWidth: 700,
-                        margin: 'auto 0',
-                        padding: '16px 32px 24px',
-                        opacity: entered ? 1 : 0,
-                        transition: 'opacity 0.3s ease 0.3s',
-                    }}>
-                        <div className="flex flex-col items-center justify-center mb-12 mt-4">
-                            <div style={{
-                                textAlign: 'center', fontSize: 11, fontWeight: 700,
-                                letterSpacing: '0.15em', color: 'var(--color-hx-purple)',
-                                textTransform: 'uppercase', marginBottom: 12,
-                                transition: 'color 0.5s ease',
-                            }}>
-                                PASO {step} DE {totalSteps} • {step === 1 ? 'DATOS INICIALES' : step === 2 ? 'DÍAS Y GRADOS' : step === 3 ? 'BLOQUES POR DÍA' : step === 4 ? 'SECCIONES' : (step === 5 && totalSteps === 6) ? 'TURNOS' : '¡ÉXITO!'}
-                            </div>
-
-                            {/* Barra de progreso (movida desde abajo) */}
-                            <div style={{ width: 240, height: 6, background: '#f1f5f9', borderRadius: 999, overflow: 'hidden' }}>
-                                <div style={{
-                                    height: '100%', width: `${(step / totalSteps) * 100}%`,
-                                    background: 'var(--color-hx-purple)',
-                                    borderRadius: 999, transition: 'all 0.5s ease'
-                                }}></div>
+                <div className="min-h-full w-full flex flex-col items-center py-16 px-4 lg:px-12">
+                    <div className="w-full max-w-4xl flex-grow flex flex-col justify-center">
+                        
+                        {/* Header Mobile / Title */}
+                        <div className="lg:hidden w-full flex flex-col items-center justify-center mb-8">
+                            <span className="text-[20px] font-black tracking-wide text-[var(--color-brand-primary)] mb-2">PlanificaPro</span>
+                            <div className="text-[11px] font-bold tracking-widest text-[var(--color-brand-primary)] uppercase">
+                                Paso {step} de {totalSteps}
                             </div>
                         </div>
 
-                        <div className="flex-grow flex flex-col justify-center w-full">
+                        {/* Content Area */}
+                        <div className="w-full relative">
                             {step === 1 && (
                                 <Paso1Institucion
                                     data={wizardData}
                                     setData={setWizardData}
+                                    errors={fieldErrors}
+                                    clearError={(field) => setFieldErrors(prev => ({ ...prev, [field]: null }))}
                                     isSaved={savedSteps.includes(1) && !editingSteps.includes(1)}
                                     onEnableEdit={() => {
                                         setWizardDataBackup(JSON.parse(JSON.stringify(wizardData)));
@@ -1105,59 +1123,44 @@ export default function SetupWizard() {
                             )}
                             {step === totalSteps && (
                                 <div className="flex flex-col items-center justify-center py-12 animate-fade-in" style={{ animationDuration: '0.8s' }}>
-                                    <div className="w-24 h-24 bg-[#790EEC]/20 text-[#790EEC] rounded-full flex items-center justify-center mb-8 shadow-[0_0_40px_rgba(16,207,174,0.4)]">
+                                    <div className="w-24 h-24 bg-[var(--color-brand-primary)]/20 text-[var(--color-brand-primary)] rounded-full flex items-center justify-center mb-8 shadow-[0_0_40px_rgba(16,207,174,0.4)]">
                                         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
                                     </div>
                                     <h2 className="text-3xl font-extrabold text-[#111827] tracking-tight mb-4 text-center">¡Estructura Configurada!</h2>
                                     <p className="text-[#64748B] text-center max-w-md text-lg leading-relaxed">
-                                        Tu institución está lista. Ahora vamos al Dashboard para agregar tus <strong className="text-[#790EEC]">Áreas, Cursos y Profesores</strong> a tu propio ritmo.
+                                        Tu institución está lista. Ahora vamos al Dashboard para agregar tus <strong className="text-[var(--color-brand-primary)]">Áreas, Cursos y Profesores</strong> a tu propio ritmo.
                                     </p>
                                 </div>
                             )}
 
                             {/* Mensaje de Error Integrado muy cerca del formulario */}
                             {errorMsg && (
-                                <div className="mt-2 mx-auto w-fit max-w-[500px] px-5 py-3 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center gap-2 animate-fade-in text-red-600 text-xs font-black uppercase tracking-widest shadow-sm">
+                                <div className="mt-6 mx-auto w-fit max-w-[500px] px-5 py-3 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center gap-2 animate-fade-in text-red-600 text-xs font-black uppercase tracking-widest shadow-sm">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
                                     {errorMsg}
                                 </div>
                             )}
-                        </div>
 
-                        {/* Botones de navegación */}
-                        <div style={{ marginTop: 24, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                            <div style={{
-                                width: '100%', maxWidth: 400,
-                                display: 'flex', gap: 16, marginBottom: 40,
-                                justifyContent: step === 1 ? 'center' : 'space-between',
-                            }}>
-                                {step > 1 && (
+                            {/* Botones de navegación */}
+                            <div className="mt-10 w-full flex flex-col items-center">
+                                <div className="flex justify-center gap-4 w-full">
+                                    {step > 1 && (
+                                        <button
+                                            onClick={handleBack}
+                                            className="cursor-pointer w-[220px] sm:w-[260px] py-4 rounded-xl font-bold text-[13px] tracking-widest transition-all border-2 border-[var(--color-brand-primary)] text-[var(--color-brand-primary)] hover:bg-[var(--color-brand-primary)]/10"
+                                        >
+                                            VOLVER
+                                        </button>
+                                    )}
                                     <button
-                                        onClick={handleBack}
-                                        className="cursor-pointer w-1/2 py-4 rounded-xl font-bold text-sm tracking-widest transition-all border-2 border-hx-purple text-hx-purple hover:bg-hx-purple/10"
+                                        onClick={handleNext}
+                                        disabled={isSaving}
+                                        className={`w-[220px] sm:w-[260px] py-4 rounded-xl font-bold text-[13px] tracking-widest text-[var(--color-brand-white)] transition-all duration-300 ${isSaving ? 'bg-[var(--color-brand-primary)]/50 cursor-not-allowed' : 'bg-[var(--color-brand-primary)] hover:scale-[1.01] shadow-[0_8px_20px_-6px_var(--color-brand-primary)]'}`}
                                     >
-                                        VOLVER
+                                        {isSaving ? 'GUARDANDO...' : (step === totalSteps ? 'IR AL DASHBOARD' : 'CONTINUAR Y GUARDAR')}
                                     </button>
-                                )}
-                                <button
-                                    onClick={handleNext}
-                                    disabled={isSaving}
-                                    style={{
-                                        width: step === 1 ? '100%' : '50%',
-                                        background: isSaving ? 'rgba(121,14,236,0.5)' : 'var(--color-hx-purple)',
-                                        color: 'white', fontWeight: 700,
-                                        padding: '16px 0', borderRadius: 12,
-                                        fontSize: 13, letterSpacing: '0.1em',
-                                        border: 'none', cursor: isSaving ? 'not-allowed' : 'pointer',
-                                        transition: 'all 0.2s ease',
-                                        boxShadow: isSaving ? 'none' : '0 8px 20px -6px rgba(121,14,236,0.5)',
-                                    }}
-                                >
-                                    {isSaving ? 'GUARDANDO...' : (step === totalSteps ? 'IR AL DASHBOARD' : 'CONTINUAR Y GUARDAR')}
-                                </button>
+                                </div>
                             </div>
-
-                            {/* La barra de progreso fue movida a la cabecera superior */}
                         </div>
                     </div>
                 </div>

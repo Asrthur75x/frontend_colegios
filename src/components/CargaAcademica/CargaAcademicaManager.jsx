@@ -23,7 +23,7 @@ const ProfesorCard = ({ prof, cursos, profesorCurso, onAsignar }) => {
     const asignados = cursos.filter(c => ids.includes(c.id_curso));
     return (
         <div className="bg-white rounded-[20px] border border-slate-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex flex-col overflow-hidden">
-            <div className="px-6 pt-6 pb-6 flex flex-col gap-2 bg-hx-purple/5" style={{ minHeight: '175px' }}>
+            <div className="px-6 pt-6 pb-6 flex flex-col gap-2 bg-brand-primary/5" style={{ minHeight: '175px' }}>
                 <h3 className="font-black text-slate-800 text-[17px] leading-snug truncate">{nombre}</h3>
                 <p className="text-[12px] font-medium text-slate-500">
                     {asignados.length === 0 ? 'Sin especialidades asignadas aún.' : `Capacitado para enseñar ${asignados.length} curso${asignados.length !== 1 ? 's' : ''}.`}
@@ -46,7 +46,7 @@ const ProfesorCard = ({ prof, cursos, profesorCurso, onAsignar }) => {
             </div>
             <div className="px-5 py-4 border-t border-slate-100">
                 <button onClick={(e) => { e.stopPropagation(); onAsignar(prof); }}
-                    className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-[13px] font-bold text-white transition-all cursor-pointer shadow-sm hover:shadow-md active:scale-95 bg-hx-purple hover:bg-purple-600">
+                    className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-[13px] font-bold text-white transition-all cursor-pointer shadow-sm hover:shadow-md active:scale-95 bg-brand-primary hover:bg-[var(--color-brand-primary)]">
                     {asignados.length === 0 ? (
                         <>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
@@ -171,7 +171,7 @@ export default function CargaAcademicaManager() {
         <div className="w-full space-y-8 animate-fade-in relative pb-10">
             {/* Cabecera Superior */}
             <div className="flex flex-col md:flex-row gap-6">
-                <div className="md:w-2/3 bg-[var(--color-hx-purple)]/10 rounded-[24px] p-8 shadow-md relative overflow-hidden flex flex-col justify-center  min-h-[180px] border border-[var(--color-hx-purple)]/70">
+                <div className="md:w-2/3 bg-[var(--color-brand-primary)]/10 rounded-[24px] p-8 shadow-md relative overflow-hidden flex flex-col justify-center  min-h-[180px] border border-[var(--color-brand-primary)]/70">
                     <div className="relative z-10 flex flex-col md:flex-row justify-between items-center md:items-center gap-6">
                         <div className="max-w-md">
                             <h2 className="text-3xl md:text-4xl font-black text-slate-800 tracking-tight leading-tight mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -204,18 +204,18 @@ export default function CargaAcademicaManager() {
                                 <span className="text-slate-400 text-sm font-bold">registrados</span>
                             </div>
                         </div>
-                        <div className="w-12 h-12 rounded-[14px] bg-hx-purple/10 text-hx-purple flex items-center justify-center border border-hx-purple/20 shadow-sm">
+                        <div className="w-12 h-12 rounded-[14px] bg-brand-primary/10 text-brand-primary flex items-center justify-center border border-brand-primary/20 shadow-sm">
                             <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
                         </div>
                     </div>
 
-                    <div className="mt-auto bg-purple-50 rounded-xl p-3.5 border border-purple-100/60 flex gap-3 items-start">
-                        <div className="text-hx-purple bg-white p-1 rounded-lg shadow-sm border border-purple-100 mt-0.5 flex-shrink-0">
+                    <div className="mt-auto bg-[var(--color-brand-light)] rounded-xl p-3.5 border border-[var(--color-brand-light)]/60 flex gap-3 items-start">
+                        <div className="text-brand-primary bg-white p-1 rounded-lg shadow-sm border border-[var(--color-brand-light)] mt-0.5 flex-shrink-0">
                             <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>
                         </div>
                         <div>
-                            <p className="text-purple-800 text-[12px] font-bold mb-0.5">Asignaciones</p>
-                            <p className="text-purple-700/80 text-[11px] font-medium leading-relaxed">
+                            <p className="text-[var(--color-brand-dark)] text-[12px] font-bold mb-0.5">Asignaciones</p>
+                            <p className="text-[var(--color-brand-dark)]/80 text-[11px] font-medium leading-relaxed">
                                 Tienes {profesorCurso.length} especialidades asignadas actualmente.
                             </p>
                         </div>
@@ -230,7 +230,7 @@ export default function CargaAcademicaManager() {
                 <div className="pt-4">
                     <div className="flex items-center justify-between mb-8 bg-white py-2 px-4 rounded-[20px] border border-slate-100 shadow-sm h-16 w-full overflow-hidden">
                         <div className="flex-shrink-0 flex items-center gap-3 w-1/4">
-                            <div className="w-10 h-10 bg-hx-purple/10 rounded-xl flex items-center justify-center text-hx-purple">
+                            <div className="w-10 h-10 bg-brand-primary/10 rounded-xl flex items-center justify-center text-brand-primary">
                                 <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
                             </div>
                             <h2 className="text-[20px] font-black text-slate-800 tracking-tight whitespace-nowrap">
@@ -238,11 +238,11 @@ export default function CargaAcademicaManager() {
                             </h2>
                         </div>
                         <div className="flex-1 max-w-lg mx-4">
-                            <div className="relative flex items-center bg-white rounded-full p-1.5 border-2 border-slate-200 focus-within:border-hx-purple transition-all h-12 w-full">
+                            <div className="relative flex items-center bg-white rounded-full p-1.5 border-2 border-slate-200 focus-within:border-brand-primary transition-all h-12 w-full">
                                 <input type="text" placeholder="Buscar docente..." value={searchTerm}
                                     onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                                     className="flex-1 bg-transparent pl-6 pr-3 py-1 outline-none text-[14px] font-medium text-slate-700 placeholder:text-slate-400 h-full w-full" />
-                                <div className="w-9 h-9 rounded-full bg-hx-purple flex items-center justify-center text-white flex-shrink-0 shadow-sm mr-0.5">
+                                <div className="w-9 h-9 rounded-full bg-brand-primary flex items-center justify-center text-white flex-shrink-0 shadow-sm mr-0.5">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
                                 </div>
                             </div>
@@ -251,7 +251,7 @@ export default function CargaAcademicaManager() {
                         <div className="flex-shrink-0 w-1/4 flex justify-end relative">
                             <button 
                                 onClick={() => setIsFilterOpen(true)}
-                                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all border-2 h-12 cursor-pointer ${filterCurso ? 'bg-hx-purple text-white border-hx-purple shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:border-hx-purple hover:text-hx-purple'}`}
+                                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all border-2 h-12 cursor-pointer ${filterCurso ? 'bg-brand-primary text-white border-brand-primary shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:border-brand-primary hover:text-brand-primary'}`}
                             >
                                 {filterCurso ? (
                                     <>
@@ -292,17 +292,17 @@ export default function CargaAcademicaManager() {
                             {totalPages > 1 && (
                                 <div className="flex items-center justify-center gap-2 mt-12 mb-4">
                                     <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1}
-                                        className="w-10 h-10 rounded-xl flex items-center justify-center border border-slate-200 text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 hover:text-hx-purple transition-colors cursor-pointer">
+                                        className="w-10 h-10 rounded-xl flex items-center justify-center border border-slate-200 text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 hover:text-brand-primary transition-colors cursor-pointer">
                                         <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
                                     </button>
                                     {[...Array(totalPages)].map((_, i) => (
                                         <button key={i + 1} onClick={() => setCurrentPage(i + 1)}
-                                            className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold transition-all cursor-pointer ${currentPage === i + 1 ? 'bg-hx-purple text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}`}>
+                                            className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold transition-all cursor-pointer ${currentPage === i + 1 ? 'bg-brand-primary text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}`}>
                                             {i + 1}
                                         </button>
                                     ))}
                                     <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages}
-                                        className="w-10 h-10 rounded-xl flex items-center justify-center border border-slate-200 text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 hover:text-hx-purple transition-colors cursor-pointer">
+                                        className="w-10 h-10 rounded-xl flex items-center justify-center border border-slate-200 text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 hover:text-brand-primary transition-colors cursor-pointer">
                                         <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
                                     </button>
                                 </div>
@@ -314,7 +314,7 @@ export default function CargaAcademicaManager() {
 
             {loading && (
                 <div className="flex justify-center py-12">
-                    <div className="w-8 h-8 border-4 border-hx-purple/30 border-t-hx-purple rounded-full animate-spin"></div>
+                    <div className="w-8 h-8 border-4 border-brand-primary/30 border-t-brand-primary rounded-full animate-spin"></div>
                 </div>
             )}
 
@@ -346,8 +346,8 @@ export default function CargaAcademicaManager() {
                         {/* Cuerpo */}
                         <div className="overflow-y-auto p-6 bg-slate-50/50" style={{ flex: '1 1 auto' }}>
                             {guardando && (
-                                <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded-xl bg-hx-purple/10 text-hx-purple text-sm font-bold">
-                                    <div className="w-4 h-4 border-2 border-hx-purple/30 border-t-hx-purple rounded-full animate-spin"></div>
+                                <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded-xl bg-brand-primary/10 text-brand-primary text-sm font-bold">
+                                    <div className="w-4 h-4 border-2 border-brand-primary/30 border-t-brand-primary rounded-full animate-spin"></div>
                                     Guardando...
                                 </div>
                             )}
@@ -365,19 +365,19 @@ export default function CargaAcademicaManager() {
                                                 const asig = cursosArea.filter(c => cursosDelProfesor.includes(c.id_curso)).length;
                                                 return (
                                                     <button key={area.id_area} onClick={() => setSelectedArea(area)}
-                                                        className="w-full text-left rounded-2xl border-2 border-slate-100 bg-white hover:border-hx-purple hover:shadow-md transition-all p-4 cursor-pointer group">
+                                                        className="w-full text-left rounded-2xl border-2 border-slate-100 bg-white hover:border-brand-primary hover:shadow-md transition-all p-4 cursor-pointer group">
                                                         <div className="flex items-center gap-3">
-                                                            <div className="w-10 h-10 rounded-xl bg-hx-purple/10 flex items-center justify-center text-hx-purple font-black text-sm shrink-0 group-hover:bg-hx-purple group-hover:text-white transition-colors">
+                                                            <div className="w-10 h-10 rounded-xl bg-brand-primary/10 flex items-center justify-center text-brand-primary font-black text-sm shrink-0 group-hover:bg-brand-primary group-hover:text-white transition-colors">
                                                                 {nombreArea.charAt(0).toUpperCase()}
                                                             </div>
                                                             <div className="flex-1 min-w-0">
                                                                 <p className="font-extrabold text-slate-800 text-[13px] truncate">{nombreArea}</p>
                                                                 <p className="text-[11px] text-slate-400 mt-0.5">
                                                                     {cursosArea.length} curso{cursosArea.length !== 1 ? 's' : ''}
-                                                                    {asig > 0 && <span className="ml-2 text-hx-purple font-bold">• {asig} asignado{asig !== 1 ? 's' : ''}</span>}
+                                                                    {asig > 0 && <span className="ml-2 text-brand-primary font-bold">• {asig} asignado{asig !== 1 ? 's' : ''}</span>}
                                                                 </p>
                                                             </div>
-                                                            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-300 group-hover:text-hx-purple shrink-0"><polyline points="9 18 15 12 9 6" /></svg>
+                                                            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-300 group-hover:text-brand-primary shrink-0"><polyline points="9 18 15 12 9 6" /></svg>
                                                         </div>
                                                     </button>
                                                 );
@@ -390,7 +390,7 @@ export default function CargaAcademicaManager() {
                             {selectedArea && (
                                 <div>
                                     <div className="flex items-center gap-3 mb-6 bg-white p-2.5 rounded-2xl border border-slate-100 shadow-sm">
-                                        <button onClick={() => setSelectedArea(null)} className="flex items-center justify-center w-9 h-9 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-hx-purple transition-colors cursor-pointer shrink-0">
+                                        <button onClick={() => setSelectedArea(null)} className="flex items-center justify-center w-9 h-9 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-brand-primary transition-colors cursor-pointer shrink-0">
                                             <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
                                         </button>
                                         <div className="flex-1 min-w-0">
@@ -440,10 +440,10 @@ export default function CargaAcademicaManager() {
                         {/* Footer */}
                         <div className="bg-white border-t border-slate-100 px-6 py-4 flex items-center justify-between shrink-0">
                             <p className="text-[13px] text-slate-500 font-medium">
-                                <span className="font-black text-hx-purple">{cursosDelProfesor.length}</span> curso{cursosDelProfesor.length !== 1 ? 's' : ''} asignado{cursosDelProfesor.length !== 1 ? 's' : ''}
+                                <span className="font-black text-brand-primary">{cursosDelProfesor.length}</span> curso{cursosDelProfesor.length !== 1 ? 's' : ''} asignado{cursosDelProfesor.length !== 1 ? 's' : ''}
                             </p>
                             <button onClick={() => setIsModalOpen(false)}
-                                className="px-6 py-2.5 bg-hx-purple hover:bg-purple-600 text-white font-bold text-sm rounded-xl transition-all cursor-pointer shadow-md">
+                                className="px-6 py-2.5 bg-brand-primary hover:bg-[var(--color-brand-primary)] text-white font-bold text-sm rounded-xl transition-all cursor-pointer shadow-md">
                                 Listo
                             </button>
                         </div>
@@ -457,7 +457,7 @@ export default function CargaAcademicaManager() {
                         
                         <div className="px-6 py-5 flex justify-between items-center border-b border-slate-100 shrink-0 bg-slate-50/50">
                             <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-hx-purple/10 text-hx-purple font-black shadow-inner">
+                                <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-brand-primary/10 text-brand-primary font-black shadow-inner">
                                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
                                 </div>
                                 <div>
@@ -476,13 +476,13 @@ export default function CargaAcademicaManager() {
                                 <button 
                                     onClick={() => {setFilterCurso(''); setIsFilterOpen(false); setCurrentPage(1);}}
                                     className={`w-full text-left rounded-2xl border-2 transition-all p-4 cursor-pointer flex items-center gap-3
-                                        ${!filterCurso ? 'border-hx-purple bg-hx-purple/5 shadow-md' : 'border-slate-100 bg-white hover:border-hx-purple hover:shadow-md'}`}
+                                        ${!filterCurso ? 'border-brand-primary bg-brand-primary/5 shadow-md' : 'border-slate-100 bg-white hover:border-brand-primary hover:shadow-md'}`}
                                 >
-                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black transition-colors shrink-0 ${!filterCurso ? 'bg-hx-purple text-white' : 'bg-slate-100 text-slate-500'}`}>
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black transition-colors shrink-0 ${!filterCurso ? 'bg-brand-primary text-white' : 'bg-slate-100 text-slate-500'}`}>
                                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <p className={`font-extrabold text-[13px] truncate ${!filterCurso ? 'text-hx-purple' : 'text-slate-700'}`}>Todos los Cursos</p>
+                                        <p className={`font-extrabold text-[13px] truncate ${!filterCurso ? 'text-brand-primary' : 'text-slate-700'}`}>Todos los Cursos</p>
                                         <p className="text-[10px] text-slate-400 mt-0.5">Mostrar todo</p>
                                     </div>
                                 </button>

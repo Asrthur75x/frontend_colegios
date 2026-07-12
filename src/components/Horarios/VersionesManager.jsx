@@ -139,7 +139,7 @@ export default function VersionesManager() {
                     <p className="text-slate-500 text-[14px] mt-1 font-medium">Historial de horarios generados. Restaura o elimina versiones anteriores.</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <div className="bg-[var(--color-hx-purple)]/10 text-[var(--color-hx-purple)] px-4 py-2 rounded-xl text-[13px] font-bold border border-[var(--color-hx-purple)]/20">
+                    <div className="bg-[var(--color-brand-primary)]/10 text-[var(--color-brand-primary)] px-4 py-2 rounded-xl text-[13px] font-bold border border-[var(--color-brand-primary)]/20">
                         {snapshots.length} versión{snapshots.length !== 1 ? 'es' : ''} guardada{snapshots.length !== 1 ? 's' : ''}
                     </div>
                 </div>
@@ -149,7 +149,7 @@ export default function VersionesManager() {
             {loading ? (
                 <div className="flex-1 flex items-center justify-center">
                     <div className="flex flex-col items-center gap-4">
-                        <div className="w-10 h-10 border-4 border-slate-200 border-t-[var(--color-hx-purple)] rounded-full animate-spin"></div>
+                        <div className="w-10 h-10 border-4 border-slate-200 border-t-[var(--color-brand-primary)] rounded-full animate-spin"></div>
                         <p className="text-slate-400 text-sm font-medium">Cargando versiones...</p>
                     </div>
                 </div>
@@ -175,7 +175,7 @@ export default function VersionesManager() {
                             <div
                                 key={snap.id_snapshot}
                                 className={`group rounded-2xl border transition-all duration-200 ${isActive
-                                    ? 'bg-[var(--color-hx-purple)]/5 border-[var(--color-hx-purple)]/30 shadow-[0_0_20px_rgba(121,14,236,0.08)]'
+                                    ? 'bg-[var(--color-brand-primary)]/5 border-[var(--color-brand-primary)]/30 shadow-[0_0_20px_rgba(47, 91, 255,0.08)]'
                                     : 'bg-white border-slate-100 hover:border-slate-200 hover:shadow-[0_4px_20px_rgb(0,0,0,0.04)]'
                                     }`}
                             >
@@ -183,7 +183,7 @@ export default function VersionesManager() {
                                     {/* Timeline indicator */}
                                     <div className="flex flex-col items-center gap-1 pt-1 flex-shrink-0">
                                         <div className={`w-4 h-4 rounded-full border-[3px] flex-shrink-0 ${isActive
-                                            ? 'border-[var(--color-hx-purple)] bg-white shadow-[0_0_8px_rgba(121,14,236,0.4)]'
+                                            ? 'border-[var(--color-brand-primary)] bg-white shadow-[0_0_8px_rgba(47, 91, 255,0.4)]'
                                             : 'border-slate-300 bg-white'
                                             }`}></div>
                                         {index < snapshots.length - 1 && (
@@ -195,7 +195,7 @@ export default function VersionesManager() {
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-3 mb-2 flex-wrap">
                                             {isActive && (
-                                                <span className="bg-[var(--color-hx-purple)] text-white text-[11px] font-black px-2.5 py-1 rounded-lg uppercase tracking-wider shadow-sm">
+                                                <span className="bg-[var(--color-brand-primary)] text-white text-[11px] font-black px-2.5 py-1 rounded-lg uppercase tracking-wider shadow-sm">
                                                     Activa
                                                 </span>
                                             )}
@@ -220,20 +220,20 @@ export default function VersionesManager() {
                                                     type="text"
                                                     value={editName}
                                                     onChange={(e) => setEditName(e.target.value)}
-                                                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-[var(--color-hx-purple)] focus:ring-2 focus:ring-[var(--color-hx-purple)]/20 transition-all"
+                                                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-[var(--color-brand-primary)] focus:ring-2 focus:ring-[var(--color-brand-primary)]/20 transition-all"
                                                     placeholder="Nombre de la versión"
                                                 />
                                                 <input
                                                     type="text"
                                                     value={editDesc}
                                                     onChange={(e) => setEditDesc(e.target.value)}
-                                                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-600 outline-none focus:border-[var(--color-hx-purple)] focus:ring-2 focus:ring-[var(--color-hx-purple)]/20 transition-all"
+                                                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-600 outline-none focus:border-[var(--color-brand-primary)] focus:ring-2 focus:ring-[var(--color-brand-primary)]/20 transition-all"
                                                     placeholder="Descripción (opcional)"
                                                 />
                                                 <div className="flex gap-2 mt-1">
                                                     <button
                                                         onClick={() => handleUpdate(snap.id_snapshot)}
-                                                        className="px-4 py-2 bg-[var(--color-hx-purple)] text-white text-[12px] font-bold rounded-xl hover:opacity-90 transition-all cursor-pointer"
+                                                        className="px-4 py-2 bg-[var(--color-brand-primary)] text-white text-[12px] font-bold rounded-xl hover:opacity-90 transition-all cursor-pointer"
                                                     >
                                                         Guardar
                                                     </button>
@@ -294,7 +294,7 @@ export default function VersionesManager() {
                                         {!isActive && (
                                             <button
                                                 onClick={() => setConfirmLoad(snap.id_snapshot)}
-                                                className="h-9 px-3.5 rounded-xl flex items-center gap-1.5 text-[12px] font-bold bg-[var(--color-hx-purple)]/10 text-[var(--color-hx-purple)] hover:bg-[var(--color-hx-purple)]/20 border border-[var(--color-hx-purple)]/15 transition-all cursor-pointer"
+                                                className="h-9 px-3.5 rounded-xl flex items-center gap-1.5 text-[12px] font-bold bg-[var(--color-brand-primary)]/10 text-[var(--color-brand-primary)] hover:bg-[var(--color-brand-primary)]/20 border border-[var(--color-brand-primary)]/15 transition-all cursor-pointer"
                                                 title="Restaurar como activa"
                                             >
                                                 <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M1 4v6h6" /><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" /></svg>
@@ -331,8 +331,8 @@ export default function VersionesManager() {
                         <div className="relative bg-white rounded-3xl shadow-2xl border border-slate-100 w-full max-w-md mx-4 overflow-hidden" style={{ animation: 'scaleIn 0.25s ease-out' }}>
                             {/* Header */}
                             <div className="p-6 pb-4 text-center">
-                                <div className="w-14 h-14 bg-[var(--color-hx-purple)]/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                                    <svg width="28" height="28" fill="none" stroke="var(--color-hx-purple)" strokeWidth="2" strokeLinecap="round">
+                                <div className="w-14 h-14 bg-[var(--color-brand-primary)]/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                    <svg width="28" height="28" fill="none" stroke="var(--color-brand-primary)" strokeWidth="2" strokeLinecap="round">
                                         <path d="M1 4v6h6" /><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
                                     </svg>
                                 </div>
@@ -366,7 +366,7 @@ export default function VersionesManager() {
                                 <button
                                     onClick={() => handleLoad(snap.id_snapshot)}
                                     disabled={loadingAction === snap.id_snapshot}
-                                    className="flex-1 py-3 rounded-xl text-[14px] font-bold text-white bg-[var(--color-hx-purple)] hover:opacity-90 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+                                    className="flex-1 py-3 rounded-xl text-[14px] font-bold text-white bg-[var(--color-brand-primary)] hover:opacity-90 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
                                 >
                                     {loadingAction === snap.id_snapshot ? (
                                         <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> Restaurando...</>

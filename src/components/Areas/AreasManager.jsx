@@ -229,7 +229,7 @@ export default function AreasManager() {
             {/* Cabecera Superior (Banner + Espacio Derecho) */}
             <div className="flex flex-col md:flex-row gap-6">
                 {/* Banner Principal (Izquierda) */}
-                <div className="md:w-2/3 bg-[var(--color-hx-purple)]/10 rounded-[24px] p-8 shadow-md relative overflow-hidden flex flex-col justify-center min-h-[180px] border border-[var(--color-hx-purple)]/70">
+                <div className="md:w-2/3 bg-[var(--color-brand-primary)]/10 rounded-[24px] p-8 shadow-md relative overflow-hidden flex flex-col justify-center min-h-[180px] border border-[var(--color-brand-primary)]/70">
                     {/* Formas abstractas decorativas */}
 
 
@@ -244,7 +244,7 @@ export default function AreasManager() {
 
                             <button
                                 onClick={abrirModalNueva}
-                                className="bg-hx-purple text-white hover:bg-hx-purple/80 font-extrabold py-2.5 px-6 rounded-xl shadow-[0_4px_12px_rgba(121,14,236,0.3)] hover:shadow-[0_6px_16px_rgba(121,14,236,0.4)] hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2 text-sm w-max cursor-pointer">
+                                className="bg-brand-primary text-white hover:bg-brand-primary/80 font-extrabold py-2.5 px-6 rounded-xl shadow-[0_4px_12px_rgba(47, 91, 255,0.3)] hover:shadow-[0_6px_16px_rgba(47, 91, 255,0.4)] hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2 text-sm w-max cursor-pointer">
                                 <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
                                 Añadir Nueva Área
                             </button>
@@ -275,7 +275,7 @@ export default function AreasManager() {
                             </div>
 
                         </div>
-                        <div className="w-12 h-12 rounded-[14px] bg-hx-purple/10 text-hx-purple flex items-center justify-center border border-hx-purple/20 shadow-sm">
+                        <div className="w-12 h-12 rounded-[14px] bg-brand-primary/10 text-brand-primary flex items-center justify-center border border-brand-primary/20 shadow-sm">
                             <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
                         </div>
                     </div>
@@ -307,7 +307,7 @@ export default function AreasManager() {
             {/* Estado de Carga */}
             {loading && (
                 <div className="flex justify-center py-12">
-                    <div className="w-8 h-8 border-4 border-hx-purple/30 border-t-hx-purple rounded-full animate-spin"></div>
+                    <div className="w-8 h-8 border-4 border-brand-primary/30 border-t-brand-primary rounded-full animate-spin"></div>
                 </div>
             )}
 
@@ -318,7 +318,7 @@ export default function AreasManager() {
                     <div className="flex items-center justify-between mb-8 bg-white py-2 px-4 rounded-[20px] border border-slate-100 shadow-sm h-16 w-full overflow-hidden gap-4">
                         {/* Izquierda: Título */}
                         <div className="flex-shrink-0 flex items-center gap-3">
-                            <div className="w-10 h-10 bg-hx-purple/10 rounded-xl flex items-center justify-center text-hx-purple">
+                            <div className="w-10 h-10 bg-brand-primary/10 rounded-xl flex items-center justify-center text-brand-primary">
                                 <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
                             </div>
                             <h2 className="text-[20px] font-black text-slate-800 tracking-tight whitespace-nowrap">Áreas</h2>
@@ -326,7 +326,7 @@ export default function AreasManager() {
 
                         {/* Derecha: Buscador Pill */}
                         <div className="w-full max-w-md">
-                            <div className="relative group flex items-center bg-white rounded-full p-1.5 border-2 border-slate-200 focus-within:border-hx-purple transition-all h-12 w-full">
+                            <div className="relative group flex items-center bg-white rounded-full p-1.5 border-2 border-slate-200 focus-within:border-brand-primary transition-all h-12 w-full">
                                 <input
                                     type="text"
                                     placeholder="Buscar área por nombre..."
@@ -339,7 +339,7 @@ export default function AreasManager() {
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                                     </button>
                                 )}
-                                <div className="w-9 h-9 rounded-full bg-hx-purple flex items-center justify-center text-white flex-shrink-0 shadow-sm mr-0.5">
+                                <div className="w-9 h-9 rounded-full bg-brand-primary flex items-center justify-center text-white flex-shrink-0 shadow-sm mr-0.5">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
                                 </div>
                             </div>
@@ -399,7 +399,7 @@ export default function AreasManager() {
                                         setNuevaArea({ ...nuevaArea, nombre: e.target.value });
                                         if (formErrors.nombre) setFormErrors({ ...formErrors, nombre: null });
                                     }}
-                                    className={`w-full px-4 py-3 rounded-xl border ${formErrors.nombre ? 'border-red-500 focus:ring-red-500/10 bg-red-50/30' : 'border-slate-200 focus:border-hx-purple focus:ring-hx-purple/10'} focus:ring-4 outline-none transition-all text-sm font-medium text-[#111827] placeholder:text-slate-400`}
+                                    className={`w-full px-4 py-3 rounded-xl border ${formErrors.nombre ? 'border-red-500 focus:ring-red-500/10 bg-red-50/30' : 'border-slate-200 focus:border-brand-primary focus:ring-brand-primary/10'} focus:ring-4 outline-none transition-all text-sm font-medium text-[#111827] placeholder:text-slate-400`}
                                 />
                                 {formErrors.nombre && (
                                     <p className="text-red-500 text-[11px] font-bold mt-1 animate-fade-in">{formErrors.nombre}</p>
@@ -419,7 +419,7 @@ export default function AreasManager() {
                                         setNuevaArea({ ...nuevaArea, max_horas_dia: e.target.value });
                                         if (formErrors.max_horas_dia) setFormErrors({ ...formErrors, max_horas_dia: null });
                                     }}
-                                    className={`w-full px-4 py-3 rounded-xl border ${formErrors.max_horas_dia ? 'border-red-500 focus:ring-red-500/10 bg-red-50/30' : 'border-slate-200 focus:border-hx-purple focus:ring-hx-purple/10'} focus:ring-4 outline-none transition-all text-sm font-medium text-[#111827] placeholder:text-slate-400`}
+                                    className={`w-full px-4 py-3 rounded-xl border ${formErrors.max_horas_dia ? 'border-red-500 focus:ring-red-500/10 bg-red-50/30' : 'border-slate-200 focus:border-brand-primary focus:ring-brand-primary/10'} focus:ring-4 outline-none transition-all text-sm font-medium text-[#111827] placeholder:text-slate-400`}
                                 />
                                 {formErrors.max_horas_dia && (
                                     <p className="text-red-500 text-[11px] font-bold mt-1 animate-fade-in">{formErrors.max_horas_dia}</p>
@@ -437,7 +437,7 @@ export default function AreasManager() {
                                 <button
                                     type="submit"
                                     disabled={guardando}
-                                    className="cursor-pointer flex-1 py-3 px-4 bg-hx-purple hover:bg-hx-purple/90 text-white text-sm font-bold rounded-xl shadow-md hover:shadow-lg transition-all flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                                    className="cursor-pointer flex-1 py-3 px-4 bg-brand-primary hover:bg-brand-primary/90 text-white text-sm font-bold rounded-xl shadow-md hover:shadow-lg transition-all flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                                     {guardando ? (
                                         <>
                                             <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>

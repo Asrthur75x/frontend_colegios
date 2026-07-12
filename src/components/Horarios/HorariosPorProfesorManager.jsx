@@ -4,13 +4,13 @@ const API_BASE = 'http://localhost:8000/api';
 
 const CURSO_COLORS = [
     { solid: '#1e293b', pastel: '#f1f5f9', text: '#1e293b' },
-    { solid: '#790EEC', pastel: '#f5f3ff', text: '#4c0d8f' },
+    { solid: 'var(--color-brand-primary)', pastel: '#f5f3ff', text: '#4c0d8f' },
     { solid: '#f43f5e', pastel: '#fff1f2', text: '#be123c' },
     { solid: '#10CFAE', pastel: '#f0fdf9', text: '#065f4a' },
     { solid: '#51B4E8', pastel: '#eff8ff', text: '#0c4a7a' },
     { solid: '#F3C252', pastel: '#fffbeb', text: '#7c4a00' },
     { solid: '#F1A5B9', pastel: '#fdf2f5', text: '#7c2042' },
-    { solid: '#790EEC', pastel: '#ede9fe', text: '#4c0d8f' },
+    { solid: 'var(--color-brand-primary)', pastel: '#ede9fe', text: '#4c0d8f' },
     { solid: '#10CFAE', pastel: '#f0fdfa', text: '#065f4a' },
     { solid: '#51B4E8', pastel: '#e0f2fe', text: '#0c4a7a' },
     { solid: '#f43f5e', pastel: '#ffe4e6', text: '#be123c' },
@@ -22,7 +22,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
-const DIA_COLOR = { bg: 'var(--color-hx-purple)', text: '#ffffff' };
+const DIA_COLOR = { bg: 'var(--color-brand-primary)', text: '#ffffff' };
 
 export default function HorariosPorProfesorManager() {
     const [secciones, setSecciones] = useState([]);
@@ -502,7 +502,7 @@ export default function HorariosPorProfesorManager() {
                 <div className="flex flex-col items-center justify-center gap-4 mt-20">
                     <div className="relative w-16 h-16">
                         <div className="absolute inset-0 border-4 border-slate-100 rounded-full" />
-                        <div className="absolute inset-0 border-4 border-hx-purple rounded-full border-t-transparent animate-spin" style={{ animationDuration: '1s' }} />
+                        <div className="absolute inset-0 border-4 border-brand-primary rounded-full border-t-transparent animate-spin" style={{ animationDuration: '1s' }} />
                     </div>
                     <p className="text-slate-400 text-sm font-semibold">Cargando horarios...</p>
                 </div>
@@ -541,7 +541,7 @@ export default function HorariosPorProfesorManager() {
                                             placeholder="Filtrar por nombre..."
                                             value={searchQuery}
                                             onChange={e => setSearchQuery(e.target.value)}
-                                            className="w-full bg-white border border-slate-200 text-slate-700 text-[13px] font-bold rounded-xl pl-10 pr-4 py-2.5 outline-none focus:border-hx-purple shadow-sm transition-all"
+                                            className="w-full bg-white border border-slate-200 text-slate-700 text-[13px] font-bold rounded-xl pl-10 pr-4 py-2.5 outline-none focus:border-brand-primary shadow-sm transition-all"
                                         />
                                     </div>
                                 </div>
@@ -550,7 +550,7 @@ export default function HorariosPorProfesorManager() {
                                     <select
                                         value={selectedProfesor}
                                         onChange={e => { setSelectedProfesor(e.target.value); setSearchQuery(''); }}
-                                        className="w-full bg-white border-2 border-slate-200 text-slate-800 text-[14px] font-black rounded-xl px-4 py-2.5 outline-none focus:border-hx-purple shadow-sm transition-all cursor-pointer"
+                                        className="w-full bg-white border-2 border-slate-200 text-slate-800 text-[14px] font-black rounded-xl px-4 py-2.5 outline-none focus:border-brand-primary shadow-sm transition-all cursor-pointer"
                                     >
                                         <option value="">Seleccione un Profesor</option>
                                         {filteredProfesores.map(p => (
@@ -618,7 +618,7 @@ export default function HorariosPorProfesorManager() {
                                     <div key={turno.id_turno} className="flex flex-col gap-4 w-full">
                                         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-2 ml-2">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-3 h-3 rounded-full bg-hx-purple"></div>
+                                                <div className="w-3 h-3 rounded-full bg-brand-primary"></div>
                                                 <h3 className="text-[16px] font-black text-slate-800 uppercase tracking-widest">Turno {turno.nombre}</h3>
                                             </div>
                                         </div>

@@ -10,13 +10,13 @@ const API_BASE = 'http://localhost:8000/api';
 // Colores consistentes con CursosManager: borde sólido + fondo pastel
 const CURSO_COLORS = [
     { solid: '#1e293b', pastel: '#f1f5f9', text: '#1e293b' },
-    { solid: '#790EEC', pastel: '#f5f3ff', text: '#4c0d8f' },
+    { solid: 'var(--color-brand-primary)', pastel: '#f5f3ff', text: '#4c0d8f' },
     { solid: '#f43f5e', pastel: '#fff1f2', text: '#be123c' },
     { solid: '#10CFAE', pastel: '#f0fdf9', text: '#065f4a' },
     { solid: '#51B4E8', pastel: '#eff8ff', text: '#0c4a7a' },
     { solid: '#F3C252', pastel: '#fffbeb', text: '#7c4a00' },
     { solid: '#F1A5B9', pastel: '#fdf2f5', text: '#7c2042' },
-    { solid: '#790EEC', pastel: '#ede9fe', text: '#4c0d8f' },
+    { solid: 'var(--color-brand-primary)', pastel: '#ede9fe', text: '#4c0d8f' },
     { solid: '#10CFAE', pastel: '#f0fdfa', text: '#065f4a' },
     { solid: '#51B4E8', pastel: '#e0f2fe', text: '#0c4a7a' },
     { solid: '#f43f5e', pastel: '#ffe4e6', text: '#be123c' },
@@ -24,7 +24,7 @@ const CURSO_COLORS = [
 ];
 
 // Color único para encabezados de días
-const DIA_COLOR = { bg: 'var(--color-hx-purple)', text: '#ffffff' };
+const DIA_COLOR = { bg: 'var(--color-brand-primary)', text: '#ffffff' };
 
 const formatFriendlyError = (err, profesores) => {
     if (typeof err !== 'string') return err;
@@ -798,7 +798,7 @@ export default function HorariosManager({ isEditPage = false }) {
                 <div className="flex flex-col items-center justify-center gap-4 mt-20">
                     <div className="relative w-16 h-16">
                         <div className="absolute inset-0 border-4 border-slate-100 rounded-full" />
-                        <div className="absolute inset-0 border-4 border-hx-purple rounded-full border-t-transparent animate-spin" style={{ animationDuration: '1s' }} />
+                        <div className="absolute inset-0 border-4 border-brand-primary rounded-full border-t-transparent animate-spin" style={{ animationDuration: '1s' }} />
                     </div>
                     <p className="text-slate-400 text-sm font-semibold">Cargando horarios...</p>
                 </div>
@@ -830,10 +830,10 @@ export default function HorariosManager({ isEditPage = false }) {
                     <div className="w-full space-y-3">
                         {loadingMessages.map((msg, index) => (
                             <div key={index} className={`flex items-center gap-4 transition-all duration-500 ${index < loadingStep ? 'opacity-100' : index === loadingStep ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden m-0'}`}>
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${index < loadingStep ? 'bg-green-100 text-green-500' : 'bg-hx-purple/10 text-hx-purple'}`}>
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${index < loadingStep ? 'bg-green-100 text-green-500' : 'bg-brand-primary/10 text-brand-primary'}`}>
                                     {index < loadingStep
                                         ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-                                        : <div className="w-2.5 h-2.5 rounded-full bg-hx-purple animate-ping" />
+                                        : <div className="w-2.5 h-2.5 rounded-full bg-brand-primary animate-ping" />
                                     }
                                 </div>
                                 <p className={`font-semibold text-[15px] ${index < loadingStep ? 'text-slate-400' : 'text-slate-800'}`}>{msg}</p>
@@ -905,7 +905,7 @@ export default function HorariosManager({ isEditPage = false }) {
 
                         <button
                             onClick={handleGenerar}
-                            className="group relative flex items-center justify-center gap-2 px-8 py-4 bg-[var(--color-hx-purple)] text-white font-black text-lg rounded-2xl hover:shadow-xl hover:-translate-y-1 transition-all overflow-hidden w-full max-w-[320px] mx-auto"
+                            className="group relative flex items-center justify-center gap-2 px-8 py-4 bg-[var(--color-brand-primary)] text-white font-black text-lg rounded-2xl hover:shadow-xl hover:-translate-y-1 transition-all overflow-hidden w-full max-w-[320px] mx-auto"
                         >
                             <div className="absolute inset-0 w-full h-full -ml-16 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 animate-shine" />
                             <svg className="w-6 h-6 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
@@ -982,7 +982,7 @@ export default function HorariosManager({ isEditPage = false }) {
 
                                         <div className="bg-white p-6 rounded-[24px] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
                                             <div className="flex items-center gap-3 mb-4">
-                                                <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-purple-500">
+                                                <div className="w-10 h-10 rounded-xl bg-[var(--color-brand-light)] flex items-center justify-center text-[var(--color-brand-light)]0">
                                                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
                                                 </div>
                                                 <h3 className="font-bold text-slate-700">Profesores Activos</h3>
@@ -1009,14 +1009,14 @@ export default function HorariosManager({ isEditPage = false }) {
                                                         const p = profesores.find(x => `PROF_${x.id_profesor}` === profId);
                                                         const name = p ? p.nombre_profesor : profId;
                                                         return (
-                                                            <div key={profId} className="flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl hover:border-hx-purple/30 hover:shadow-sm transition-all group">
+                                                            <div key={profId} className="flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl hover:border-brand-primary/30 hover:shadow-sm transition-all group">
                                                                 <div>
-                                                                    <p className="font-bold text-slate-700 text-[14px] group-hover:text-hx-purple transition-colors">{name}</p>
+                                                                    <p className="font-bold text-slate-700 text-[14px] group-hover:text-brand-primary transition-colors">{name}</p>
                                                                     <p className="text-[12px] text-slate-500 mt-1 font-medium">{info.cantidad_secciones} Secc. • {info.cantidad_cursos} Cursos</p>
                                                                 </div>
                                                                 <div className="flex items-center gap-3">
                                                                     <div className="text-right">
-                                                                        <p className="font-black text-hx-purple text-xl leading-none">{info.total_horas_semanales}h</p>
+                                                                        <p className="font-black text-brand-primary text-xl leading-none">{info.total_horas_semanales}h</p>
                                                                         <p className="text-[10px] text-slate-400 uppercase tracking-wider font-bold mt-1">semana</p>
                                                                     </div>
                                                                 </div>
@@ -1048,7 +1048,7 @@ export default function HorariosManager({ isEditPage = false }) {
                                         {sedes.length > 1 && (
                                             <div className="flex flex-col">
                                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Sede</label>
-                                                <select value={selectedSede} onChange={e => setSelectedSede(e.target.value)} className="bg-slate-50 border border-slate-200 text-slate-700 text-[13px] font-bold rounded-xl px-4 py-2.5 outline-none focus:border-hx-purple shadow-sm transition-all cursor-pointer">
+                                                <select value={selectedSede} onChange={e => setSelectedSede(e.target.value)} className="bg-slate-50 border border-slate-200 text-slate-700 text-[13px] font-bold rounded-xl px-4 py-2.5 outline-none focus:border-brand-primary shadow-sm transition-all cursor-pointer">
                                                     <option value="">Todas las sedes</option>
                                                     {sedes.map(s => <option key={s.id_sede} value={s.id_sede}>{s.nombre_sede}</option>)}
                                                 </select>
@@ -1058,7 +1058,7 @@ export default function HorariosManager({ isEditPage = false }) {
                                         {turnos.length > 1 && (
                                             <div className="flex flex-col">
                                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Turno</label>
-                                                <select value={selectedTurno} onChange={e => setSelectedTurno(e.target.value)} className="bg-slate-50 border border-slate-200 text-slate-700 text-[13px] font-bold rounded-xl px-4 py-2.5 outline-none focus:border-hx-purple shadow-sm transition-all cursor-pointer">
+                                                <select value={selectedTurno} onChange={e => setSelectedTurno(e.target.value)} className="bg-slate-50 border border-slate-200 text-slate-700 text-[13px] font-bold rounded-xl px-4 py-2.5 outline-none focus:border-brand-primary shadow-sm transition-all cursor-pointer">
                                                     <option value="">Todos los turnos</option>
                                                     {turnos.map(t => <option key={t.id_turno} value={t.id_turno}>{t.nombre}</option>)}
                                                 </select>
@@ -1071,7 +1071,7 @@ export default function HorariosManager({ isEditPage = false }) {
 
                                         <div className="flex flex-col">
                                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Grado y Sección</label>
-                                            <select value={selectedSeccion} onChange={e => setSelectedSeccion(e.target.value)} className="bg-white border-2 border-slate-200 text-hx-purple text-[15px] font-black rounded-xl px-5 py-2 outline-none focus:border-hx-purple shadow-sm transition-all cursor-pointer">
+                                            <select value={selectedSeccion} onChange={e => setSelectedSeccion(e.target.value)} className="bg-white border-2 border-slate-200 text-brand-primary text-[15px] font-black rounded-xl px-5 py-2 outline-none focus:border-brand-primary shadow-sm transition-all cursor-pointer">
                                                 {grados.map(g => {
                                                     const secs = filteredSecciones.filter(s => s.id_grado === g.id_grado);
                                                     if (secs.length === 0) return null;
@@ -1094,7 +1094,7 @@ export default function HorariosManager({ isEditPage = false }) {
                                         {isEditPage && (
                                             <button
                                                 onClick={() => setIsTimeModalOpen(true)}
-                                                className="h-[44px] px-5 bg-white border-2 border-slate-200 text-slate-600 hover:text-hx-purple hover:border-hx-purple text-[13px] font-black rounded-xl transition-colors shadow-sm flex items-center gap-2 whitespace-nowrap cursor-pointer"
+                                                className="h-[44px] px-5 bg-white border-2 border-slate-200 text-slate-600 hover:text-brand-primary hover:border-brand-primary text-[13px] font-black rounded-xl transition-colors shadow-sm flex items-center gap-2 whitespace-nowrap cursor-pointer"
                                             >
                                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                                                 Editar Horario
@@ -1118,7 +1118,7 @@ export default function HorariosManager({ isEditPage = false }) {
                                         {!isEditPage && (
                                             <button
                                                 onClick={handleGenerar}
-                                                className="group relative flex items-center justify-center gap-2 px-6 h-[44px] bg-[var(--color-hx-purple)] text-white font-black text-sm rounded-xl hover:shadow-lg hover:-translate-y-0.5 transition-all overflow-hidden cursor-pointer"
+                                                className="group relative flex items-center justify-center gap-2 px-6 h-[44px] bg-[var(--color-brand-primary)] text-white font-black text-sm rounded-xl hover:shadow-lg hover:-translate-y-0.5 transition-all overflow-hidden cursor-pointer"
                                             >
                                                 <div className="absolute inset-0 w-full h-full -ml-16 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 animate-shine" />
                                                 <svg className="w-5 h-5 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
@@ -1150,7 +1150,7 @@ export default function HorariosManager({ isEditPage = false }) {
                                                     {currGrado ? `${currGrado.numero}° - ` : ''}Sección {currSec.nombre}
                                                 </h2>
                                                 <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                                                    <span className="text-hx-purple font-black text-[15px]">{currGrado ? `Grado: ${currGrado.numero}°` : 'Sin Grado'}</span>
+                                                    <span className="text-brand-primary font-black text-[15px]">{currGrado ? `Grado: ${currGrado.numero}°` : 'Sin Grado'}</span>
                                                     <span className="text-slate-300">•</span>
                                                     <span className="text-slate-500 font-bold text-[15px]">{currSede ? `Sede: ${currSede.nombre_sede}` : 'Sin Sede'}</span>
                                                 </div>
@@ -1343,13 +1343,13 @@ export default function HorariosManager({ isEditPage = false }) {
                                                                                 onDrop={isEditMode ? (e) => handleDrop(e, dia, bNum) : undefined}
                                                                             >
                                                                                 <div className={`rounded-xl flex items-center justify-center transition-all duration-200 ${isDropHere
-                                                                                        ? 'bg-violet-100 border-2 border-dashed border-[var(--color-hx-purple)] scale-105 shadow-md'
+                                                                                        ? 'bg-violet-100 border-2 border-dashed border-[var(--color-brand-primary)] scale-105 shadow-md'
                                                                                         : isEditMode
                                                                                             ? 'bg-slate-50/80 border-2 border-dashed border-slate-200 hover:border-violet-300 hover:bg-violet-50/50'
                                                                                             : 'bg-slate-50 border border-dashed border-slate-200'
                                                                                     }`} style={{ height: 'calc(100px - 8px)' }}>
                                                                                     {isDropHere ? (
-                                                                                        <svg className="w-5 h-5 text-[var(--color-hx-purple)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m0 0l-4-4m4 4l4-4" /></svg>
+                                                                                        <svg className="w-5 h-5 text-[var(--color-brand-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m0 0l-4-4m4 4l4-4" /></svg>
                                                                                     ) : (
                                                                                         <div className="w-1 h-1 rounded-full bg-slate-300" />
                                                                                     )}

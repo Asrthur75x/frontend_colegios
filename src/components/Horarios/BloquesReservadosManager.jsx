@@ -254,7 +254,7 @@ export default function BloquesReservadosManager() {
         return acc + maxSlots;
     }, 0);
 
-    if (status === 'loading') return <div className="flex justify-center py-12"><div className="w-8 h-8 border-4 border-hx-purple/30 border-t-hx-purple rounded-full animate-spin"></div></div>;
+    if (status === 'loading') return <div className="flex justify-center py-12"><div className="w-8 h-8 border-4 border-brand-primary/30 border-t-brand-primary rounded-full animate-spin"></div></div>;
 
     return (
         <div className="w-full space-y-8 animate-fade-in relative pb-10">
@@ -262,7 +262,7 @@ export default function BloquesReservadosManager() {
             {/* Cabecera Superior (Banner + Espacio Derecho) */}
             <div className="flex flex-col md:flex-row gap-6">
 
-                <div className="md:w-2/3 bg-[var(--color-hx-purple)]/10 rounded-[24px] p-8 shadow-md relative overflow-hidden flex flex-col justify-center min-h-[180px] border border-[var(--color-hx-purple)]/70">
+                <div className="md:w-2/3 bg-[var(--color-brand-primary)]/10 rounded-[24px] p-8 shadow-md relative overflow-hidden flex flex-col justify-center min-h-[180px] border border-[var(--color-brand-primary)]/70">
                     <div className="relative z-10 flex flex-col md:flex-row justify-between items-center md:items-start gap-6">
                         <div className="max-w-xl">
                             <div className="flex items-center gap-3 mb-3">
@@ -284,13 +284,13 @@ export default function BloquesReservadosManager() {
                                     <div className="flex flex-wrap gap-3">
                                         <button
                                             onClick={() => setAnsweredYes(true)}
-                                            className="bg-hx-purple text-white hover:bg-hx-purple/90 font-bold py-2.5 px-6 rounded-xl shadow-sm hover:shadow-md transition-all text-[13px] cursor-pointer"
+                                            className="bg-brand-primary text-white hover:bg-brand-primary/90 font-bold py-2.5 px-6 rounded-xl shadow-sm hover:shadow-md transition-all text-[13px] cursor-pointer"
                                         >
                                             Sí, configurar bloques
                                         </button>
                                         <button
                                             onClick={() => window.location.href = '/planes'}
-                                            className="bg-white border-2 border-slate-200 text-slate-600 hover:text-hx-purple hover:border-hx-purple font-bold py-2.5 px-6 rounded-xl shadow-sm hover:shadow-md transition-all text-[13px] cursor-pointer"
+                                            className="bg-white border-2 border-slate-200 text-slate-600 hover:text-brand-primary hover:border-brand-primary font-bold py-2.5 px-6 rounded-xl shadow-sm hover:shadow-md transition-all text-[13px] cursor-pointer"
                                         >
                                             No, omitir este paso
                                         </button>
@@ -299,7 +299,7 @@ export default function BloquesReservadosManager() {
                             ) : (
                                 <button
                                     onClick={handleOpenModal}
-                                    className="bg-hx-purple text-white hover:bg-hx-purple/80 font-extrabold py-2.5 px-6 rounded-xl shadow-[0_4px_12px_rgba(121,14,236,0.3)] hover:shadow-[0_6px_16px_rgba(121,14,236,0.4)] hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2 text-sm w-max cursor-pointer"
+                                    className="bg-brand-primary text-white hover:bg-brand-primary/80 font-extrabold py-2.5 px-6 rounded-xl shadow-[0_4px_12px_rgba(47, 91, 255,0.3)] hover:shadow-[0_6px_16px_rgba(47, 91, 255,0.4)] hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2 text-sm w-max cursor-pointer"
                                 >
                                     <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
                                     Crear Nuevo Bloque
@@ -329,14 +329,14 @@ export default function BloquesReservadosManager() {
                                 <span className="text-slate-400 text-sm font-bold">bloques</span>
                             </div>
                         </div>
-                        <div className="w-12 h-12 rounded-[14px] bg-hx-purple/10 text-hx-purple flex items-center justify-center border border-hx-purple/20 shadow-sm">
+                        <div className="w-12 h-12 rounded-[14px] bg-brand-primary/10 text-brand-primary flex items-center justify-center border border-brand-primary/20 shadow-sm">
                             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
                         </div>
                     </div>
 
                     <div className="flex-1 grid grid-cols-2 gap-3 mt-4 mb-2">
                         <div className="rounded-xl p-3 flex flex-col justify-center shadow-sm overflow-hidden bg-slate-50 border border-slate-100">
-                            <p className="text-hx-purple text-[10px] font-black uppercase tracking-widest mb-1 truncate">Horas Bloqueadas</p>
+                            <p className="text-brand-primary text-[10px] font-black uppercase tracking-widest mb-1 truncate">Horas Bloqueadas</p>
                             <div className="flex flex-col mt-1">
                                 <span className="text-2xl font-black text-slate-800 leading-tight truncate">
                                     {totalHorasBloqueadas}
@@ -378,7 +378,7 @@ export default function BloquesReservadosManager() {
 
                                 <div className="p-6 flex-1 flex flex-col">
                                     <div className="flex items-center gap-3 mb-5">
-                                        <div className="w-12 h-12 rounded-xl bg-purple-50 text-[var(--color-hx-purple)] flex items-center justify-center border border-purple-100 shadow-sm shrink-0">
+                                        <div className="w-12 h-12 rounded-xl bg-[var(--color-brand-light)] text-[var(--color-brand-primary)] flex items-center justify-center border border-[var(--color-brand-light)] shadow-sm shrink-0">
                                             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                                                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
                                                 <line x1="16" y1="2" x2="16" y2="6"></line>
@@ -413,12 +413,12 @@ export default function BloquesReservadosManager() {
                                             {r.opciones.map(op => (
                                                 <div key={op.id_bloque_opcion} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white p-2 rounded-lg border border-slate-100 shadow-sm">
                                                     <div className="flex items-center gap-2">
-                                                        <div className="w-2 h-2 rounded-full bg-hx-purple"></div>
+                                                        <div className="w-2 h-2 rounded-full bg-brand-primary"></div>
                                                         <span className="font-bold text-slate-700 text-xs">Alternativa {op.nro_opcion}</span>
                                                     </div>
                                                     <div className="flex flex-wrap gap-1.5">
                                                         {op.slots.sort((a, b) => a - b).map((s, i) => (
-                                                            <span key={i} className="px-2 py-0.5 rounded bg-[var(--color-hx-purple)] text-white flex items-center justify-center text-[10px] font-black shadow-sm">
+                                                            <span key={i} className="px-2 py-0.5 rounded bg-[var(--color-brand-primary)] text-white flex items-center justify-center text-[10px] font-black shadow-sm">
                                                                 B{s}
                                                             </span>
                                                         ))}
@@ -454,8 +454,8 @@ export default function BloquesReservadosManager() {
 
                             {/* A. Datos Generales */}
                             <div className="bg-white">
-                                <h3 className="text-sm font-black text-[var(--color-hx-purple)] uppercase tracking-widest mb-4 flex items-center gap-2">
-                                    <span className="w-6 h-6 rounded bg-purple-100 text-purple-600 flex items-center justify-center">1</span>
+                                <h3 className="text-sm font-black text-[var(--color-brand-primary)] uppercase tracking-widest mb-4 flex items-center gap-2">
+                                    <span className="w-6 h-6 rounded bg-[var(--color-brand-light)] text-[var(--color-brand-primary)] flex items-center justify-center">1</span>
                                     Datos Generales
                                 </h3>
                                 <div className="grid grid-cols-3 gap-4">
@@ -472,7 +472,7 @@ export default function BloquesReservadosManager() {
                                                             if (formErrors.sedes) setFormErrors({ ...formErrors, sedes: null });
                                                         }}
                                                         className={`px-3 py-2 rounded-xl font-bold text-xs transition-all flex items-center justify-between border-2 cursor-pointer ${isSelected
-                                                            ? 'bg-[var(--color-hx-purple)] border-[var(--color-hx-purple)] text-white shadow-md'
+                                                            ? 'bg-[var(--color-brand-primary)] border-[var(--color-brand-primary)] text-white shadow-md'
                                                             : (formErrors.sedes ? 'bg-red-50 border-red-200 text-slate-500' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300')
                                                             }`}
                                                     >
@@ -491,7 +491,7 @@ export default function BloquesReservadosManager() {
                                                 setFormData({ ...formData, id_dia: e.target.value });
                                                 if (formErrors.id_dia) setFormErrors({ ...formErrors, id_dia: null });
                                             }}
-                                            className={`w-full bg-slate-50 border font-bold rounded-xl px-4 py-2.5 outline-none cursor-pointer ${formErrors.id_dia ? 'border-red-400 text-red-700' : 'border-slate-200 text-slate-800 focus:border-hx-purple'}`}
+                                            className={`w-full bg-slate-50 border font-bold rounded-xl px-4 py-2.5 outline-none cursor-pointer ${formErrors.id_dia ? 'border-red-400 text-red-700' : 'border-slate-200 text-slate-800 focus:border-brand-primary'}`}
                                         >
                                             <option value="">Seleccionar Día</option>
                                             {dias.map(d => <option key={d.id_dia} value={d.id_dia}>{d.nombre_dia}</option>)}
@@ -505,7 +505,7 @@ export default function BloquesReservadosManager() {
                                                 setFormData({ ...formData, id_turno: e.target.value });
                                                 if (formErrors.id_turno) setFormErrors({ ...formErrors, id_turno: null });
                                             }}
-                                            className={`w-full bg-slate-50 border font-bold rounded-xl px-4 py-2.5 outline-none cursor-pointer ${formErrors.id_turno ? 'border-red-400 text-red-700' : 'border-slate-200 text-slate-800 focus:border-hx-purple'}`}
+                                            className={`w-full bg-slate-50 border font-bold rounded-xl px-4 py-2.5 outline-none cursor-pointer ${formErrors.id_turno ? 'border-red-400 text-red-700' : 'border-slate-200 text-slate-800 focus:border-brand-primary'}`}
                                         >
                                             <option value="">Seleccionar Turno</option>
                                             {turnos.map(t => <option key={t.id_turno} value={t.id_turno}>{t.nombre}</option>)}
@@ -517,8 +517,8 @@ export default function BloquesReservadosManager() {
 
                             {/* B. Grados */}
                             <div className="bg-white">
-                                <h3 className="text-sm font-black text-[var(--color-hx-purple)] uppercase tracking-widest mb-4 flex items-center gap-2">
-                                    <span className="w-6 h-6 rounded bg-purple-100 text-purple-600 flex items-center justify-center">2</span>
+                                <h3 className="text-sm font-black text-[var(--color-brand-primary)] uppercase tracking-widest mb-4 flex items-center gap-2">
+                                    <span className="w-6 h-6 rounded bg-[var(--color-brand-light)] text-[var(--color-brand-primary)] flex items-center justify-center">2</span>
                                     Grados Participantes
                                 </h3>
                                 <div className="flex flex-wrap gap-3">
@@ -532,7 +532,7 @@ export default function BloquesReservadosManager() {
                                                     if (formErrors.grados) setFormErrors({ ...formErrors, grados: null });
                                                 }}
                                                 className={`px-4 py-2 rounded-xl font-black text-sm transition-all flex items-center gap-2 border-2 cursor-pointer ${isSelected
-                                                    ? 'bg-[var(--color-hx-purple)] border-[var(--color-hx-purple)] text-white shadow-md'
+                                                    ? 'bg-[var(--color-brand-primary)] border-[var(--color-brand-primary)] text-white shadow-md'
                                                     : (formErrors.grados ? 'bg-red-50 border-red-200 text-slate-500' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300')
                                                     }`}
                                             >
@@ -549,8 +549,8 @@ export default function BloquesReservadosManager() {
                             <div className="bg-white">
                                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 border-b border-slate-100 pb-4 gap-4">
                                     <div>
-                                        <h3 className="text-sm font-black text-[var(--color-hx-purple)] uppercase tracking-widest flex items-center gap-2 mb-1.5">
-                                            <span className="w-6 h-6 rounded bg-purple-100 text-purple-600 flex items-center justify-center shrink-0">3</span>
+                                        <h3 className="text-sm font-black text-[var(--color-brand-primary)] uppercase tracking-widest flex items-center gap-2 mb-1.5">
+                                            <span className="w-6 h-6 rounded bg-[var(--color-brand-light)] text-[var(--color-brand-primary)] flex items-center justify-center shrink-0">3</span>
                                             Alternativas de Horario (Bloques)
                                         </h3>
 
@@ -584,7 +584,7 @@ export default function BloquesReservadosManager() {
                                             if (formErrors.nombre_actividad) setFormErrors({ ...formErrors, nombre_actividad: null });
                                         }}
                                         placeholder="Ej: Examen de Matemática, Taller de Arte..."
-                                        className={`w-full text-lg font-black text-slate-800 bg-white border rounded-xl px-4 py-3 outline-none transition-all shadow-sm ${formErrors.nombre_actividad ? 'border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-100' : 'border-slate-300 focus:border-hx-purple focus:ring-2 focus:ring-purple-100 placeholder:text-slate-300'}`}
+                                        className={`w-full text-lg font-black text-slate-800 bg-white border rounded-xl px-4 py-3 outline-none transition-all shadow-sm ${formErrors.nombre_actividad ? 'border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-100' : 'border-slate-300 focus:border-brand-primary focus:ring-2 focus:ring-[var(--color-brand-light)] placeholder:text-slate-300'}`}
                                     />
                                     {formErrors.nombre_actividad ? (
                                         <p className="text-[11px] font-bold text-red-500 mt-2 flex items-center gap-1"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>{formErrors.nombre_actividad}</p>
@@ -610,7 +610,7 @@ export default function BloquesReservadosManager() {
                                                     </div>
                                                 )}
 
-                                                <div className="bg-white rounded-2xl border-2 border-slate-100 p-5 shadow-sm relative hover:border-purple-200 transition-all ml-4 sm:ml-0">
+                                                <div className="bg-white rounded-2xl border-2 border-slate-100 p-5 shadow-sm relative hover:border-[var(--color-brand-light)] transition-all ml-4 sm:ml-0">
                                                     {formData.opciones_slots.length > 1 && (
                                                         <button
                                                             onClick={() => handleRemoveOpcion(opIdx)}
@@ -623,7 +623,7 @@ export default function BloquesReservadosManager() {
 
                                                     <div className="flex flex-col sm:flex-row gap-5">
                                                         <div className="flex flex-row sm:flex-col items-center sm:items-start gap-3 sm:w-1/4 shrink-0 border-b sm:border-b-0 sm:border-r border-slate-100 pb-4 sm:pb-0 sm:pr-4">
-                                                            <div className="w-10 h-10 rounded-xl bg-purple-50 text-hx-purple font-black flex items-center justify-center text-lg border border-purple-100 shadow-sm">
+                                                            <div className="w-10 h-10 rounded-xl bg-[var(--color-brand-light)] text-brand-primary font-black flex items-center justify-center text-lg border border-[var(--color-brand-light)] shadow-sm">
                                                                 {opIdx + 1}
                                                             </div>
                                                             <div>
@@ -661,7 +661,7 @@ export default function BloquesReservadosManager() {
                                                                                     if (formErrors.opciones_slots) setFormErrors({ ...formErrors, opciones_slots: null });
                                                                                 }}
                                                                                 className={`w-10 h-10 rounded-xl font-black text-sm transition-all border-2 cursor-pointer ${isSelected
-                                                                                    ? 'bg-[var(--color-hx-purple)] border-[var(--color-hx-purple)] text-white shadow-md scale-105'
+                                                                                    ? 'bg-[var(--color-brand-primary)] border-[var(--color-brand-primary)] text-white shadow-md scale-105'
                                                                                     : (formErrors.opciones_slots && op.length === 0 ? 'bg-red-50 border-red-300 text-red-500' : 'bg-slate-50 border-slate-200 text-slate-400 hover:border-slate-300 hover:text-slate-600 hover:bg-slate-100')
                                                                                     }`}
                                                                             >
@@ -699,7 +699,7 @@ export default function BloquesReservadosManager() {
                             <button
                                 onClick={handleSave}
                                 disabled={isSaving}
-                                className="px-8 py-3 bg-[var(--color-hx-purple)] text-white font-black rounded-xl hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+                                className="px-8 py-3 bg-[var(--color-brand-primary)] text-white font-black rounded-xl hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
                             >
                                 {isSaving ? 'Guardando...' : 'Guardar Bloque'}
                             </button>

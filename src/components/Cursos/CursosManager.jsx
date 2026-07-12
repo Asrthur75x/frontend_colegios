@@ -100,7 +100,7 @@ const CursoBookCard = ({ curso, area, onEdit, onDelete, index }) => {
                     <button
                         onClick={(e) => { e.stopPropagation(); onEdit(curso); }}
                         title="Editar"
-                        className="p-2.5 bg-white text-hx-purple rounded-full shadow-lg hover:bg-purple-50 hover:scale-110 transition-all cursor-pointer"
+                        className="p-2.5 bg-white text-brand-primary rounded-full shadow-lg hover:bg-[var(--color-brand-light)] hover:scale-110 transition-all cursor-pointer"
                     >
                         <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                     </button>
@@ -420,7 +420,7 @@ export default function CursosManager() {
             {/* Cabecera Superior (Banner + Espacio Derecho) */}
             <div className="flex flex-col md:flex-row gap-6">
 
-                <div className="md:w-2/3 bg-[var(--color-hx-purple)]/10 rounded-[24px] p-8 shadow-md relative overflow-hidden flex flex-col justify-center min-h-[180px] border border-[var(--color-hx-purple)]/70">
+                <div className="md:w-2/3 bg-[var(--color-brand-primary)]/10 rounded-[24px] p-8 shadow-md relative overflow-hidden flex flex-col justify-center min-h-[180px] border border-[var(--color-brand-primary)]/70">
                     <div className="relative z-10 flex flex-col md:flex-row justify-between items-center md:items-start gap-6">
                         <div className="max-w-md">
                             <h2 className="text-3xl md:text-4xl font-black text-slate-800 tracking-tight leading-tight mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -434,14 +434,14 @@ export default function CursosManager() {
                                 {existeTutoria ? (
                                     <button
                                         onClick={abrirModalNueva}
-                                        className="bg-hx-purple text-white hover:bg-hx-purple/80 font-extrabold py-2.5 px-6 rounded-xl shadow-[0_4px_12px_rgba(121,14,236,0.3)] hover:shadow-[0_6px_16px_rgba(121,14,236,0.4)] hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2 text-sm w-max cursor-pointer">
+                                        className="bg-brand-primary text-white hover:bg-brand-primary/80 font-extrabold py-2.5 px-6 rounded-xl shadow-[0_4px_12px_rgba(47, 91, 255,0.3)] hover:shadow-[0_6px_16px_rgba(47, 91, 255,0.4)] hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2 text-sm w-max cursor-pointer">
                                         <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
                                         Añadir Nuevos Cursos
                                     </button>
                                 ) : (
                                     <button
                                         onClick={() => setIsModalTutoriaOpen(true)}
-                                        className="bg-hx-purple text-white hover:bg-hx-purple/80 font-extrabold py-2.5 px-6 rounded-xl shadow-[0_4px_12px_rgba(121,14,236,0.3)] hover:shadow-[0_6px_16px_rgba(121,14,236,0.4)] hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2 text-sm w-max cursor-pointer"
+                                        className="bg-brand-primary text-white hover:bg-brand-primary/80 font-extrabold py-2.5 px-6 rounded-xl shadow-[0_4px_12px_rgba(47, 91, 255,0.3)] hover:shadow-[0_6px_16px_rgba(47, 91, 255,0.4)] hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2 text-sm w-max cursor-pointer"
                                         title="Primero configura el curso de Tutoría">
                                         <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
                                         Configurar Tutoría
@@ -474,7 +474,7 @@ export default function CursosManager() {
                                 <span className="text-slate-400 text-sm font-bold">registrados</span>
                             </div>
                         </div>
-                        <div className="w-12 h-12 rounded-[14px] bg-hx-purple/10 text-hx-purple flex items-center justify-center border border-hx-purple/20 shadow-sm">
+                        <div className="w-12 h-12 rounded-[14px] bg-brand-primary/10 text-brand-primary flex items-center justify-center border border-brand-primary/20 shadow-sm">
                             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
                         </div>
                     </div>
@@ -482,7 +482,7 @@ export default function CursosManager() {
                     <div className="flex-1 grid grid-cols-2 gap-3 mt-4 mb-2">
                         {/* Columna 1: Área Principal */}
                         <div className="rounded-xl p-3 flex flex-col justify-center shadow-sm overflow-hidden">
-                            <p className="text-hx-purple text-[10px] font-black uppercase tracking-widest mb-1 truncate">Mayor Área</p>
+                            <p className="text-brand-primary text-[10px] font-black uppercase tracking-widest mb-1 truncate">Mayor Área</p>
                             <div className="flex flex-col mt-1">
                                 <span className="text-sm font-black text-black leading-tight truncate" title={maxAreaName}>
                                     {maxAreaCount > 0 ? maxAreaName : 'Ninguna'}
@@ -495,7 +495,7 @@ export default function CursosManager() {
 
                         {/* Columna 2: Espacio Único */}
                         <div className="rounded-xl p-3 flex flex-col justify-center shadow-sm">
-                            <p className="text-hx-purple text-[10px] font-black uppercase tracking-widest mb-1">Espacio Único</p>
+                            <p className="text-brand-primary text-[10px] font-black uppercase tracking-widest mb-1">Espacio Único</p>
                             <div className="flex items-end gap-1.5 mt-1">
                                 <span className="text-2xl font-black text-black leading-none">{cursosEspacioUnico}</span>
                                 <span className="text-black/80 text-[10px] font-bold mb-0.5">cursos</span>
@@ -516,7 +516,7 @@ export default function CursosManager() {
             {/* Estado de Carga */}
             {loading && cursos.length === 0 && (
                 <div className="flex justify-center py-12">
-                    <div className="w-8 h-8 border-4 border-hx-purple/30 border-t-hx-purple rounded-full animate-spin"></div>
+                    <div className="w-8 h-8 border-4 border-brand-primary/30 border-t-brand-primary rounded-full animate-spin"></div>
                 </div>
             )}
 
@@ -526,7 +526,7 @@ export default function CursosManager() {
                     <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 bg-white py-2 px-4 rounded-[20px] border border-slate-100 shadow-sm md:h-16 w-full gap-4 md:gap-0">
                         {/* Izquierda: Título */}
                         <div className="flex-shrink-0 flex items-center gap-3 w-full md:w-1/4">
-                            <div className="w-10 h-10 bg-hx-purple/10 rounded-xl flex items-center justify-center text-hx-purple">
+                            <div className="w-10 h-10 bg-brand-primary/10 rounded-xl flex items-center justify-center text-brand-primary">
                                 <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
                             </div>
                             <h2 className="text-[20px] font-black text-slate-800 tracking-tight whitespace-nowrap">Cursos</h2>
@@ -534,7 +534,7 @@ export default function CursosManager() {
 
                         {/* Medio: Buscador Pill */}
                         <div className="flex-1 w-full max-w-lg mx-auto md:mx-4">
-                            <div className="relative group flex items-center bg-white rounded-full p-1.5 border-2 border-slate-200 focus-within:border-hx-purple transition-all h-12 w-full">
+                            <div className="relative group flex items-center bg-white rounded-full p-1.5 border-2 border-slate-200 focus-within:border-brand-primary transition-all h-12 w-full">
                                 <input
                                     type="text"
                                     placeholder="Buscar curso por nombre..."
@@ -547,7 +547,7 @@ export default function CursosManager() {
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                                     </button>
                                 )}
-                                <div className="w-9 h-9 rounded-full bg-hx-purple flex items-center justify-center text-white flex-shrink-0 shadow-sm mr-0.5">
+                                <div className="w-9 h-9 rounded-full bg-brand-primary flex items-center justify-center text-white flex-shrink-0 shadow-sm mr-0.5">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
                                 </div>
                             </div>
@@ -618,13 +618,13 @@ export default function CursosManager() {
                                                     key={area.id_area}
                                                     type="button"
                                                     onClick={() => setNuevoCurso({ ...nuevoCurso, id_area: area.id_area })}
-                                                    className={`p-3 rounded-xl border text-left flex items-center justify-between transition-all cursor-pointer ${isSelected ? 'border-hx-purple bg-purple-50 ring-2 ring-hx-purple/20 shadow-sm' : 'border-slate-200 hover:border-purple-200 hover:bg-purple-50/30 bg-white'}`}
+                                                    className={`p-3 rounded-xl border text-left flex items-center justify-between transition-all cursor-pointer ${isSelected ? 'border-brand-primary bg-[var(--color-brand-light)] ring-2 ring-brand-primary/20 shadow-sm' : 'border-slate-200 hover:border-[var(--color-brand-light)] hover:bg-[var(--color-brand-light)]/30 bg-white'}`}
                                                 >
-                                                    <span className={`text-sm font-bold truncate pr-2 ${isSelected ? 'text-hx-purple' : 'text-slate-700'}`}>
+                                                    <span className={`text-sm font-bold truncate pr-2 ${isSelected ? 'text-brand-primary' : 'text-slate-700'}`}>
                                                         {area.nombre || area.nombre_area}
                                                     </span>
                                                     {isSelected ? (
-                                                        <div className="w-5 h-5 rounded-full bg-hx-purple flex items-center justify-center flex-shrink-0 shadow-sm">
+                                                        <div className="w-5 h-5 rounded-full bg-brand-primary flex items-center justify-center flex-shrink-0 shadow-sm">
                                                             <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth="3">
                                                                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                                                             </svg>
@@ -652,7 +652,7 @@ export default function CursosManager() {
                                             placeholder="Ej. Matemática Básica"
                                             value={nuevoCurso.nombre_curso}
                                             onChange={(e) => setNuevoCurso({ ...nuevoCurso, nombre_curso: e.target.value })}
-                                            className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-hx-purple focus:ring-4 focus:ring-hx-purple/10 outline-none transition-all text-sm font-medium text-[#111827] placeholder:text-slate-300 shadow-sm"
+                                            className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 outline-none transition-all text-sm font-medium text-[#111827] placeholder:text-slate-300 shadow-sm"
                                         />
                                     ) : (
                                         <div className="space-y-3">
@@ -663,7 +663,7 @@ export default function CursosManager() {
                                                     value={inputCursoVirtual}
                                                     onChange={(e) => setInputCursoVirtual(e.target.value)}
                                                     onKeyDown={handleAddCursoToList}
-                                                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-hx-purple focus:ring-4 focus:ring-hx-purple/10 outline-none transition-all text-sm font-medium text-[#111827] placeholder:text-slate-300 shadow-sm"
+                                                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 outline-none transition-all text-sm font-medium text-[#111827] placeholder:text-slate-300 shadow-sm"
                                                     autoFocus
                                                 />
                                                 <button
@@ -676,7 +676,7 @@ export default function CursosManager() {
                                                         }
                                                     }}
                                                     disabled={!inputCursoVirtual.trim()}
-                                                    className="px-4 py-3 bg-hx-purple/10 text-hx-purple font-bold text-sm rounded-xl hover:bg-hx-purple hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm flex items-center gap-1.5 flex-shrink-0 cursor-pointer"
+                                                    className="px-4 py-3 bg-brand-primary/10 text-brand-primary font-bold text-sm rounded-xl hover:bg-brand-primary hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm flex items-center gap-1.5 flex-shrink-0 cursor-pointer"
                                                 >
                                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                                                     Agregar
@@ -691,21 +691,21 @@ export default function CursosManager() {
                                                 <div className="flex flex-col gap-2.5 pt-3 max-h-[200px] overflow-y-auto pr-1 stylish-scroll">
                                                     {cursosNuevos.map(c => (
                                                         <div key={c.nombre} className={`flex items-center justify-between gap-3 px-4 py-3 rounded-xl border-2 border-l-4 transition-all animate-fade-in ${c.requiere_espacio_unico
-                                                            ? 'bg-purple-50 border-hx-purple/30 border-l-hx-purple'
-                                                            : 'bg-hx-purple/5 border-hx-purple/15 border-l-hx-purple/50'
+                                                            ? 'bg-[var(--color-brand-light)] border-brand-primary/30 border-l-brand-primary'
+                                                            : 'bg-brand-primary/5 border-brand-primary/15 border-l-brand-primary/50'
                                                             }`}>
                                                             <div className="flex items-center gap-2.5 min-w-0">
-                                                                <div className="w-7 h-7 rounded-lg bg-hx-purple/15 flex items-center justify-center flex-shrink-0">
-                                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-hx-purple)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+                                                                <div className="w-7 h-7 rounded-lg bg-brand-primary/15 flex items-center justify-center flex-shrink-0">
+                                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-brand-primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
                                                                 </div>
                                                                 <span className="text-sm font-bold text-slate-800 truncate">{c.nombre}</span>
                                                             </div>
                                                             <div className="flex items-center gap-2 flex-shrink-0">
-                                                                <span className={`text-[10px] font-bold whitespace-nowrap ${c.requiere_espacio_unico ? 'text-hx-purple' : 'text-slate-400'}`}>Espacio Único</span>
+                                                                <span className={`text-[10px] font-bold whitespace-nowrap ${c.requiere_espacio_unico ? 'text-brand-primary' : 'text-slate-400'}`}>Espacio Único</span>
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => toggleEspacioUnicoCurso(c.nombre)}
-                                                                    className={`relative w-11 h-6 rounded-full transition-colors duration-300 cursor-pointer flex-shrink-0 ${c.requiere_espacio_unico ? 'bg-hx-purple' : 'bg-slate-300'
+                                                                    className={`relative w-11 h-6 rounded-full transition-colors duration-300 cursor-pointer flex-shrink-0 ${c.requiere_espacio_unico ? 'bg-brand-primary' : 'bg-slate-300'
                                                                         }`}
                                                                     title="Requiere espacio único (aula exclusiva)"
                                                                 >
@@ -738,22 +738,22 @@ export default function CursosManager() {
                                         type="button"
                                         onClick={() => setNuevoCurso({ ...nuevoCurso, requiere_espacio_unico: !nuevoCurso.requiere_espacio_unico })}
                                         className={`w-full p-3 rounded-xl border-2 flex items-center justify-between transition-all cursor-pointer ${nuevoCurso.requiere_espacio_unico
-                                            ? 'border-hx-purple bg-purple-50 shadow-sm'
+                                            ? 'border-brand-primary bg-[var(--color-brand-light)] shadow-sm'
                                             : 'border-slate-200 bg-white hover:border-slate-300'
                                             }`}
                                     >
                                         <div className="flex items-center gap-3">
-                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${nuevoCurso.requiere_espacio_unico ? 'bg-hx-purple text-white' : 'bg-slate-100 text-slate-400'
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${nuevoCurso.requiere_espacio_unico ? 'bg-brand-primary text-white' : 'bg-slate-100 text-slate-400'
                                                 }`}>
                                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
                                             </div>
                                             <div className="text-left">
-                                                <span className={`text-sm font-bold block ${nuevoCurso.requiere_espacio_unico ? 'text-hx-purple' : 'text-slate-700'}`}>Requiere Espacio Único</span>
+                                                <span className={`text-sm font-bold block ${nuevoCurso.requiere_espacio_unico ? 'text-brand-primary' : 'text-slate-700'}`}>Requiere Espacio Único</span>
                                                 <span className="text-[11px] text-slate-400 font-medium">Necesita un aula o laboratorio exclusivo</span>
                                             </div>
                                         </div>
                                         {/* Switch visual */}
-                                        <div className={`w-10 h-6 rounded-full p-0.5 transition-colors ${nuevoCurso.requiere_espacio_unico ? 'bg-hx-purple' : 'bg-slate-200'}`}>
+                                        <div className={`w-10 h-6 rounded-full p-0.5 transition-colors ${nuevoCurso.requiere_espacio_unico ? 'bg-brand-primary' : 'bg-slate-200'}`}>
                                             <div className={`w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${nuevoCurso.requiere_espacio_unico ? 'translate-x-4' : 'translate-x-0'}`}></div>
                                         </div>
                                     </button>
@@ -771,7 +771,7 @@ export default function CursosManager() {
                                 <button
                                     type="submit"
                                     disabled={guardando || !nuevoCurso.id_area || (!isEditing && (cursosNuevos.length === 0 || inputCursoVirtual.trim() !== '')) || (isEditing && !nuevoCurso.nombre_curso)}
-                                    className="cursor-pointer flex-1 py-3 px-4 bg-hx-purple hover:bg-hx-purple/90 text-white text-sm font-bold rounded-xl shadow-md hover:shadow-lg transition-all flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                                    className="cursor-pointer flex-1 py-3 px-4 bg-brand-primary hover:bg-brand-primary/90 text-white text-sm font-bold rounded-xl shadow-md hover:shadow-lg transition-all flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                                     {guardando ? (
                                         <>
                                             <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
@@ -796,9 +796,9 @@ export default function CursosManager() {
                     <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" onClick={() => setIsModalTutoriaOpen(false)}></div>
                     <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-md overflow-hidden relative z-10 animate-fade-in flex flex-col border border-slate-100">
                         {/* Cabecera */}
-                        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-hx-purple/5">
+                        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-brand-primary/5">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-hx-purple/10 flex items-center justify-center text-hx-purple">
+                                <div className="w-10 h-10 rounded-xl bg-brand-primary/10 flex items-center justify-center text-brand-primary">
                                     <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
                                 </div>
                                 <h3 className="text-xl font-black text-slate-800 tracking-tight">Configurar Tutoría</h3>
@@ -812,16 +812,16 @@ export default function CursosManager() {
                             <p className="text-sm text-slate-600 font-medium leading-relaxed mb-2">
                                 Para configurar correctamente el horario de este curso, responde la siguiente pregunta:
                             </p>
-                            <h4 className="text-[13px] font-black text-hx-purple uppercase tracking-wider text-center">¿Quién dictará este curso?</h4>
+                            <h4 className="text-[13px] font-black text-brand-primary uppercase tracking-wider text-center">¿Quién dictará este curso?</h4>
 
                             <div className="flex flex-col gap-3 mt-4">
                                 <button
                                     type="button"
                                     onClick={() => handleConfigurarTutoria('oficial')}
                                     disabled={guardando}
-                                    className="text-left p-4 rounded-xl bg-white border-2 border-slate-200 hover:border-hx-purple hover:bg-purple-50 transition-all cursor-pointer group flex flex-col items-start relative overflow-hidden disabled:opacity-50"
+                                    className="text-left p-4 rounded-xl bg-white border-2 border-slate-200 hover:border-brand-primary hover:bg-[var(--color-brand-light)] transition-all cursor-pointer group flex flex-col items-start relative overflow-hidden disabled:opacity-50"
                                 >
-                                    <span className="font-black text-slate-800 text-base group-hover:text-hx-purple transition-colors">Solo el Encargado del Aula</span>
+                                    <span className="font-black text-slate-800 text-base group-hover:text-brand-primary transition-colors">Solo el Encargado del Aula</span>
                                     <span className="text-xs text-slate-500 font-medium mt-1">El sistema obligará a que el Tutor asignado de la sección dicte este curso.</span>
                                 </button>
 

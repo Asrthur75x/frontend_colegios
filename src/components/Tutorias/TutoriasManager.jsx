@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 const API_BASE = 'http://localhost:8000/api';
 
 const GRADO_COLORS = [
-    'var(--color-hx-purple)'
+    'var(--color-brand-primary)'
 ];
 
 // Tarjeta con diseño exacto a la referencia (Carpeta oscura con borde negro y fondo degradado)
@@ -180,7 +180,7 @@ export default function TutoriasManager() {
 
             {/* ── Banner ── */}
             <div className="flex flex-col md:flex-row gap-6 mb-2">
-                <div className="md:w-2/3 bg-[var(--color-hx-purple)]/10 rounded-[24px] p-8 shadow-md relative overflow-hidden flex flex-col justify-center min-h-[180px] border border-[var(--color-hx-purple)]/70">
+                <div className="md:w-2/3 bg-[var(--color-brand-primary)]/10 rounded-[24px] p-8 shadow-md relative overflow-hidden flex flex-col justify-center min-h-[180px] border border-[var(--color-brand-primary)]/70">
                     <div className="relative z-10 flex flex-col md:flex-row justify-between items-center md:items-center gap-6">
                         <div className="max-w-md">
                             <h2 className="text-3xl md:text-4xl font-black text-slate-800 tracking-tight leading-tight mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -212,18 +212,18 @@ export default function TutoriasManager() {
                                 <h3 className="text-4xl font-black text-slate-800 tracking-tighter">{secciones.length}</h3>
                             </div>
                         </div>
-                        <div className="w-12 h-12 rounded-[14px] bg-hx-purple/10 text-hx-purple flex items-center justify-center border border-hx-purple/20 shadow-sm">
+                        <div className="w-12 h-12 rounded-[14px] bg-brand-primary/10 text-brand-primary flex items-center justify-center border border-brand-primary/20 shadow-sm">
                             <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
                         </div>
                     </div>
 
-                    <div className="mt-auto bg-purple-50 rounded-xl p-3.5 border border-purple-100/60 flex gap-3 items-start">
-                        <div className="text-hx-purple bg-white p-1 rounded-lg shadow-sm border border-purple-100 mt-0.5 flex-shrink-0">
+                    <div className="mt-auto bg-[var(--color-brand-light)] rounded-xl p-3.5 border border-[var(--color-brand-light)]/60 flex gap-3 items-start">
+                        <div className="text-brand-primary bg-white p-1 rounded-lg shadow-sm border border-[var(--color-brand-light)] mt-0.5 flex-shrink-0">
                             <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="8.5" cy="7" r="4" /><polyline points="17 11 19 13 23 9" /></svg>
                         </div>
                         <div>
-                            <p className="text-purple-800 text-[12px] font-bold mb-0.5">Con Tutor</p>
-                            <p className="text-purple-700/80 text-[11px] font-medium leading-relaxed">
+                            <p className="text-[var(--color-brand-dark)] text-[12px] font-bold mb-0.5">Con Tutor</p>
+                            <p className="text-[var(--color-brand-dark)]/80 text-[11px] font-medium leading-relaxed">
                                 Tienes {tutorias.length} secciones con tutor asignado.
                             </p>
                         </div>
@@ -303,7 +303,7 @@ export default function TutoriasManager() {
                                                 key={sec.id_seccion}
                                                 sec={sec}
                                                 tutor={getTutorDeSeccion(sec.id_seccion)}
-                                                gradoColor="var(--color-hx-purple)"
+                                                gradoColor="var(--color-brand-primary)"
                                                 sedeNombre={sedeNombre}
                                                 onAsignar={abrirModal}
                                                 onQuitar={handleQuitarTutor}
@@ -332,15 +332,15 @@ export default function TutoriasManager() {
                                 <div>
                                     <h2 className="text-2xl font-black text-slate-800 tracking-tight">Elegir Tutor</h2>
                                     <p className="text-[13px] text-slate-500 mt-1 font-medium">
-                                        Para <span className="font-bold text-hx-purple">{selectedSeccion.nombre || `Sección ${selectedSeccion.id_seccion}`}</span>
+                                        Para <span className="font-bold text-brand-primary">{selectedSeccion.nombre || `Sección ${selectedSeccion.id_seccion}`}</span>
                                     </p>
                                 </div>
                                 <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 w-10 h-10 rounded-full flex items-center justify-center transition-colors cursor-pointer">
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                                 </button>
                             </div>
-                            <div className="w-full h-12 bg-slate-50/80 hover:bg-slate-100/80 border-2 border-slate-200 focus-within:border-hx-purple focus-within:bg-white focus-within:shadow-sm rounded-xl flex items-center transition-all duration-300 relative group overflow-hidden mt-1">
-                                <div className="pl-4 pr-3 text-slate-400 group-focus-within:text-hx-purple transition-colors">
+                            <div className="w-full h-12 bg-slate-50/80 hover:bg-slate-100/80 border-2 border-slate-200 focus-within:border-brand-primary focus-within:bg-white focus-within:shadow-sm rounded-xl flex items-center transition-all duration-300 relative group overflow-hidden mt-1">
+                                <div className="pl-4 pr-3 text-slate-400 group-focus-within:text-brand-primary transition-colors">
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
                                 </div>
                                 <input 
@@ -355,7 +355,7 @@ export default function TutoriasManager() {
 
                         <div className="p-6 overflow-y-auto flex-1 min-h-0 space-y-2 bg-slate-50/50 custom-scrollbar">
                             {guardando && (
-                                <div className="flex items-center justify-center gap-2 mb-4 px-4 py-3 rounded-2xl text-[13px] font-bold bg-hx-purple/10 text-hx-purple">
+                                <div className="flex items-center justify-center gap-2 mb-4 px-4 py-3 rounded-2xl text-[13px] font-bold bg-brand-primary/10 text-brand-primary">
                                     <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin"></div>
                                     Guardando asignación...
                                 </div>

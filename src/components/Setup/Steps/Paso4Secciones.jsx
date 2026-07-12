@@ -69,7 +69,7 @@ export default function Paso4Secciones({ data, setData, isSaved, onEnableEdit, i
                 {isSaved && (
                     <button
                         onClick={onEnableEdit}
-                        className="px-4 py-1.5 rounded-full border-2 border-[#790EEC] text-[#ffffff] text-sm font-bold bg-[#790EEC] hover:bg-[#6b0bc9] hover:border-[#6b0bc9] transition-colors shadow-sm cursor-pointer flex items-center justify-center gap-2"
+                        className="px-4 py-1.5 rounded-full border-2 border-[var(--color-brand-primary)] text-[#ffffff] text-sm font-bold bg-[var(--color-brand-primary)] hover:bg-[var(--color-brand-dark)] hover:border-[var(--color-brand-dark)] transition-colors shadow-sm cursor-pointer flex items-center justify-center gap-2"
                     >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
                         Activar Edición
@@ -78,7 +78,7 @@ export default function Paso4Secciones({ data, setData, isSaved, onEnableEdit, i
                 {isEditing && (
                     <button
                         onClick={onCancelEdit}
-                        className="px-4 py-1.5 rounded-full border-2 border-[#790EEC] text-slate-500 text-sm font-bold bg-white hover:bg-slate-50 transition-colors shadow-sm cursor-pointer flex items-center justify-center gap-2"
+                        className="px-4 py-1.5 rounded-full border-2 border-[var(--color-brand-primary)] text-slate-500 text-sm font-bold bg-white hover:bg-slate-50 transition-colors shadow-sm cursor-pointer flex items-center justify-center gap-2"
                     >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                         Cancelar Edición
@@ -98,7 +98,7 @@ export default function Paso4Secciones({ data, setData, isSaved, onEnableEdit, i
                                     key={sede}
                                     onClick={() => setActiveSede(sede)}
                                     className={`cursor-pointer px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 ${isActive
-                                        ? 'bg-[#790EEC] text-white shadow-lg shadow-[#790EEC]/30 scale-105'
+                                        ? 'bg-[var(--color-brand-primary)] text-white shadow-lg shadow-[var(--color-brand-primary)]/30 scale-105'
                                         : 'bg-transparent text-slate-500 hover:bg-slate-200 hover:text-slate-700'
                                         }`}
                                 >
@@ -114,7 +114,7 @@ export default function Paso4Secciones({ data, setData, isSaved, onEnableEdit, i
                         const seleccionadas = currentSecciones[grado] || [];
 
                         return (
-                            <div key={grado} className="bg-white border border-slate-100 rounded-2xl p-4 sm:p-5 flex flex-col hover:border-[#790EEC]/50 hover:shadow-md transition-all gap-4">
+                            <div key={grado} className="bg-white border border-slate-100 rounded-2xl p-4 sm:p-5 flex flex-col hover:border-[var(--color-brand-primary)]/50 hover:shadow-md transition-all gap-4">
                                 {/* Cabecera del grado */}
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 shadow-sm flex items-center justify-center font-black text-lg text-slate-700">
@@ -132,8 +132,8 @@ export default function Paso4Secciones({ data, setData, isSaved, onEnableEdit, i
                                                 key={opcion}
                                                 onClick={() => toggleSeccion(grado, opcion)}
                                                 className={`cursor-pointer px-4 py-2 rounded-xl font-bold text-sm transition-all border-2 ${isSelected
-                                                    ? 'bg-[#790EEC] border-[#790EEC] text-white shadow-md shadow-[#790EEC]/20 scale-105'
-                                                    : 'bg-white border-slate-200 text-slate-500 hover:border-[#790EEC]/40 hover:bg-[#790EEC]/5'
+                                                    ? 'bg-[var(--color-brand-primary)] border-[var(--color-brand-primary)] text-white shadow-md shadow-[var(--color-brand-primary)]/20 scale-105'
+                                                    : 'bg-white border-slate-200 text-slate-500 hover:border-[var(--color-brand-primary)]/40 hover:bg-[var(--color-brand-primary)]/5'
                                                     }`}
                                             >
                                                 {opcion}
@@ -159,7 +159,7 @@ export default function Paso4Secciones({ data, setData, isSaved, onEnableEdit, i
                                                     }
                                                 }}
                                                 placeholder="Ej: Única, E..."
-                                                className="w-28 px-3 py-2 rounded-xl text-sm border-2 border-[#790EEC] focus:outline-none focus:ring-2 focus:ring-[#790EEC]/20"
+                                                className="w-28 px-3 py-2 rounded-xl text-sm border-2 border-[var(--color-brand-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)]/20"
                                                 autoFocus
                                             />
                                             <button
@@ -169,7 +169,7 @@ export default function Paso4Secciones({ data, setData, isSaved, onEnableEdit, i
                                                     setAddingCustom(prev => ({ ...prev, [grado]: false }));
                                                     setCustomInput(prev => ({ ...prev, [grado]: '' }));
                                                 }}
-                                                className="w-9 h-9 flex items-center justify-center bg-[#790EEC] text-white rounded-xl hover:bg-[#790EEC] transition-colors"
+                                                className="w-9 h-9 flex items-center justify-center bg-[var(--color-brand-primary)] text-white rounded-xl hover:bg-[var(--color-brand-primary)] transition-colors"
                                             >
                                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                                             </button>
@@ -186,7 +186,7 @@ export default function Paso4Secciones({ data, setData, isSaved, onEnableEdit, i
                                     ) : (
                                         <button
                                             onClick={() => setAddingCustom(prev => ({ ...prev, [grado]: true }))}
-                                            className="cursor-pointer px-3 py-2 rounded-xl font-bold text-sm transition-all border-2 border-dashed border-slate-300 text-slate-400 hover:border-[#790EEC] hover:text-[#790EEC] hover:bg-[#790EEC]/5 flex items-center justify-center"
+                                            className="cursor-pointer px-3 py-2 rounded-xl font-bold text-sm transition-all border-2 border-dashed border-slate-300 text-slate-400 hover:border-[var(--color-brand-primary)] hover:text-[var(--color-brand-primary)] hover:bg-[var(--color-brand-primary)]/5 flex items-center justify-center"
                                             title="Añadir otra sección"
                                         >
                                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
