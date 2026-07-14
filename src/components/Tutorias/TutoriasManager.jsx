@@ -171,7 +171,7 @@ export default function TutoriasManager() {
         if (!loading && secciones.length > 0) {
             console.log(`Tutorias: Secciones=${secciones.length}, Tutorias=${tutorias.length}, Ready=${isConfigReady}`);
             localStorage.setItem('configReady', isConfigReady ? 'true' : 'false');
-            window.dispatchEvent(new Event('horarix_config_ready'));
+            window.dispatchEvent(new Event('edusync_config_ready'));
         }
     }, [isConfigReady, loading, secciones.length, tutorias.length]);
 

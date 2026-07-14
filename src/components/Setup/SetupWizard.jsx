@@ -23,7 +23,7 @@ const DEFAULT_DATA = {
 function getSavedStep() {
     if (typeof window === 'undefined') return 1;
     try {
-        const s = sessionStorage.getItem('horarix_wizard_step');
+        const s = sessionStorage.getItem('edusync_wizard_step');
         return s ? parseInt(s, 10) : 1;
     } catch { return 1; }
 }
@@ -31,7 +31,7 @@ function getSavedStep() {
 function getSavedData() {
     if (typeof window === 'undefined') return DEFAULT_DATA;
     try {
-        const d = sessionStorage.getItem('horarix_wizard_data');
+        const d = sessionStorage.getItem('edusync_wizard_data');
         return d ? JSON.parse(d) : DEFAULT_DATA;
     } catch { return DEFAULT_DATA; }
 }
@@ -39,7 +39,7 @@ function getSavedData() {
 function getSavedSteps() {
     if (typeof window === 'undefined') return [];
     try {
-        const s = sessionStorage.getItem('horarix_wizard_saved_steps');
+        const s = sessionStorage.getItem('edusync_wizard_saved_steps');
         return s ? JSON.parse(s) : [];
     } catch { return []; }
 }
@@ -82,9 +82,9 @@ export default function SetupWizard() {
     useEffect(() => {
         // Limpiar claves viejas de localStorage (migración a sessionStorage)
         try {
-            localStorage.removeItem('horarix_wizard_step');
-            localStorage.removeItem('horarix_wizard_data');
-            localStorage.removeItem('horarix_wizard_saved_steps');
+            localStorage.removeItem('edusync_wizard_step');
+            localStorage.removeItem('edusync_wizard_data');
+            localStorage.removeItem('edusync_wizard_saved_steps');
         } catch (_) { }
 
         // Cargar datos inicialmente
@@ -98,9 +98,9 @@ export default function SetupWizard() {
             .then(async (colegios) => {
                 if (colegios.length === 0 || !colegios[0].nombre_colegio) {
                     // Si no hay colegio o su nombre está vacío, forzamos un reseteo de la sesión
-                    sessionStorage.removeItem('horarix_wizard_step');
-                    sessionStorage.removeItem('horarix_wizard_data');
-                    sessionStorage.removeItem('horarix_wizard_saved_steps');
+                    sessionStorage.removeItem('edusync_wizard_step');
+                    sessionStorage.removeItem('edusync_wizard_data');
+                    sessionStorage.removeItem('edusync_wizard_saved_steps');
                     setStep(1);
                     setWizardData(DEFAULT_DATA);
                     setSavedSteps([]);
@@ -108,7 +108,7 @@ export default function SetupWizard() {
                 } else {
                     // Si el colegio existe en la BD pero no hay sesión guardada (e.g. cerró la pestaña),
                     // restauramos el progreso desde el backend para evitar crear duplicados.
-                    const sStep = sessionStorage.getItem('horarix_wizard_step');
+                    const sStep = sessionStorage.getItem('edusync_wizard_step');
                     if (!sStep) {
                         let newWizardData = JSON.parse(JSON.stringify(DEFAULT_DATA));
                         let newSavedSteps = [];
@@ -225,9 +225,9 @@ export default function SetupWizard() {
         if (!dataLoaded) return;
         if (typeof window === 'undefined') return;
         try {
-            sessionStorage.setItem('horarix_wizard_step', step.toString());
-            sessionStorage.setItem('horarix_wizard_data', JSON.stringify(wizardData));
-            sessionStorage.setItem('horarix_wizard_saved_steps', JSON.stringify(savedSteps));
+            sessionStorage.setItem('edusync_wizard_step', step.toString());
+            sessionStorage.setItem('edusync_wizard_data', JSON.stringify(wizardData));
+            sessionStorage.setItem('edusync_wizard_saved_steps', JSON.stringify(savedSteps));
         } catch (e) {
             console.warn('No se pudo guardar en sessionStorage', e);
         }
@@ -857,13 +857,45 @@ export default function SetupWizard() {
         } else if (step === 5 && totalSteps === 6) {
             setErrorMsg('');
 
+            const { seccionTurno, secciones } = wizardData;
+            let missingShifts = false;
+
+            if (!seccionTurno) {
+                missingShifts = true;
+            } else {
+                for (const sede of Object.keys(secciones || {})) {
+                    for (const grado of Object.keys(secciones[sede] || {})) {
+                        for (const sec of (secciones[sede][grado] || [])) {
+                            const val = seccionTurno[sede]?.[grado]?.[sec];
+                            if (val === null || val === undefined || val === '') {
+                                missingShifts = true;
+                                break;
+                            } else if (typeof val === 'object') {
+                                // En modo avanzado, hay que verificar que ningún día esté vacío
+                                if (Object.values(val).some(v => v === null || v === undefined || v === '')) {
+                                    missingShifts = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (missingShifts) break;
+                    }
+                    if (missingShifts) break;
+                }
+            }
+
+            if (missingShifts) {
+                showError("Falta asignar turnos. Por favor, selecciona un turno (Mañana o Tarde) para todas las secciones.");
+                return;
+            }
+
             saveStep5Data();
         } else if (step === totalSteps) {
             if (typeof window !== 'undefined') {
                 setTimeout(() => {
-                    sessionStorage.removeItem('horarix_wizard_step');
-                    sessionStorage.removeItem('horarix_wizard_data');
-                    sessionStorage.removeItem('horarix_wizard_saved_steps');
+                    sessionStorage.removeItem('edusync_wizard_step');
+                    sessionStorage.removeItem('edusync_wizard_data');
+                    sessionStorage.removeItem('edusync_wizard_saved_steps');
                     window.location.href = '/dashboard';
                 }, 800);
             }
@@ -917,19 +949,19 @@ export default function SetupWizard() {
             }}
         >
             {/* ===== LEFT PANEL: MAP TIMELINE ===== */}
-            <div className="hidden lg:block w-[30%] max-w-[350px] h-full relative border-r border-[var(--color-brand-white)]/50 z-10 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
+            <div className="hidden lg:block w-[30%] max-w-[350px] h-full relative border-r border-[var(--color-brand-white)]/50 z-10 shadow-[4px_0_24px_rgba(0,0,0,0.02)] overflow-hidden">
                 {/* Branding Top Left */}
                 <div className="absolute top-8 left-8 flex items-center gap-2 z-50">
-                    <span className="text-[22px] font-black tracking-wide text-[var(--color-brand-primary)] drop-shadow-sm">PlanificaPro</span>
+                    <span className="text-[22px] font-black tracking-wide text-[var(--color-brand-dark)] drop-shadow-sm">HoraVlep</span>
                 </div>
 
                 <div className="absolute inset-0 top-24 bottom-12 pointer-events-none">
                     {/* SVG PATHS */}
                     <svg className="w-full h-full absolute top-0 left-0" viewBox="0 0 100 100" preserveAspectRatio="none">
                         {/* Background Path */}
-                        <path d={generatePath()} fill="none" stroke="var(--color-brand-primary)" strokeOpacity="0.2" strokeWidth="0.8" strokeDasharray="2 3" strokeLinecap="round" />
+                        <path d={generatePath()} fill="none" stroke="var(--color-brand-dark)" strokeOpacity="0.15" strokeWidth="0.8" strokeDasharray="2 3" strokeLinecap="round" />
                         {/* Active Path */}
-                        <path d={generateActivePath()} fill="none" stroke="var(--color-brand-primary)" strokeWidth="1.2" strokeDasharray="2 3" strokeLinecap="round" className="transition-all duration-700 ease-out" />
+                        <path d={generateActivePath()} fill="none" stroke="var(--color-brand-dark)" strokeWidth="1.5" strokeDasharray="2 3" strokeLinecap="round" className="transition-all duration-700 ease-out drop-shadow-sm" />
                     </svg>
 
                     {/* Nodes */}
@@ -960,10 +992,10 @@ export default function SetupWizard() {
                                 <div 
                                     className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-[15px] transition-all duration-500 shadow-xl border-4 ${
                                         isActive 
-                                            ? "bg-[var(--color-brand-primary)] text-[var(--color-brand-white)] scale-110 shadow-[var(--color-brand-primary)]/40 border-[var(--color-brand-white)]" 
+                                            ? "bg-[var(--color-brand-dark)] text-[var(--color-brand-white)] scale-110 shadow-[var(--color-brand-dark)]/40 border-[var(--color-brand-white)]" 
                                             : isCompleted 
-                                                ? "bg-[var(--color-brand-primary)] text-[var(--color-brand-white)] border-[var(--color-brand-white)]" 
-                                                : "bg-[var(--color-brand-white)] text-[var(--color-brand-primary)] border-[var(--color-brand-light)]"
+                                                ? "bg-[var(--color-brand-dark)] text-[var(--color-brand-white)] border-[var(--color-brand-white)]" 
+                                                : "bg-[var(--color-brand-white)] text-[var(--color-brand-dark)] border-[var(--color-brand-light)]"
                                     }`}
                                 >
                                     {isCompleted ? (
@@ -973,8 +1005,8 @@ export default function SetupWizard() {
                                     )}
                                 </div>
                                 <span 
-                                    className={`absolute top-full mt-2 px-2 py-0.5 rounded-md bg-[var(--color-brand-white)]/80 backdrop-blur-sm text-[11px] font-extrabold text-center tracking-widest uppercase transition-colors whitespace-nowrap ${
-                                        isActive ? 'text-[var(--color-brand-primary)] drop-shadow-sm' : isCompleted ? 'text-[var(--color-brand-dark)] opacity-70' : 'text-[var(--color-brand-primary)] opacity-50'
+                                    className={`absolute top-full mt-2 px-3 py-1.5 rounded-xl text-[12px] font-extrabold text-center tracking-widest uppercase transition-colors whitespace-nowrap shadow-sm ${
+                                        isActive ? 'bg-white text-[var(--color-brand-dark)] scale-105' : isCompleted ? 'bg-white/90 text-[var(--color-brand-dark)]/80' : 'bg-white/70 text-[var(--color-brand-dark)]/60'
                                     }`}
                                 >
                                     {stepName}
@@ -1009,18 +1041,18 @@ export default function SetupWizard() {
                 </div>
 
                 <div className="min-h-full w-full flex flex-col items-center py-16 px-4 lg:px-12">
-                    <div className="w-full max-w-4xl flex-grow flex flex-col justify-center">
+                    <div className="w-full max-w-4xl flex-grow flex flex-col">
                         
                         {/* Header Mobile / Title */}
                         <div className="lg:hidden w-full flex flex-col items-center justify-center mb-8">
-                            <span className="text-[20px] font-black tracking-wide text-[var(--color-brand-primary)] mb-2">PlanificaPro</span>
+                            <span className="text-[20px] font-black tracking-wide text-[var(--color-brand-dark)] mb-2">HoraVlep</span>
                             <div className="text-[11px] font-bold tracking-widest text-[var(--color-brand-primary)] uppercase">
                                 Paso {step} de {totalSteps}
                             </div>
                         </div>
 
                         {/* Content Area */}
-                        <div className="w-full relative">
+                        <div className="w-full relative flex-grow flex flex-col">
                             {step === 1 && (
                                 <Paso1Institucion
                                     data={wizardData}
@@ -1121,17 +1153,61 @@ export default function SetupWizard() {
                                     />
                                 </div>
                             )}
-                            {step === totalSteps && (
-                                <div className="flex flex-col items-center justify-center py-12 animate-fade-in" style={{ animationDuration: '0.8s' }}>
-                                    <div className="w-24 h-24 bg-[var(--color-brand-primary)]/20 text-[var(--color-brand-primary)] rounded-full flex items-center justify-center mb-8 shadow-[0_0_40px_rgba(16,207,174,0.4)]">
-                                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                            {step === totalSteps && (() => {
+                                // Calculamos un pequeño resumen real para no hacerlo tan seco
+                                const totalSedes = wizardData.sedes?.length || 0;
+                                const totalGrados = wizardData.grados?.length || 0;
+                                let totalSecciones = 0;
+                                if (wizardData.secciones) {
+                                    Object.values(wizardData.secciones).forEach(grados => {
+                                        Object.values(grados).forEach(secList => {
+                                            totalSecciones += secList.length;
+                                        });
+                                    });
+                                }
+
+                                return (
+                                    <div className="flex flex-col items-center justify-center flex-grow animate-fade-in px-4 w-full" style={{ animationDuration: '0.6s' }}>
+                                        
+                                        <div className="w-20 h-20 bg-[var(--color-brand-primary)]/10 text-[var(--color-brand-primary)] rounded-full flex items-center justify-center mb-6">
+                                            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                                            </svg>
+                                        </div>
+
+                                        <h2 className="text-3xl font-extrabold text-slate-800 tracking-tight mb-2 text-center">
+                                            ¡Todo listo!
+                                        </h2>
+                                        
+                                        <p className="text-slate-500 text-center text-[15px] leading-relaxed mb-10 max-w-lg">
+                                            El colegio <strong className="text-slate-700 font-bold">{wizardData.colegio.nombre}</strong> ha sido configurado exitosamente. Se ha guardado la siguiente estructura:
+                                        </p>
+
+                                        {/* Resumen dinámico real "suelto" sin contenedor */}
+                                        <div className="flex flex-wrap justify-center items-center gap-8 sm:gap-12 w-full">
+                                            <div className="flex flex-col items-center justify-center">
+                                                <span className="text-4xl sm:text-5xl font-black text-[var(--color-brand-primary)]">{totalSedes}</span>
+                                                <span className="text-[11px] sm:text-[12px] font-bold text-slate-400 uppercase tracking-widest mt-2">Sedes</span>
+                                            </div>
+                                            
+                                            <div className="hidden sm:block w-[2px] h-12 bg-slate-100"></div>
+                                            
+                                            <div className="flex flex-col items-center justify-center">
+                                                <span className="text-4xl sm:text-5xl font-black text-[var(--color-brand-primary)]">{totalGrados}</span>
+                                                <span className="text-[11px] sm:text-[12px] font-bold text-slate-400 uppercase tracking-widest mt-2">Grados</span>
+                                            </div>
+                                            
+                                            <div className="hidden sm:block w-[2px] h-12 bg-slate-100"></div>
+                                            
+                                            <div className="flex flex-col items-center justify-center">
+                                                <span className="text-4xl sm:text-5xl font-black text-[var(--color-brand-primary)]">{totalSecciones}</span>
+                                                <span className="text-[11px] sm:text-[12px] font-bold text-slate-400 uppercase tracking-widest mt-2">Secciones</span>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <h2 className="text-3xl font-extrabold text-[#111827] tracking-tight mb-4 text-center">¡Estructura Configurada!</h2>
-                                    <p className="text-[#64748B] text-center max-w-md text-lg leading-relaxed">
-                                        Tu institución está lista. Ahora vamos al Dashboard para agregar tus <strong className="text-[var(--color-brand-primary)]">Áreas, Cursos y Profesores</strong> a tu propio ritmo.
-                                    </p>
-                                </div>
-                            )}
+                                );
+                            })()}
 
                             {/* Mensaje de Error Integrado muy cerca del formulario */}
                             {errorMsg && (
@@ -1142,7 +1218,7 @@ export default function SetupWizard() {
                             )}
 
                             {/* Botones de navegación */}
-                            <div className="mt-10 w-full flex flex-col items-center">
+                            <div className="mt-auto pt-10 w-full flex flex-col items-center">
                                 <div className="flex justify-center gap-4 w-full">
                                     {step > 1 && (
                                         <button
@@ -1155,7 +1231,7 @@ export default function SetupWizard() {
                                     <button
                                         onClick={handleNext}
                                         disabled={isSaving}
-                                        className={`w-[220px] sm:w-[260px] py-4 rounded-xl font-bold text-[13px] tracking-widest text-[var(--color-brand-white)] transition-all duration-300 ${isSaving ? 'bg-[var(--color-brand-primary)]/50 cursor-not-allowed' : 'bg-[var(--color-brand-primary)] hover:scale-[1.01] shadow-[0_8px_20px_-6px_var(--color-brand-primary)]'}`}
+                                        className={`cursor-pointer w-[220px] sm:w-[260px] py-4 rounded-xl font-bold text-[13px] tracking-widest text-[var(--color-brand-white)] transition-all duration-300 ${isSaving ? 'bg-[var(--color-brand-primary)]/50 cursor-not-allowed' : 'bg-[var(--color-brand-primary)] hover:scale-[1.01] shadow-[0_8px_20px_-6px_var(--color-brand-primary)]'}`}
                                     >
                                         {isSaving ? 'GUARDANDO...' : (step === totalSteps ? 'IR AL DASHBOARD' : 'CONTINUAR Y GUARDAR')}
                                     </button>

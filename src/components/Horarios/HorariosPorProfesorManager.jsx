@@ -58,7 +58,7 @@ export default function HorariosPorProfesorManager() {
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem('horarix_time_config');
+            const saved = localStorage.getItem('edusync_time_config');
             if (saved) {
                 try { setTimeConfig(JSON.parse(saved)); } catch (e) { }
             }
@@ -71,8 +71,8 @@ export default function HorariosPorProfesorManager() {
                     setBloques(Array.isArray(data) ? data.sort((a,b) => a.numero_bloque - b.numero_bloque) : []);
                 })
                 .catch(e => console.error("Error al actualizar bloques:", e));
-        };    window.addEventListener('horarix_time_config_changed', handleStorageChange);
-            return () => window.removeEventListener('horarix_time_config_changed', handleStorageChange);
+        };    window.addEventListener('edusync_time_config_changed', handleStorageChange);
+            return () => window.removeEventListener('edusync_time_config_changed', handleStorageChange);
         }
     }, []);
 

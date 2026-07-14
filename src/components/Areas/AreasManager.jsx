@@ -146,7 +146,7 @@ export default function AreasManager() {
             const res = await fetch(`${API_BASE}/areas/${areaToDelete.id_area}`, { method: 'DELETE' });
             if (!res.ok) throw new Error('Error al eliminar');
             setAreas(areas.filter(a => a.id_area !== areaToDelete.id_area));
-            window.dispatchEvent(new Event('horarix_data_updated'));
+            window.dispatchEvent(new Event('edusync_data_updated'));
             setIsDeleteModalOpen(false);
             setAreaToDelete(null);
         } catch (err) {
@@ -214,7 +214,7 @@ export default function AreasManager() {
                 await fetchAreas();
             }
 
-            window.dispatchEvent(new Event('horarix_data_updated'));
+            window.dispatchEvent(new Event('edusync_data_updated'));
             setIsModalOpen(false);
         } catch (err) {
             alert(`Error: ${err.message}`);

@@ -214,7 +214,7 @@ export default function ProfesoresManager() {
             setSelectedIds(prev => prev.filter(id => !itemsToDelete.includes(id)));
             setIsSelectionMode(false);
             await fetchDatos();
-            window.dispatchEvent(new Event('horarix_data_updated'));
+            window.dispatchEvent(new Event('edusync_data_updated'));
             setIsDeleteModalOpen(false);
             setItemsToDelete([]);
         } catch (err) {

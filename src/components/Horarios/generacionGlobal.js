@@ -26,8 +26,8 @@ const _defaultState = {
 
 function getState() {
     if (typeof window === 'undefined') return _defaultState;
-    if (!window.__horarix_generacion) {
-        window.__horarix_generacion = {
+    if (!window.__edusync_generacion) {
+        window.__edusync_generacion = {
             status: null,        // null | 'generating' | 'success' | 'error'
             loadingStep: 0,
             errorMsg: null,
@@ -36,7 +36,7 @@ function getState() {
             listeners: new Set(),
         };
     }
-    return window.__horarix_generacion;
+    return window.__edusync_generacion;
 }
 
 function notify() {
@@ -112,7 +112,7 @@ export async function startGeneracion() {
             state.status = 'error';
             notify();
             // Disparar evento global para que el toast lo muestre
-            window.dispatchEvent(new CustomEvent('horarix_generacion_done', { detail: { success: false, error: "Validación fallida" } }));
+            window.dispatchEvent(new CustomEvent('edusync_generacion_done', { detail: { success: false, error: "Validación fallida" } }));
             return;
         }
 
@@ -129,14 +129,14 @@ export async function startGeneracion() {
         state.asignaciones = asignaciones;
         state.status = 'success';
         notify();
-        window.dispatchEvent(new CustomEvent('horarix_generacion_done', { detail: { success: true } }));
+        window.dispatchEvent(new CustomEvent('edusync_generacion_done', { detail: { success: true } }));
     } catch (error) {
         clearInterval(state.intervalId);
         state.intervalId = null;
         state.errorMsg = `Hubo un error de conexión o validación: ${error.message}`;
         state.status = 'error';
         notify();
-        window.dispatchEvent(new CustomEvent('horarix_generacion_done', { detail: { success: false, error: state.errorMsg } }));
+        window.dispatchEvent(new CustomEvent('edusync_generacion_done', { detail: { success: false, error: state.errorMsg } }));
     }
 }
 

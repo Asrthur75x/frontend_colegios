@@ -1,17 +1,14 @@
 ---
 import { ClientRouter } from "astro:transitions";
-import Sidebar from "../components/Sidebar.jsx";
-import SidebarHorarios from "../components/SidebarHorarios.jsx";
+import MainNavbar from "../components/MainNavbar.jsx";
 import GeneracionToast from "../components/Horarios/GeneracionToast.jsx";
-import Topbar from "../components/Topbar.astro";
 import "../styles/global.css";
 
-const { title = "Dashboard | HorariX" } = Astro.props;
+const { title = "Dashboard | HoraVlep" } = Astro.props;
 const currentPath = Astro.url.pathname;
-const isHorarios = currentPath.startsWith("/horarios");
 
 // Fondo global para todas las páginas
-const bodyBg = '#FFFFFF';
+const bodyBg = "#f8fafc";
 ---
 
 <!doctype html>
@@ -24,16 +21,22 @@ const bodyBg = '#FFFFFF';
 			if (!localStorage.getItem("user")) {
 				window.location.href = "/login";
 			}
-			// Global interceptor for API calls to bypass CORS without backend changes
+			// Global interceptor for API calls to bypass CORS sin backend
 			if (!window.__fetchIntercepted) {
 				window.__fetchIntercepted = true;
 				const originalFetch = window.fetch;
-				window.fetch = function(...args) {
-					if (typeof args[0] === 'string') {
-						if (args[0].startsWith('http://127.0.0.1:8000/api')) {
-							args[0] = args[0].replace('http://127.0.0.1:8000/api', '/api');
-						} else if (args[0].startsWith('http://localhost:8000/api')) {
-							args[0] = args[0].replace('http://localhost:8000/api', '/api');
+				window.fetch = function (...args) {
+					if (typeof args[0] === "string") {
+						if (args[0].startsWith("http://127.0.0.1:8000/api")) {
+							args[0] = args[0].replace(
+								"http://127.0.0.1:8000/api",
+								"/api",
+							);
+						} else if (args[0].startsWith("http://localhost:8000/api")) {
+							args[0] = args[0].replace(
+								"http://localhost:8000/api",
+								"/api",
+							);
 						}
 					}
 					return originalFetch.apply(this, args);
@@ -41,28 +44,23 @@ const bodyBg = '#FFFFFF';
 			}
 		</script>
 		<ClientRouter />
-
 	</head>
 	<body
-		class="text-[var(--color-brand-black)] font-sans antialiased h-screen overflow-hidden pt-20 transition-colors duration-500"
+		class="text-[var(--color-brand-black)] font-sans antialiased h-screen overflow-hidden transition-colors duration-500"
 		style={`background-color: ${bodyBg};`}
 	>
-		<Topbar />
+		<!-- Nuevo Topbar Interactivo Global -->
+		<MainNavbar client:load currentPath={currentPath} transition:persist="main-navbar" />
 
-		{isHorarios
-			? <SidebarHorarios client:load currentPath={currentPath} transition:persist="sidebar-horarios" />
-			: <Sidebar client:load currentPath={currentPath} transition:persist="sidebar-main" />
-		}
-
-		<!-- El margen izquierdo de 64 equivale al w-64 (16rem/256px) del Sidebar fixado -->
+		<!-- Contenedor principal a pantalla completa -->
 		<div
-			class="ml-64 flex flex-col h-[calc(100vh-5rem)] overflow-y-auto overflow-x-hidden"
-			style="background-color: #fff;"
+			class="flex flex-col h-[calc(100vh-5rem)] overflow-y-auto overflow-x-hidden mt-20"
 		>
-			<main class="p-8 flex-1">
+			<main class="p-8 flex-1 w-full max-w-screen-2xl mx-auto">
 				<slot />
 			</main>
 		</div>
+		
 		<!-- Toast global de generación de horarios -->
 		<GeneracionToast client:load transition:persist />
 	</body>

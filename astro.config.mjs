@@ -10,6 +10,9 @@ export default defineConfig({
   vite: {
     plugins: [tailwindcss()],
     server: {
+      watch: {
+        ignored: ['**/node_modules/**', '**/.git/**', '**/dist/**']
+      },
       proxy: {
         '/api': {
           target: 'http://127.0.0.1:8000',

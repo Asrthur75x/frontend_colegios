@@ -221,7 +221,7 @@ export default function CursosManager() {
         try {
             await fetch(`${API_BASE}/cursos/${cursoToDelete.id_curso}`, { method: 'DELETE' });
             setCursos(cursos.filter(c => c.id_curso !== cursoToDelete.id_curso));
-            window.dispatchEvent(new CustomEvent('horarix_data_updated'));
+            window.dispatchEvent(new CustomEvent('edusync_data_updated'));
             setIsDeleteModalOpen(false);
             setCursoToDelete(null);
         } catch (err) {
@@ -276,7 +276,7 @@ export default function CursosManager() {
                     body: JSON.stringify(payload)
                 });
 
-                window.dispatchEvent(new CustomEvent('horarix_data_updated'));
+                window.dispatchEvent(new CustomEvent('edusync_data_updated'));
             } else {
                 let listToSave = [...cursosNuevos];
 
@@ -313,7 +313,7 @@ export default function CursosManager() {
 
                 // Recargar para sincronizar IDs reales
                 await fetchDatos();
-                window.dispatchEvent(new CustomEvent('horarix_data_updated'));
+                window.dispatchEvent(new CustomEvent('edusync_data_updated'));
             }
 
             setIsModalOpen(false);
@@ -404,7 +404,7 @@ export default function CursosManager() {
 
             // 3. Recargar datos
             await fetchDatos();
-            window.dispatchEvent(new Event('horarix_data_updated'));
+            window.dispatchEvent(new Event('edusync_data_updated'));
             setIsModalTutoriaOpen(false);
 
         } catch (err) {

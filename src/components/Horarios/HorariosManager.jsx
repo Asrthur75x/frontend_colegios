@@ -126,8 +126,8 @@ export default function HorariosManager({ isEditPage = false }) {
                 })
                 .catch(e => console.error(e));
         };
-        window.addEventListener('horarix_time_config_changed', handleStorageChange);
-        return () => window.removeEventListener('horarix_time_config_changed', handleStorageChange);
+        window.addEventListener('edusync_time_config_changed', handleStorageChange);
+        return () => window.removeEventListener('edusync_time_config_changed', handleStorageChange);
     }, []);
 
     const loadingMessages = LOADING_MESSAGES;

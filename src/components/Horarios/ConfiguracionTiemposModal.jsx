@@ -154,7 +154,7 @@ export default function ConfiguracionTiemposModal({ isOpen, onClose, maxBloques,
             await Promise.all(savePromises);
             
             // Recargar datos y notificar
-            window.dispatchEvent(new Event('horarix_time_config_changed'));
+            window.dispatchEvent(new Event('edusync_time_config_changed'));
             if (onSave) onSave();
             onClose();
         } catch (error) {

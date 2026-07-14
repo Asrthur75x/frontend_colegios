@@ -8,11 +8,32 @@
   --color-brand-light: #DCE6FF;
   --color-brand-white: #FFFFFF;
   --color-brand-black: #111827;
-  --color-hx-teal: #10CFAE;
-  --color-hx-pink: #F1A5B9;
-  --color-hx-blue: #51B4E8;
-  --color-hx-yellow: #F3C252;
-  --color-hx-red: #f43f5e;
+  --animate-fade-in-up: fadeInUp 0.3s ease-out both;
+  --animate-fade-in-down: fadeInDown 0.3s ease-out both;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* From Uiverse.io by Nawsome */
@@ -363,6 +384,7 @@
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -370,6 +392,11 @@
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
