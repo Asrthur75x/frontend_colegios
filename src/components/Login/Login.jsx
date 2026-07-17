@@ -62,6 +62,16 @@ export default function Login() {
 
                 {/* Branding Top Left */}
                 <div className="absolute top-10 left-8 sm:left-12 lg:left-24 flex items-center gap-2">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-10 h-10">
+                        <defs>
+                            <linearGradient id="grad-logo-login" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stopColor="var(--color-brand-primary)" />
+                                <stop offset="100%" stopColor="#818cf8" />
+                            </linearGradient>
+                        </defs>
+                        <path d="M12 2L2 7l10 5 10-5-10-5z" fill="url(#grad-logo-login)" />
+                        <path d="M2 17l10 5 10-5M2 12l10 5 10-5" stroke="url(#grad-logo-login)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
                     <span className="text-2xl font-black tracking-wide text-[var(--color-brand-primary)]">HoraVlep</span>
                 </div>
 

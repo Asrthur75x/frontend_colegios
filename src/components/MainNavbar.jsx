@@ -8,7 +8,13 @@ export default function MainNavbar({ currentPath = '' }) {
     const [planesCount, setPlanesCount] = useState(0);
     
     // State for the expanded module (inline)
-    const [activeDropdown, setActiveDropdown] = useState(null);
+    const [activeDropdown, setActiveDropdown] = useState(() => {
+        const path = typeof window !== 'undefined' ? window.location.pathname : currentPath;
+        if (path.startsWith('/areas') || path.startsWith('/cursos') || path.startsWith('/reservas') || path.startsWith('/planes')) return 'academico';
+        if (path.startsWith('/profesores') || path.startsWith('/carga-academica') || path.startsWith('/tutorias')) return 'docentes';
+        if (path.startsWith('/horarios')) return 'horarios';
+        return null;
+    });
     const navRef = useRef(null);
 
     useEffect(() => {
@@ -97,10 +103,17 @@ export default function MainNavbar({ currentPath = '' }) {
     return (
         <header className="fixed top-0 left-0 w-full bg-white/95 backdrop-blur-sm z-50 flex items-center justify-between px-6 h-20 transition-all duration-300">
             {/* Logo Section */}
-            <div className="flex items-center gap-3 cursor-pointer group" onClick={() => window.location.href = '/dashboard'}>
-                <div className="w-10 h-10 bg-[var(--color-brand-primary)] rounded-[14px] flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
-                    <span className="text-white font-black text-sm tracking-tighter">HV</span>
-                </div>
+            <div className="flex items-center gap-2 cursor-pointer group" onClick={() => window.location.href = '/dashboard'}>
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 group-hover:scale-105 transition-transform origin-left">
+                    <defs>
+                        <linearGradient id="grad-logo-nav" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stopColor="var(--color-brand-primary)" />
+                            <stop offset="100%" stopColor="#818cf8" />
+                        </linearGradient>
+                    </defs>
+                    <path d="M12 2L2 7l10 5 10-5-10-5z" fill="url(#grad-logo-nav)" />
+                    <path d="M2 17l10 5 10-5M2 12l10 5 10-5" stroke="url(#grad-logo-nav)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
                 <span className="font-black text-xl text-[var(--color-brand-dark)] tracking-tight">HoraVlep</span>
             </div>
 
@@ -127,33 +140,40 @@ export default function MainNavbar({ currentPath = '' }) {
 
                                 {/* Sub-enlaces en línea */}
                                 <div className="flex items-center gap-1.5 pl-0.5 pr-2">
-                                    {item.dropdownItems.map((child, idx) => {
-                                        const isSubActive = currentPath.startsWith(child.path) || currentPath === child.path;
-                                        return (
-                                            <a
-                                                key={idx}
-                                                href={child.locked ? '#' : child.path}
-                                                onClick={e => { if(child.locked) e.preventDefault(); }}
-                                                className={`relative group flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300 text-[13px] font-bold ${
-                                                    child.locked
-                                                        ? 'opacity-50 cursor-not-allowed bg-transparent text-white/40'
-                                                        : isSubActive
-                                                            ? 'bg-white/20 text-white shadow-md border border-white/10'
-                                                            : 'text-white/70 hover:bg-white/10 hover:text-white cursor-pointer'
-                                                }`}
-                                            >
-                                                {child.icon}
-                                                <span>{child.label}</span>
+                                    {(() => {
+                                        const activeChild = item.dropdownItems
+                                            .slice()
+                                            .sort((a, b) => b.path.length - a.path.length)
+                                            .find(child => currentPath === child.path || currentPath.startsWith(child.path + '/'));
+                                            
+                                        return item.dropdownItems.map((child, idx) => {
+                                            const isSubActive = activeChild && activeChild.path === child.path;
+                                            return (
+                                                <a
+                                                    key={idx}
+                                                    href={child.locked ? '#' : child.path}
+                                                    onClick={e => { if(child.locked) e.preventDefault(); }}
+                                                    className={`relative group flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300 text-[13px] font-bold ${
+                                                        child.locked
+                                                            ? 'opacity-50 cursor-not-allowed bg-transparent text-white/40'
+                                                            : isSubActive
+                                                                ? 'bg-white/20 text-white shadow-md border border-white/10'
+                                                                : 'text-white/70 hover:bg-white/10 hover:text-white cursor-pointer'
+                                                    }`}
+                                                >
+                                                    {child.icon}
+                                                    <span>{child.label}</span>
 
-                                                {/* Tooltip de Bloqueo */}
-                                                {child.locked && (
-                                                    <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 bg-white text-[var(--color-brand-dark)] text-[11px] font-bold px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-xl pointer-events-none z-50">
-                                                        🔒 {child.lockMsg}
-                                                    </div>
-                                                )}
-                                            </a>
-                                        );
-                                    })}
+                                                    {/* Tooltip de Bloqueo */}
+                                                    {child.locked && (
+                                                        <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 bg-white text-[var(--color-brand-dark)] text-[11px] font-bold px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-xl pointer-events-none z-50">
+                                                            🔒 {child.lockMsg}
+                                                        </div>
+                                                    )}
+                                                </a>
+                                            );
+                                        });
+                                    })()}
                                 </div>
                             </div>
                         );
