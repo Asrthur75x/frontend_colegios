@@ -60,6 +60,28 @@ const ModuleSidebar = ({
                         </p>
                     </div>
                 )}
+
+                {/* Stats */}
+                {stats && stats.length > 0 && (
+                    <div className="bg-white border border-slate-100 shadow-sm rounded-[24px] p-5 flex flex-col gap-4">
+                        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Resumen</h3>
+                        <div className="flex flex-col gap-3">
+                            {stats.map((stat, idx) => (
+                                <div key={idx} className="bg-slate-50 rounded-xl p-3 flex flex-col justify-center border border-slate-100/50 relative overflow-hidden">
+                                    <p className="text-brand-primary text-[10px] font-black uppercase tracking-widest mb-1 truncate">{stat.label}</p>
+                                    <div className="flex flex-col mt-0.5">
+                                        <span className="text-sm font-black text-slate-800 leading-tight truncate" title={stat.value}>
+                                            {stat.value}
+                                        </span>
+                                        <span className="text-slate-500 text-[10px] font-bold mt-1">
+                                            {stat.subtext}
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
         </aside>
     );

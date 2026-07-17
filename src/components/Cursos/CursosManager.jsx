@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ModuleSidebar from '../Shared/ModuleSidebar';
 
 const API_BASE = 'http://localhost:8000/api';
 
@@ -120,12 +121,13 @@ const CursoBookCard = ({ curso, area, onEdit, onDelete, index }) => {
 
 export default function CursosManager() {
     const [cursos, setCursos] = useState([]);
+    const [currentView, setCurrentView] = useState('list');
     const [areas, setAreas] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedArea, setSelectedArea] = useState('');
 
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isModalTutoriaOpen, setIsModalTutoriaOpen] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [editId, setEditId] = useState(null);
     const [guardando, setGuardando] = useState(false);
@@ -136,13 +138,9 @@ export default function CursosManager() {
     const [eliminando, setEliminando] = useState(false);
 
     // Adaptado al SQLModel: id_curso, nombre_curso y id_area
-    const [nuevoCurso, setNuevoCurso] = useState({
-        nombre_curso: '',
-        id_area: ''
-    });
+    const [nuevoCurso, setNuevoCurso] = useState({ nombre_curso: '', id_area: '' });
     const [cursosNuevos, setCursosNuevos] = useState([]);
     const [inputCursoVirtual, setInputCursoVirtual] = useState('');
-    const [searchTerm, setSearchTerm] = useState('');
 
     // ── Cargar cursos y áreas del backend al montar ──
     const fetchDatos = async (signal) => {
@@ -162,6 +160,21 @@ export default function CursosManager() {
             if (resCursos.ok) {
                 const dataCursos = await resCursos.json();
                 setCursos(dataCursos);
+
+                const hash = window.location.hash;
+                if (hash === '#new') {
+                    abrirModalNueva(false);
+                } else if (hash.startsWith('#edit-')) {
+                    const id = hash.replace('#edit-', '');
+                    const curso = dataCursos.find(c => c.id_curso.toString() === id);
+                    if (curso) {
+                        abrirModalEdicion(curso, false);
+                    } else {
+                        volverALista(false);
+                    }
+                } else {
+                    volverALista(false);
+                }
             } else setCursos([]);
 
             if (resAreas.ok) {
@@ -185,19 +198,48 @@ export default function CursosManager() {
         return () => controller.abort();
     }, []);
 
+    const volverALista = (push = true) => {
+        setCurrentView('list');
+        if (push) window.history.pushState(null, '', window.location.pathname + window.location.search);
+    };
+
+    useEffect(() => {
+        const handleHashChange = () => {
+            const hash = window.location.hash;
+            if (hash === '#new') {
+                abrirModalNueva(false);
+            } else if (hash.startsWith('#edit-')) {
+                const id = hash.replace('#edit-', '');
+                const curso = cursos.find(c => c.id_curso.toString() === id);
+                if (curso) {
+                    abrirModalEdicion(curso, false);
+                } else {
+                    volverALista(false);
+                }
+            } else {
+                volverALista(false);
+            }
+        };
+
+        window.addEventListener('hashchange', handleHashChange);
+        return () => window.removeEventListener('hashchange', handleHashChange);
+    }, [cursos]);
+
+
 
     // ── Abrir modal para nuevo curso ──
-    const abrirModalNueva = () => {
+    const abrirModalNueva = (push = true) => {
         setIsEditing(false);
         setEditId(null);
         setNuevoCurso({ nombre_curso: '', id_area: '' });
         setCursosNuevos([]);
         setInputCursoVirtual('');
-        setIsModalOpen(true);
+        setCurrentView('form');
+        if (push) window.history.pushState(null, '', '#new');
     };
 
     // ── Abrir modal para edición ──
-    const abrirModalEdicion = (curso) => {
+    const abrirModalEdicion = (curso, push = true) => {
         setIsEditing(true);
         setEditId(curso.id_curso);
         setNuevoCurso({
@@ -205,7 +247,8 @@ export default function CursosManager() {
             id_area: curso.id_area || '',
             requiere_espacio_unico: curso.requiere_espacio_unico || false
         });
-        setIsModalOpen(true);
+        setCurrentView('form');
+        if (push) window.history.pushState(null, '', `#edit-${curso.id_curso}`);
     };
 
     // ── Preparar Eliminación (Abrir Modal) ──
@@ -316,7 +359,7 @@ export default function CursosManager() {
                 window.dispatchEvent(new CustomEvent('edusync_data_updated'));
             }
 
-            setIsModalOpen(false);
+            volverALista();
         } catch (err) {
             alert(`Error: ${err.message}`);
         } finally {
@@ -358,531 +401,409 @@ export default function CursosManager() {
     const porcentajeAsignados = totalCursos > 0 ? Math.round((cursosConArea / totalCursos) * 100) : 0;
     const areasUsadas = new Set(cursos.filter(c => c.id_area).map(c => c.id_area)).size;
 
-    const cursosFiltrados = cursos.filter(c =>
-        c.nombre_curso?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const cursosFiltrados = cursos.filter(c => {
+        const matchesSearch = c.nombre_curso?.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesArea = selectedArea ? c.id_area?.toString() === selectedArea.toString() : true;
+        return matchesSearch && matchesArea;
+    });
 
-    // --- Habilitar Tutoría ---
-    const existeTutoria = cursos.some(c => c.nombre_curso && c.nombre_curso.includes("Tutoría"));
-
-    const handleConfigurarTutoria = async (tipo) => {
-        setGuardando(true);
-        const nombreDelCurso = tipo === 'oficial' ? 'Tutoría' : 'Tutoría Psicológica';
-
-        try {
-            // 1. Buscar o crear área "Desarrollo Personal"
-            let areaId = null;
-            const areaExistente = areas.find(a =>
-                (a.nombre_area || a.nombre) === "Desarrollo Personal" || (a.nombre_area || a.nombre) === "Tutoría"
-            );
-
-            if (areaExistente) {
-                areaId = areaExistente.id_area;
-            } else {
-                const resArea = await fetch(`${API_BASE}/areas`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nombre: "Desarrollo Personal", max_horas_dia: 2 })
-                });
-                if (!resArea.ok) throw new Error("Error al crear el área");
-                const newArea = await resArea.json();
-                areaId = newArea.id_area || newArea.id;
-            }
-
-            // 2. Crear curso
-            const resCurso = await fetch(`${API_BASE}/cursos`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    nombre_curso: nombreDelCurso,
-                    id_area: areaId,
-                    requiere_espacio_unico: false
-                })
-            });
-
-            if (!resCurso.ok) throw new Error("Error al crear el curso");
-
-            // 3. Recargar datos
-            await fetchDatos();
-            window.dispatchEvent(new Event('edusync_data_updated'));
-            setIsModalTutoriaOpen(false);
-
-        } catch (err) {
-            alert(`Error al habilitar Tutoría: ${err.message}`);
-        } finally {
-            setGuardando(false);
-        }
-    };
 
     return (
-        <div className="w-full space-y-8 animate-fade-in relative">
+        <div className="w-full animate-fade-in relative">
+            <div className="flex flex-col md:flex-row gap-6 min-h-[calc(100vh-144px)]">
+                {/* ===== LEFT SIDEBAR (1/4) ===== */}
+                <ModuleSidebar
+                    title="Directorio de Cursos"
+                    description="Añade los cursos que se dictarán en tu colegio y conéctalas con el área a la que pertenecen."
+                    onAddClick={abrirModalNueva}
+                    addButtonText="Añadir Nuevos Cursos"
+                    svgImage="/cursos.svg"
+                    tipText={currentView === 'form' ? "El botón 'Único' indica que un curso requiere un laboratorio, taller o aula exclusiva para dictarse." : undefined}
+                    stats={currentView === 'list' ? [
+                        { label: 'Mayor Área', value: maxAreaCount > 0 ? maxAreaName : 'Ninguna', subtext: maxAreaCount > 0 ? `${maxAreaCount} cursos` : '0 cursos' },
+                        { label: 'Espacio Único', value: cursosEspacioUnico, subtext: 'cursos' }
+                    ] : undefined}
+                />
 
-            {/* Cabecera Superior (Banner + Espacio Derecho) */}
-            <div className="flex flex-col md:flex-row gap-6">
-
-                <div className="md:w-2/3 bg-[var(--color-brand-primary)]/10 rounded-[24px] p-8 shadow-md relative overflow-hidden flex flex-col justify-center min-h-[180px] border border-[var(--color-brand-primary)]/70">
-                    <div className="relative z-10 flex flex-col md:flex-row justify-between items-center md:items-start gap-6">
-                        <div className="max-w-md">
-                            <h2 className="text-3xl md:text-4xl font-black text-slate-800 tracking-tight leading-tight mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
-                                Directorio de Cursos
-                            </h2>
-                            <p className="text-slate-500 text-[13px] font-medium mb-6 leading-relaxed max-w-sm drop-shadow-sm">
-                                Añade los cursos que se dictarán en tu colegio y conéctalas con el área a la que pertenecen.
-                            </p>
-
-                            <div className="flex flex-wrap items-center gap-3">
-                                {existeTutoria ? (
-                                    <button
-                                        onClick={abrirModalNueva}
-                                        className="bg-brand-primary text-white hover:bg-brand-primary/80 font-extrabold py-2.5 px-6 rounded-xl shadow-[0_4px_12px_rgba(47, 91, 255,0.3)] hover:shadow-[0_6px_16px_rgba(47, 91, 255,0.4)] hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2 text-sm w-max cursor-pointer">
-                                        <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
-                                        Añadir Nuevos Cursos
-                                    </button>
-                                ) : (
-                                    <button
-                                        onClick={() => setIsModalTutoriaOpen(true)}
-                                        className="bg-brand-primary text-white hover:bg-brand-primary/80 font-extrabold py-2.5 px-6 rounded-xl shadow-[0_4px_12px_rgba(47, 91, 255,0.3)] hover:shadow-[0_6px_16px_rgba(47, 91, 255,0.4)] hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2 text-sm w-max cursor-pointer"
-                                        title="Primero configura el curso de Tutoría">
-                                        <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
-                                        Configurar Tutoría
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Imagen Ilustrativa a la derecha */}
-                        <div className="hidden sm:flex relative w-32 h-32 md:w-45 md:h-45 flex-shrink-0 items-center justify-center -mt-2 md:mr-16">
-                            {/* Brillo suave de fondo para resaltar */}
-                            <div className="absolute inset-0 bg-white/40 rounded-full blur-2xl"></div>
-                            <img
-                                src="/cursos.svg"
-                                alt="Ilustración"
-                                className="relative z-10 w-full h-full object-contain drop-shadow-[0_10px_15px_rgba(0,0,0,0.1)] hover:scale-105 transition-transform duration-500"
-                            />
-                        </div>
-                    </div>
-                </div>
-
-                {/* Panel de Información (Derecha) */}
-                <div className="md:w-1/3 bg-white border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[24px] flex flex-col p-6 min-h-[180px] relative overflow-hidden">
-                    {/* Indicador superior */}
-                    <div className="flex justify-between items-start mb-4">
-                        <div>
-                            <p className="text-slate-400 text-[11px] font-black uppercase tracking-widest mb-1">Total Cursos</p>
-                            <div className="flex items-baseline gap-2">
-                                <h3 className="text-4xl font-black text-slate-800 tracking-tighter">{totalCursos}</h3>
-                                <span className="text-slate-400 text-sm font-bold">registrados</span>
-                            </div>
-                        </div>
-                        <div className="w-12 h-12 rounded-[14px] bg-brand-primary/10 text-brand-primary flex items-center justify-center border border-brand-primary/20 shadow-sm">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
-                        </div>
-                    </div>
-
-                    <div className="flex-1 grid grid-cols-2 gap-3 mt-4 mb-2">
-                        {/* Columna 1: Área Principal */}
-                        <div className="rounded-xl p-3 flex flex-col justify-center shadow-sm overflow-hidden">
-                            <p className="text-brand-primary text-[10px] font-black uppercase tracking-widest mb-1 truncate">Mayor Área</p>
-                            <div className="flex flex-col mt-1">
-                                <span className="text-sm font-black text-black leading-tight truncate" title={maxAreaName}>
-                                    {maxAreaCount > 0 ? maxAreaName : 'Ninguna'}
-                                </span>
-                                <span className="text-black/50 text-[10px] font-bold mt-0.5">
-                                    {maxAreaCount > 0 ? `${maxAreaCount} cursos` : '0 cursos'}
-                                </span>
-                            </div>
-                        </div>
-
-                        {/* Columna 2: Espacio Único */}
-                        <div className="rounded-xl p-3 flex flex-col justify-center shadow-sm">
-                            <p className="text-brand-primary text-[10px] font-black uppercase tracking-widest mb-1">Espacio Único</p>
-                            <div className="flex items-end gap-1.5 mt-1">
-                                <span className="text-2xl font-black text-black leading-none">{cursosEspacioUnico}</span>
-                                <span className="text-black/80 text-[10px] font-bold mb-0.5">cursos</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Banner de Error Menor */}
-            {error && (
-                <div className="bg-amber-50 border border-amber-200 text-amber-800 px-6 py-4 rounded-2xl flex items-center gap-3">
-                    <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
-                    <p className="text-sm font-medium">Usando datos locales por ahora debido a error de conectividad.</p>
-                </div>
-            )}
-
-            {/* Estado de Carga */}
-            {loading && cursos.length === 0 && (
-                <div className="flex justify-center py-12">
-                    <div className="w-8 h-8 border-4 border-brand-primary/30 border-t-brand-primary rounded-full animate-spin"></div>
-                </div>
-            )}
-
-            {/* Grid de Cursos (Estilo Tarjetas Libro) */}
-            {!loading && (
-                <div className="pt-4">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 bg-white py-2 px-4 rounded-[20px] border border-slate-100 shadow-sm md:h-16 w-full gap-4 md:gap-0">
-                        {/* Izquierda: Título */}
-                        <div className="flex-shrink-0 flex items-center gap-3 w-full md:w-1/4">
-                            <div className="w-10 h-10 bg-brand-primary/10 rounded-xl flex items-center justify-center text-brand-primary">
-                                <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
-                            </div>
-                            <h2 className="text-[20px] font-black text-slate-800 tracking-tight whitespace-nowrap">Cursos</h2>
-                        </div>
-
-                        {/* Medio: Buscador Pill */}
-                        <div className="flex-1 w-full max-w-lg mx-auto md:mx-4">
-                            <div className="relative group flex items-center bg-white rounded-full p-1.5 border-2 border-slate-200 focus-within:border-brand-primary transition-all h-12 w-full">
-                                <input
-                                    type="text"
-                                    placeholder="Buscar curso por nombre..."
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="flex-1 bg-transparent pl-6 pr-3 py-1 outline-none text-[14px] font-medium text-slate-700 placeholder:text-slate-400 h-full w-full"
-                                />
-                                {searchTerm && (
-                                    <button onClick={() => setSearchTerm('')} className="mr-2 text-slate-400 hover:text-rose-500 transition-colors p-1.5 rounded-full hover:bg-rose-50 flex-shrink-0">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-                                    </button>
-                                )}
-                                <div className="w-9 h-9 rounded-full bg-brand-primary flex items-center justify-center text-white flex-shrink-0 shadow-sm mr-0.5">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {cursosFiltrados.length === 0 ? (
-                        <div className="bg-slate-50 border-2 border-slate-200 border-dashed rounded-[32px] p-16 text-center">
-                            <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
-                                <svg width="32" height="32" fill="none" stroke="#cbd5e1" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
-                            </div>
-                            <h3 className="text-xl font-black text-slate-800">No se encontraron cursos</h3>
-                            <p className="text-slate-500 text-sm mt-2 max-w-md mx-auto">
-                                {searchTerm ? 'Prueba buscando con otros términos o limpia el filtro.' : 'Comienza creando tu primer curso usando el botón en la cabecera superior.'}
-                            </p>
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-x-10 gap-y-16 px-6 py-6">
-                            {cursosFiltrados.map((curso, index) => {
-                                const localId = curso.id_curso || `ID-${index + 1}`;
-                                const areaEncontrada = areas.find(a => a.id_area === curso.id_area);
-                                return (
-                                    <CursoBookCard
-                                        key={localId}
-                                        curso={curso}
-                                        area={areaEncontrada}
-                                        index={index}
-                                        onEdit={abrirModalEdicion}
-                                        onDelete={eliminarCurso}
-                                    />
-                                );
-                            })}
+                {/* ===== RIGHT CONTENT (3/4) ===== */}
+                <main className="md:w-3/4 flex flex-col gap-5">
+                    {/* Error */}
+                    {error && (
+                        <div className="bg-amber-50 border border-amber-200 text-amber-800 px-6 py-4 rounded-2xl flex items-center gap-3">
+                            <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+                            <p className="text-sm font-medium">Usando datos locales por ahora debido a error de conectividad.</p>
                         </div>
                     )}
-                </div>
-            )}
 
-            {/* Modal Flotante de Formulario */}
-            {isModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm animate-fade-in p-4">
-                    <div
-                        className="bg-white rounded-3xl shadow-xl w-full max-w-2xl border border-slate-100 overflow-hidden transform animate-slide-up"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                            <h2 className="text-xl font-extrabold text-[#111827] tracking-tight">{isEditing ? 'Editar Curso' : 'Añadir Cursos por Área'}</h2>
-                            <button onClick={() => setIsModalOpen(false)} className="cursor-pointer text-slate-400 hover:text-red-500 transition-colors bg-white w-8 h-8 rounded-full flex items-center justify-center shadow-sm border border-slate-100">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-                            </button>
+                    {/* Estado de Carga */}
+                    {loading && (
+                        <div className="flex justify-center py-20">
+                            <div className="w-8 h-8 border-4 border-brand-primary/30 border-t-brand-primary rounded-full animate-spin"></div>
                         </div>
+                    )}
 
-                        <form onSubmit={handleGuardar} className="p-8 space-y-6">
-
-                            <div className="space-y-3">
-                                <label className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider">
-                                    {isEditing ? "Área Académica" : "1. Selecciona el Área Académica"}
-                                </label>
-                                {areas.length === 0 ? (
-                                    <div className="p-4 bg-amber-50 rounded-xl border border-amber-200 text-sm text-amber-800 font-medium">
-                                        No hay áreas registradas. Debes registrar un área primero.
+                    {!loading && (
+                        <>
+                            {currentView === 'list' ? (
+                                <>
+                                    {/* Title */}
+                                    <div className="px-2 flex">
+                                        <h2 className="text-slate-800 text-[20px] font-black">Total cursos: {totalCursos} registrados</h2>
                                     </div>
-                                ) : (
-                                    <div className="grid grid-cols-2 gap-3 max-h-48 overflow-y-auto pr-1 stylish-scroll">
-                                        {areas.map(area => {
-                                            const isSelected = nuevoCurso.id_area == area.id_area;
-                                            return (
-                                                <button
-                                                    key={area.id_area}
-                                                    type="button"
-                                                    onClick={() => setNuevoCurso({ ...nuevoCurso, id_area: area.id_area })}
-                                                    className={`p-3 rounded-xl border text-left flex items-center justify-between transition-all cursor-pointer ${isSelected ? 'border-brand-primary bg-[var(--color-brand-light)] ring-2 ring-brand-primary/20 shadow-sm' : 'border-slate-200 hover:border-[var(--color-brand-light)] hover:bg-[var(--color-brand-light)]/30 bg-white'}`}
-                                                >
-                                                    <span className={`text-sm font-bold truncate pr-2 ${isSelected ? 'text-brand-primary' : 'text-slate-700'}`}>
-                                                        {area.nombre || area.nombre_area}
-                                                    </span>
-                                                    {isSelected ? (
-                                                        <div className="w-5 h-5 rounded-full bg-brand-primary flex items-center justify-center flex-shrink-0 shadow-sm">
-                                                            <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth="3">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                                            </svg>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="w-5 h-5 rounded-full border-2 border-slate-200 flex-shrink-0"></div>
-                                                    )}
+
+                                    {/* Search Bar */}
+                                    <div className="flex flex-col sm:flex-row items-center bg-white rounded-[16px] border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.04)] p-2 sm:h-14 gap-3">
+                                        <div className="relative flex items-center flex-1 bg-slate-50 rounded-xl h-10 sm:h-full px-4 w-full">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                                            <input
+                                                type="text"
+                                                placeholder="Buscar curso por nombre..."
+                                                value={searchTerm}
+                                                onChange={(e) => setSearchTerm(e.target.value)}
+                                                className="flex-1 bg-transparent pl-3 outline-none text-[14px] font-medium text-slate-700 placeholder:text-slate-400 h-full w-full"
+                                            />
+                                            {searchTerm && (
+                                                <button onClick={() => setSearchTerm('')} className="text-slate-400 hover:text-red-500 transition-colors p-1 rounded-full hover:bg-red-50 flex-shrink-0 cursor-pointer">
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                                                 </button>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </div>
-
-                            {nuevoCurso.id_area && (
-                                <div className="space-y-4 animate-fade-in pt-4 border-t border-slate-100">
-                                    <label className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider">
-                                        {isEditing ? "Nombre del Curso" : "2. Añadir Cursos"}
-                                    </label>
-
-                                    {isEditing ? (
-                                        <input
-                                            required
-                                            type="text"
-                                            placeholder="Ej. Matemática Básica"
-                                            value={nuevoCurso.nombre_curso}
-                                            onChange={(e) => setNuevoCurso({ ...nuevoCurso, nombre_curso: e.target.value })}
-                                            className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 outline-none transition-all text-sm font-medium text-[#111827] placeholder:text-slate-300 shadow-sm"
-                                        />
-                                    ) : (
-                                        <div className="space-y-3">
-                                            <div className="flex gap-2">
-                                                <input
-                                                    type="text"
-                                                    placeholder="Escribe el nombre del curso..."
-                                                    value={inputCursoVirtual}
-                                                    onChange={(e) => setInputCursoVirtual(e.target.value)}
-                                                    onKeyDown={handleAddCursoToList}
-                                                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 outline-none transition-all text-sm font-medium text-[#111827] placeholder:text-slate-300 shadow-sm"
-                                                    autoFocus
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        const val = inputCursoVirtual.trim();
-                                                        if (val && !cursosNuevos.some(c => c.nombre === val)) {
-                                                            setCursosNuevos([...cursosNuevos, { nombre: val, requiere_espacio_unico: false }]);
-                                                            setInputCursoVirtual('');
-                                                        }
-                                                    }}
-                                                    disabled={!inputCursoVirtual.trim()}
-                                                    className="px-4 py-3 bg-brand-primary/10 text-brand-primary font-bold text-sm rounded-xl hover:bg-brand-primary hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm flex items-center gap-1.5 flex-shrink-0 cursor-pointer"
-                                                >
-                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                                                    Agregar
-                                                </button>
-                                            </div>
-                                            <p className="text-[11px] font-medium text-slate-500 pl-1">
-                                                Presiona <strong>Enter</strong> o haz clic en <strong>Agregar</strong> para añadirlo a la lista inferior.
-                                            </p>
-
-                                            {/* Lista de chips para cursos nuevos */}
-                                            {cursosNuevos.length > 0 && (
-                                                <div className="flex flex-col gap-2.5 pt-3 max-h-[200px] overflow-y-auto pr-1 stylish-scroll">
-                                                    {cursosNuevos.map(c => (
-                                                        <div key={c.nombre} className={`flex items-center justify-between gap-3 px-4 py-3 rounded-xl border-2 border-l-4 transition-all animate-fade-in ${c.requiere_espacio_unico
-                                                            ? 'bg-[var(--color-brand-light)] border-brand-primary/30 border-l-brand-primary'
-                                                            : 'bg-brand-primary/5 border-brand-primary/15 border-l-brand-primary/50'
-                                                            }`}>
-                                                            <div className="flex items-center gap-2.5 min-w-0">
-                                                                <div className="w-7 h-7 rounded-lg bg-brand-primary/15 flex items-center justify-center flex-shrink-0">
-                                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-brand-primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
-                                                                </div>
-                                                                <span className="text-sm font-bold text-slate-800 truncate">{c.nombre}</span>
-                                                            </div>
-                                                            <div className="flex items-center gap-2 flex-shrink-0">
-                                                                <span className={`text-[10px] font-bold whitespace-nowrap ${c.requiere_espacio_unico ? 'text-brand-primary' : 'text-slate-400'}`}>Espacio Único</span>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => toggleEspacioUnicoCurso(c.nombre)}
-                                                                    className={`relative w-11 h-6 rounded-full transition-colors duration-300 cursor-pointer flex-shrink-0 ${c.requiere_espacio_unico ? 'bg-brand-primary' : 'bg-slate-300'
-                                                                        }`}
-                                                                    title="Requiere espacio único (aula exclusiva)"
-                                                                >
-                                                                    <div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-transform duration-300 ${c.requiere_espacio_unico ? 'translate-x-5' : 'translate-x-0'
-                                                                        }`}></div>
-                                                                </button>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => removeCursoFromList(c.nombre)}
-                                                                    className="hover:bg-red-100 p-1.5 rounded-full text-slate-400 hover:text-red-500 transition-colors cursor-pointer flex-shrink-0">
-                                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
                                             )}
                                         </div>
-                                    )}
-                                </div>
-                            )}
+                                        <span className="text-[12px] font-bold text-slate-400 px-3 flex-shrink-0 whitespace-nowrap hidden sm:block">
+                                            {cursosFiltrados.length} de {totalCursos}
+                                        </span>
+                                    </div>
 
-                            {/* Toggle: Requiere Espacio Único (solo en edición individual) */}
-                            {isEditing && nuevoCurso.id_area && (
-                                <div className="pt-4 border-t border-slate-100 animate-fade-in">
-                                    <label className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider mb-2 block">
-                                        Configuración
-                                    </label>
-                                    <button
-                                        type="button"
-                                        onClick={() => setNuevoCurso({ ...nuevoCurso, requiere_espacio_unico: !nuevoCurso.requiere_espacio_unico })}
-                                        className={`w-full p-3 rounded-xl border-2 flex items-center justify-between transition-all cursor-pointer ${nuevoCurso.requiere_espacio_unico
-                                            ? 'border-brand-primary bg-[var(--color-brand-light)] shadow-sm'
-                                            : 'border-slate-200 bg-white hover:border-slate-300'
-                                            }`}
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${nuevoCurso.requiere_espacio_unico ? 'bg-brand-primary text-white' : 'bg-slate-100 text-slate-400'
-                                                }`}>
-                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
-                                            </div>
-                                            <div className="text-left">
-                                                <span className={`text-sm font-bold block ${nuevoCurso.requiere_espacio_unico ? 'text-brand-primary' : 'text-slate-700'}`}>Requiere Espacio Único</span>
-                                                <span className="text-[11px] text-slate-400 font-medium">Necesita un aula o laboratorio exclusivo</span>
-                                            </div>
-                                        </div>
-                                        {/* Switch visual */}
-                                        <div className={`w-10 h-6 rounded-full p-0.5 transition-colors ${nuevoCurso.requiere_espacio_unico ? 'bg-brand-primary' : 'bg-slate-200'}`}>
-                                            <div className={`w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${nuevoCurso.requiere_espacio_unico ? 'translate-x-4' : 'translate-x-0'}`}></div>
-                                        </div>
-                                    </button>
-                                </div>
-                            )}
+                                    {/* Area Pills Filter */}
+                                    <div className="flex items-center gap-2 overflow-x-auto pb-2 custom-scrollbar w-full">
+                                        <button
+                                            onClick={() => setSelectedArea('')}
+                                            className={`cursor-pointer whitespace-nowrap px-4 py-1.5 rounded-full text-[13px] font-bold transition-all ${selectedArea === '' ? 'bg-[var(--color-brand-primary)]  text-white shadow-md' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                                        >
+                                            Todas las áreas
+                                        </button>
+                                        {areas.map(a => {
+                                            const id = a.id_area || a.id;
+                                            const isSelected = selectedArea.toString() === id.toString();
+                                            return (
+                                                <button
+                                                    key={id}
+                                                    onClick={() => setSelectedArea(id)}
+                                                    className={`cursor-pointer whitespace-nowrap px-4 py-1.5 rounded-full text-[13px] font-bold transition-all ${isSelected ? 'bg-[var(--color-brand-primary)] text-white shadow-md shadow-indigo-500/30 border border-transparent' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300'}`}
+                                                >
+                                                    {a.nombre_area || a.nombre}
+                                                </button>
+                                            )
+                                        })}
+                                    </div>
 
-                            <div className="flex items-center gap-3 pt-6 border-t border-slate-100 mt-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsModalOpen(false)}
-                                    className="cursor-pointer flex-1 py-3 text-sm font-bold text-[#64748B] hover:text-[#111827] bg-slate-100 hover:bg-slate-200 border border-slate-200 shadow-sm rounded-xl transition-all flex items-center justify-center gap-2">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-                                    Cancelar
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={guardando || !nuevoCurso.id_area || (!isEditing && (cursosNuevos.length === 0 || inputCursoVirtual.trim() !== '')) || (isEditing && !nuevoCurso.nombre_curso)}
-                                    className="cursor-pointer flex-1 py-3 px-4 bg-brand-primary hover:bg-brand-primary/90 text-white text-sm font-bold rounded-xl shadow-md hover:shadow-lg transition-all flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
-                                    {guardando ? (
-                                        <>
-                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                            Guardando...
-                                        </>
+                                    {cursosFiltrados.length === 0 ? (
+                                        <div className="bg-slate-50 border-2 border-slate-200 border-dashed rounded-[32px] p-16 text-center">
+                                            <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
+                                                <svg width="32" height="32" fill="none" stroke="#cbd5e1" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                                            </div>
+                                            <h3 className="text-xl font-black text-slate-800">No se encontraron cursos</h3>
+                                            <p className="text-slate-500 text-sm mt-2 max-w-md mx-auto">
+                                                {searchTerm ? 'Prueba buscando con otros términos o limpia el filtro.' : 'Comienza creando tu primer curso usando el botón en la cabecera superior.'}
+                                            </p>
+                                        </div>
                                     ) : (
-                                        <>
-                                            {isEditing ? 'Guardar Cambios' : `Guardar ${cursosNuevos.length} Curso(s)`}
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-                                        </>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-x-12 gap-y-24 px-6 pt-6 pb-16">
+                                            {cursosFiltrados.map((curso, index) => {
+                                                const localId = curso.id_curso || curso.nombre_curso || `ID-${index}`;
+                                                const areaEncontrada = areas.find(a => (a.id_area || a.id) === curso.id_area);
+                                                // Buscar el índice original para que el color del libro no cambie al filtrar
+                                                const originalIndex = cursos.findIndex(c => c === curso);
+                                                return (
+                                                    <CursoBookCard
+                                                        key={localId}
+                                                        curso={curso}
+                                                        area={areaEncontrada}
+                                                        index={originalIndex !== -1 ? originalIndex : index}
+                                                        onEdit={abrirModalEdicion}
+                                                        onDelete={eliminarCurso}
+                                                    />
+                                                );
+                                            })}
+                                        </div>
                                     )}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
+                                </>
+                            ) : (
+                                <div className="bg-white rounded-[24px] border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.04)] p-8 animate-fade-in flex flex-col min-h-[500px]">
+                                    <div className="flex justify-between items-center mb-8 border-b border-slate-100 pb-6">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center border border-slate-100">
+                                                {isEditing ? (
+                                                    <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="text-slate-500 stroke-2"><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                                ) : (
+                                                    <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="text-slate-500 stroke-2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                                                )}
+                                            </div>
+                                            <h2 className="text-xl font-black text-slate-800 tracking-tight">{isEditing ? 'Editar Curso' : 'Añadir Cursos por Área'}</h2>
+                                        </div>
+                                        <button
+                                            onClick={() => volverALista()}
+                                            className="cursor-pointer text-[var(--color-brand-primary)] hover:text-[var(--color-brand-dark)] transition-colors flex items-center gap-2 text-sm font-bold px-4 py-2.5 rounded-xl"
+                                        >
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></svg>
+                                            Volver
+                                        </button>
+                                    </div>
 
-            {/* Modal de Configuración de Tutoría */}
-            {isModalTutoriaOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" onClick={() => setIsModalTutoriaOpen(false)}></div>
-                    <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-md overflow-hidden relative z-10 animate-fade-in flex flex-col border border-slate-100">
-                        {/* Cabecera */}
-                        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-brand-primary/5">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-brand-primary/10 flex items-center justify-center text-brand-primary">
-                                    <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
+                                    <div className="flex-1 flex flex-col items-center">
+                                        <form id="cursoForm" onSubmit={handleGuardar} className="w-full max-w-4xl flex flex-col gap-8">
+                                            
+                                            {/* Sección 1: Selección de Área */}
+                                            <div className="space-y-3">
+                                                <label className="text-[12px] font-bold text-slate-500 uppercase tracking-wider ml-1">
+                                                    {isEditing ? "Área Académica Seleccionada" : "1. Selecciona el Área"}
+                                                </label>
+                                                
+                                                {areas.length === 0 ? (
+                                                    <div className="p-5 bg-amber-50 rounded-2xl border border-amber-200 text-amber-800 font-medium flex items-center gap-3 shadow-sm">
+                                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                                                        No hay áreas registradas.
+                                                    </div>
+                                                ) : (
+                                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 pr-2 max-h-[160px] overflow-y-auto custom-scrollbar">
+                                                        {areas.map(area => {
+                                                            const isSelected = nuevoCurso.id_area == area.id_area;
+                                                            return (
+                                                                <button
+                                                                    key={area.id_area}
+                                                                    type="button"
+                                                                    onClick={() => setNuevoCurso({ ...nuevoCurso, id_area: area.id_area })}
+                                                                    className={`p-3.5 rounded-xl border-2 text-left flex items-center justify-between transition-all cursor-pointer ${isSelected ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-light)] shadow-sm' : 'border-slate-100 hover:border-[var(--color-brand-primary)]/40 hover:bg-slate-50 bg-white'}`}
+                                                                >
+                                                                    <span className={`text-[13px] font-extrabold truncate pr-2 ${isSelected ? 'text-[var(--color-brand-primary)]' : 'text-slate-600'}`}>
+                                                                        {area.nombre || area.nombre_area}
+                                                                    </span>
+                                                                    {isSelected ? (
+                                                                        <div className="w-4 h-4 rounded-full bg-[var(--color-brand-primary)] flex items-center justify-center flex-shrink-0 shadow-sm">
+                                                                            <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="w-4 h-4 rounded-full border-2 border-slate-200 flex-shrink-0"></div>
+                                                                    )}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <div className="border-t border-slate-100 w-full"></div>
+
+                                            {/* Sección 2: Detalles del Curso */}
+                                            <div className={`space-y-3 transition-opacity duration-300 ${nuevoCurso.id_area ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
+                                                <label className="text-[12px] font-bold text-slate-500 uppercase tracking-wider ml-1">
+                                                    {isEditing ? "Detalles del Curso" : "2. Añade los Cursos"}
+                                                </label>
+
+                                                {isEditing ? (
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                        <div className="relative">
+                                                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                                                            </div>
+                                                            <input
+                                                                required
+                                                                type="text"
+                                                                placeholder="Ej. Matemática Básica I"
+                                                                value={nuevoCurso.nombre_curso}
+                                                                onChange={(e) => setNuevoCurso({ ...nuevoCurso, nombre_curso: e.target.value })}
+                                                                className="w-full pl-11 pr-4 py-3.5 bg-white border-2 border-slate-100 focus:border-[var(--color-brand-primary)] rounded-xl outline-none transition-all text-sm font-bold text-slate-800 placeholder:text-slate-400 shadow-sm"
+                                                            />
+                                                        </div>
+
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setNuevoCurso({ ...nuevoCurso, requiere_espacio_unico: !nuevoCurso.requiere_espacio_unico })}
+                                                            className={`w-full px-4 py-2.5 rounded-xl border-2 flex items-center justify-between transition-all cursor-pointer ${nuevoCurso.requiere_espacio_unico
+                                                                ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-light)] shadow-sm'
+                                                                : 'border-slate-100 bg-white hover:border-slate-300'
+                                                                }`}
+                                                        >
+                                                            <div className="flex items-center gap-3">
+                                                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${nuevoCurso.requiere_espacio_unico ? 'bg-[var(--color-brand-primary)] text-white shadow-md' : 'bg-slate-100 text-slate-400 shadow-sm'
+                                                                    }`}>
+                                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
+                                                                </div>
+                                                                <div className="text-left">
+                                                                    <span className={`text-sm font-extrabold block ${nuevoCurso.requiere_espacio_unico ? 'text-[var(--color-brand-primary)]' : 'text-slate-700'}`}>Requiere Espacio Único</span>
+                                                                    <span className="text-[11px] text-slate-500 font-bold">Laboratorio o taller exclusivo</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className={`w-10 h-6 rounded-full p-1 transition-colors ${nuevoCurso.requiere_espacio_unico ? 'bg-[var(--color-brand-primary)]' : 'bg-slate-200'}`}>
+                                                                <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${nuevoCurso.requiere_espacio_unico ? 'translate-x-4' : 'translate-x-0'}`}></div>
+                                                            </div>
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <div className="space-y-4">
+                                                        <div className="flex flex-col sm:flex-row gap-3">
+                                                            <div className="relative group flex-1">
+                                                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-[var(--color-brand-primary)] transition-colors">
+                                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                                                                </div>
+                                                                <input
+                                                                    type="text"
+                                                                    placeholder="Ej. Matemática Básica I"
+                                                                    value={inputCursoVirtual}
+                                                                    onChange={(e) => setInputCursoVirtual(e.target.value)}
+                                                                    onKeyDown={handleAddCursoToList}
+                                                                    className="w-full pl-11 pr-4 py-3.5 bg-white border-2 border-slate-100 focus:border-[var(--color-brand-primary)] rounded-xl outline-none transition-all text-sm font-bold text-slate-800 placeholder:text-slate-400 shadow-sm"
+                                                                />
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const val = inputCursoVirtual.trim();
+                                                                    if (val && !cursosNuevos.some(c => c.nombre === val)) {
+                                                                        setCursosNuevos([...cursosNuevos, { nombre: val, requiere_espacio_unico: false }]);
+                                                                        setInputCursoVirtual('');
+                                                                    }
+                                                                }}
+                                                                disabled={!inputCursoVirtual.trim()}
+                                                                className="px-6 py-3.5 bg-[var(--color-brand-primary)] text-white font-extrabold text-[13px] rounded-xl hover:bg-[#3424c2] shadow-[0_4px_12px_rgba(47,91,255,0.3)] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5 flex-shrink-0 cursor-pointer"
+                                                            >
+                                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                                                Agregar
+                                                            </button>
+                                                        </div>
+                                                        <p className="text-[11px] text-slate-500 font-bold ml-2 flex items-center gap-1.5">
+                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 10 4 15 9 20"></polyline><path d="M20 4v7a4 4 0 0 1-4 4H4"></path></svg>
+                                                            Presiona <strong>Enter</strong> o haz clic en Agregar para añadir el curso a la lista de abajo.
+                                                        </p>
+
+                                                        {cursosNuevos.length > 0 && (
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-4 border-t border-slate-100 max-h-[220px] overflow-y-auto custom-scrollbar">
+                                                                {cursosNuevos.map(c => (
+                                                                    <div key={c.nombre} className={`group flex items-center justify-between gap-3 px-3 py-2.5 rounded-[14px] border border-slate-200 transition-all animate-fade-in hover:border-slate-300 hover:shadow-sm bg-white ${c.requiere_espacio_unico ? 'ring-2 ring-[var(--color-brand-primary)]/20' : ''}`}>
+                                                                        <div className="flex items-center gap-3 min-w-0">
+                                                                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${c.requiere_espacio_unico ? 'bg-[var(--color-brand-light)] text-[var(--color-brand-primary)]' : 'bg-slate-100 text-slate-400'}`}>
+                                                                                <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                                                                            </div>
+                                                                            <div className="flex flex-col min-w-0">
+                                                                                <span className="text-[13px] font-extrabold text-slate-800 truncate leading-tight">{c.nombre}</span>
+                                                                                <span className="text-[10px] font-bold text-slate-400 mt-0.5">Curso añadido</span>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-2 flex-shrink-0">
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => toggleEspacioUnicoCurso(c.nombre)}
+                                                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer shadow-sm active:scale-95 ${
+                                                                                    c.requiere_espacio_unico 
+                                                                                        ? 'bg-[var(--color-brand-primary)] text-white shadow-[var(--color-brand-primary)]/20 hover:bg-[var(--color-brand-dark)] border border-transparent' 
+                                                                                        : 'bg-white border border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
+                                                                                }`}
+                                                                                title="Alternar espacio único"
+                                                                            >
+                                                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                                                    {c.requiere_espacio_unico ? (
+                                                                                        <path d="M20 6L9 17l-5-5" />
+                                                                                    ) : (
+                                                                                        <><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></>
+                                                                                    )}
+                                                                                </svg>
+                                                                                <span className="text-[10px] font-black uppercase tracking-wider">{c.requiere_espacio_unico ? 'Activado' : 'Único'}</span>
+                                                                            </button>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => removeCursoFromList(c.nombre)}
+                                                                                className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 text-slate-400 rounded-lg hover:bg-red-50 hover:border-red-200 hover:text-red-500 transition-all cursor-pointer flex-shrink-0 shadow-sm active:scale-95">
+                                                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Botones Footer (Igual a AreasManager) */}
+                                            <div className="flex items-center justify-end gap-4 pt-6 border-t border-slate-100 mt-4">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => volverALista()}
+                                                    className="cursor-pointer py-3.5 px-6 text-sm font-bold text-slate-500 hover:text-slate-800 bg-slate-50 hover:bg-slate-100 rounded-xl transition-all"
+                                                >
+                                                    Cancelar
+                                                </button>
+                                                <button
+                                                    type="submit"
+                                                    disabled={guardando || !nuevoCurso.id_area || (!isEditing && (cursosNuevos.length === 0 && inputCursoVirtual.trim() === '')) || (isEditing && !nuevoCurso.nombre_curso)}
+                                                    className="cursor-pointer py-3.5 px-8 bg-[var(--color-brand-primary)] hover:bg-[var(--color-brand-dark)] text-white text-sm font-bold rounded-xl shadow-md shadow-[var(--color-brand-primary)]/20 hover:shadow-lg hover:-translate-y-0.5 transition-all flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                    {guardando ? (
+                                                        <>
+                                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                                            Guardando...
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            {isEditing ? 'Guardar Cambios' : `Guardar ${cursosNuevos.length || 1} Curso(s)`}
+                                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                                                        </>
+                                                    )}
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
                                 </div>
-                                <h3 className="text-xl font-black text-slate-800 tracking-tight">Configurar Tutoría</h3>
-                            </div>
-                            <button onClick={() => setIsModalTutoriaOpen(false)} className="text-slate-400 hover:text-slate-600 bg-white hover:bg-slate-100 p-2 rounded-full transition-colors cursor-pointer shadow-sm border border-slate-100">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-                            </button>
-                        </div>
+                            )}
+                        </>
+                    )}
+                </main>
 
-                        <div className="p-6 space-y-4">
-                            <p className="text-sm text-slate-600 font-medium leading-relaxed mb-2">
-                                Para configurar correctamente el horario de este curso, responde la siguiente pregunta:
+
+                {/* Modal Confirmación de Eliminar */}
+                {isDeleteModalOpen && cursoToDelete && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm animate-fade-in p-4">
+                        <div
+                            className="bg-white rounded-[24px] shadow-2xl w-full max-w-[340px] overflow-hidden transform animate-slide-up p-8 text-center"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {/* Icono de advertencia */}
+                            <div className="w-14 h-14 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="#f43f5e" strokeWidth="2.5">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                            </div>
+
+                            <h2 className="text-[20px] font-extrabold text-slate-800 mb-2">Eliminar Curso</h2>
+                            <p className="text-slate-500 text-[14px] font-medium mb-8 leading-relaxed">
+                                Estás a punto de eliminar el curso <strong className="text-slate-700">"{cursoToDelete.nombre_curso}"</strong>. ¿Estás seguro?
                             </p>
-                            <h4 className="text-[13px] font-black text-brand-primary uppercase tracking-wider text-center">¿Quién dictará este curso?</h4>
 
-                            <div className="flex flex-col gap-3 mt-4">
+                            <div className="flex items-center gap-3 w-full">
                                 <button
                                     type="button"
-                                    onClick={() => handleConfigurarTutoria('oficial')}
-                                    disabled={guardando}
-                                    className="text-left p-4 rounded-xl bg-white border-2 border-slate-200 hover:border-brand-primary hover:bg-[var(--color-brand-light)] transition-all cursor-pointer group flex flex-col items-start relative overflow-hidden disabled:opacity-50"
+                                    onClick={() => {
+                                        setIsDeleteModalOpen(false);
+                                        setCursoToDelete(null);
+                                    }}
+                                    disabled={eliminando}
+                                    className="cursor-pointer flex-1 py-3 text-[13px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full transition-all disabled:opacity-50"
                                 >
-                                    <span className="font-black text-slate-800 text-base group-hover:text-brand-primary transition-colors">Solo el Encargado del Aula</span>
-                                    <span className="text-xs text-slate-500 font-medium mt-1">El sistema obligará a que el Tutor asignado de la sección dicte este curso.</span>
+                                    No, Conservarlo
                                 </button>
-
                                 <button
                                     type="button"
-                                    onClick={() => handleConfigurarTutoria('normal')}
-                                    disabled={guardando}
-                                    className="text-left p-4 rounded-xl bg-white border-2 border-slate-200 hover:border-slate-400 hover:bg-slate-50 transition-all cursor-pointer group flex flex-col items-start relative overflow-hidden disabled:opacity-50"
+                                    onClick={confirmarEliminacion}
+                                    disabled={eliminando}
+                                    className="cursor-pointer flex-1 py-3 bg-[#f43f5e] hover:bg-[#e11d48] text-white text-[13px] font-bold rounded-full shadow-[0_4px_12px_rgba(244,63,94,0.3)] hover:shadow-[0_6px_16px_rgba(244,63,94,0.4)] transition-all flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    <span className="font-black text-slate-800 text-base group-hover:text-slate-900">Tiene otro docente a cargo</span>
-                                    <span className="text-xs text-slate-500 font-medium mt-1">El curso será tratado como un curso normal (ideal para un Psicólogo).</span>
+                                    {eliminando ? 'Eliminando...' : 'Sí, ¡Eliminar!'}
                                 </button>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )}
 
-            {/* Modal Confirmación de Eliminar */}
-            {isDeleteModalOpen && cursoToDelete && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm animate-fade-in p-4">
-                    <div
-                        className="bg-white rounded-[24px] shadow-2xl w-full max-w-[340px] overflow-hidden transform animate-slide-up p-8 text-center"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        {/* Icono de advertencia */}
-                        <div className="w-14 h-14 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="#f43f5e" strokeWidth="2.5">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                            </svg>
-                        </div>
-
-                        <h2 className="text-[20px] font-extrabold text-slate-800 mb-2">Eliminar Curso</h2>
-                        <p className="text-slate-500 text-[14px] font-medium mb-8 leading-relaxed">
-                            Estás a punto de eliminar el curso <strong className="text-slate-700">"{cursoToDelete.nombre_curso}"</strong>. ¿Estás seguro?
-                        </p>
-
-                        <div className="flex items-center gap-3 w-full">
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setIsDeleteModalOpen(false);
-                                    setCursoToDelete(null);
-                                }}
-                                disabled={eliminando}
-                                className="cursor-pointer flex-1 py-3 text-[13px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full transition-all disabled:opacity-50"
-                            >
-                                No, Conservarlo
-                            </button>
-                            <button
-                                type="button"
-                                onClick={confirmarEliminacion}
-                                disabled={eliminando}
-                                className="cursor-pointer flex-1 py-3 bg-[#f43f5e] hover:bg-[#e11d48] text-white text-[13px] font-bold rounded-full shadow-[0_4px_12px_rgba(244,63,94,0.3)] hover:shadow-[0_6px_16px_rgba(244,63,94,0.4)] transition-all flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {eliminando ? 'Eliminando...' : 'Sí, ¡Eliminar!'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            </div>
         </div>
     );
 }

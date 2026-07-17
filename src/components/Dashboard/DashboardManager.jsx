@@ -21,7 +21,7 @@ const pastelColors = [
 ];
 
 export default function DashboardManager() {
-    const [stats, setStats] = useState({ profesores: 0, cursos: 0, areas: 0, sedes: 0, grados: 0, secciones: 0, planes: 0, tutorias: 0 });
+    const [stats, setStats] = useState({ profesores: 0, cursos: 0, areas: 0, sedes: 0, grados: 0, secciones: 0, planes: 0, tutorias: 0, reservas: 0 });
     const [areaDetails, setAreaDetails] = useState([]);
     const [colegio, setColegio] = useState(null);
     const [horarioCount, setHorarioCount] = useState(0);
@@ -30,14 +30,19 @@ export default function DashboardManager() {
     useEffect(() => {
         const load = async () => {
             try {
-                const endpoints = ['profesores', 'cursos', 'areas', 'sedes', 'grados', 'secciones', 'planes', 'tutorias'];
+                const endpoints = ['profesores', 'cursos', 'areas', 'sedes', 'grados', 'secciones', 'planes', 'tutorias', 'reservas'];
                 const responses = await Promise.all(endpoints.map(e => fetch(`${API}/${e}`).then(r => r.ok ? r.json() : [])));
                 const c = {};
                 endpoints.forEach((e, i) => c[e] = Array.isArray(responses[i]) ? responses[i].length : 0);
                 setStats(c);
-
                 const areasData = responses[endpoints.indexOf('areas')];
                 const cursosData = responses[endpoints.indexOf('cursos')];
+                
+                c.areasReales = Array.isArray(areasData) ? areasData.filter(a => a.nombre !== 'Desarrollo Personal' && a.nombre_area !== 'Desarrollo Personal').length : 0;
+                c.cursosReales = Array.isArray(cursosData) ? cursosData.filter(c => c.nombre_curso !== 'Tutoría' && c.nombre_curso !== 'Tutoría Psicológica').length : 0;
+                
+                setStats(c);
+
                 if (Array.isArray(areasData) && Array.isArray(cursosData)) {
                     const details = areasData.map(a => {
                         const count = cursosData.filter(c => c.id_area === a.id_area).length;
@@ -58,15 +63,16 @@ export default function DashboardManager() {
         return () => window.removeEventListener('horarix_data_updated', load);
     }, []);
 
-    const reqCompleted = stats.areas > 0 && stats.cursos > 0 && stats.planes > 0 && stats.profesores > 0;
+    const reqCompleted = stats.areasReales > 0 && stats.cursosReales > 0 && stats.planes > 0 && stats.profesores > 0;
+    const academicComplete = stats.areasReales > 0 && stats.cursosReales > 0 && stats.planes > 0;
 
     const navSteps = [
-        { id: 1, label: 'Áreas', path: '/areas', isCompleted: stats.areas > 0 },
-        { id: 2, label: 'Cursos', path: '/cursos', isCompleted: stats.cursos > 0 },
-        { id: 3, label: 'Actividades', path: '/reservas', isCompleted: true, optional: true },
-        { id: 4, label: 'Planes', path: '/planes', isCompleted: stats.planes > 0 },
-        { id: 5, label: 'Profesores', path: '/profesores', isCompleted: stats.profesores > 0 },
-        { id: 6, label: 'Tutorías', path: '/tutorias', isCompleted: stats.tutorias > 0 },
+        { id: 1, label: 'Áreas', path: '/areas', isCompleted: stats.areasReales > 0, isLocked: false },
+        { id: 2, label: 'Cursos', path: '/cursos', isCompleted: stats.cursosReales > 0, isLocked: stats.areasReales === 0 },
+        { id: 3, label: 'Actividades', path: '/reservas', isCompleted: stats.reservas > 0, optional: true, isLocked: stats.cursosReales === 0 },
+        { id: 4, label: 'Planes', path: '/planes', isCompleted: stats.planes > 0, isLocked: stats.cursosReales === 0 },
+        { id: 5, label: 'Profesores', path: '/profesores', isCompleted: stats.profesores > 0, isLocked: !academicComplete },
+        { id: 6, label: 'Tutorías', path: '/tutorias', isCompleted: stats.tutorias > 0, isLocked: !academicComplete },
         { id: 7, label: 'Generar', desc: 'Crear Horario', path: '/horarios', isCompleted: horarioCount > 0, isButton: true, isReady: reqCompleted },
     ];
 
@@ -270,9 +276,9 @@ export default function DashboardManager() {
                             return (
                                 <div
                                     key={node.stepNum}
-                                    className={`absolute flex flex-col items-center pointer-events-auto ${node.isButton && !node.isReady ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
+                                    className={`absolute flex flex-col items-center pointer-events-auto ${(node.isButton && !node.isReady) || node.isLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
                                     onClick={() => {
-                                        if (node.isButton && !node.isReady) return;
+                                        if (node.isLocked || (node.isButton && !node.isReady)) return;
                                         window.location.href = node.path;
                                     }}
                                     style={{
@@ -292,20 +298,35 @@ export default function DashboardManager() {
                                         </div>
                                     ) : (
                                         <>
+                                            {/* Tooltip Viñeta - ¡Comienza aquí! */}
+                                            {node.id === 1 && stats.areasReales === 0 && (
+                                                <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-[var(--color-brand-primary)] text-white text-[11px] font-bold px-3 py-1.5 rounded-lg whitespace-nowrap shadow-lg animate-bounce z-30">
+                                                    ¡Comienza por aquí!
+                                                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-[var(--color-brand-primary)] rotate-45"></div>
+                                                </div>
+                                            )}
                                             <div
-                                                className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-[15px] transition-all duration-500 shadow-xl border-4 hover:scale-110 ${node.isCompleted
-                                                    ? "bg-[var(--color-brand-dark)] text-[var(--color-brand-white)] border-[var(--color-brand-white)]"
-                                                    : "bg-[var(--color-brand-white)] text-[var(--color-brand-dark)] border-[var(--color-brand-white)]"
+                                                className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-[15px] transition-all duration-500 shadow-xl border-4 ${
+                                                    node.isLocked
+                                                        ? "bg-slate-200 text-slate-400 border-slate-300 grayscale"
+                                                        : node.isCompleted
+                                                            ? "bg-[var(--color-brand-dark)] text-[var(--color-brand-white)] border-[var(--color-brand-white)] hover:scale-110"
+                                                            : "bg-[var(--color-brand-white)] text-[var(--color-brand-dark)] border-[var(--color-brand-white)] hover:scale-110"
                                                     }`}
                                             >
-                                                {node.isCompleted ? (
+                                                {node.isLocked ? (
+                                                    <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                                                ) : node.isCompleted ? (
                                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                                                 ) : (
                                                     node.stepNum
                                                 )}
                                             </div>
                                             <span
-                                                className={`absolute top-full mt-2 px-3 py-1.5 rounded-xl text-[12px] font-extrabold text-center tracking-widest uppercase transition-colors whitespace-nowrap shadow-sm border border-white/50 ${node.isCompleted ? 'bg-white text-[var(--color-brand-dark)]/90' : 'bg-white/70 text-[var(--color-brand-dark)]/60'
+                                                className={`absolute top-full mt-2 px-3 py-1.5 rounded-xl text-[12px] font-extrabold text-center tracking-widest uppercase transition-colors whitespace-nowrap shadow-sm border border-white/50 ${
+                                                    node.isLocked ? 'bg-slate-100 text-slate-400'
+                                                    : node.isCompleted ? 'bg-white text-[var(--color-brand-dark)]/90' 
+                                                    : 'bg-white/70 text-[var(--color-brand-dark)]/60'
                                                     }`}
                                             >
                                                 {node.label}

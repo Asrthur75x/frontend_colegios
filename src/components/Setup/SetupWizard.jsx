@@ -4,6 +4,7 @@ import Paso2DiasGrados from './Steps/Paso2DiasGrados';
 import Paso3GradoDiaConfig from './Steps/Paso3GradoDiaConfig';
 import Paso4Secciones from './Steps/Paso4Secciones';
 import Paso5Turnos from './Steps/Paso5Turnos';
+import Paso6Tutoria from './Steps/Paso6Tutoria';
 
 const DEFAULT_DATA = {
     colegio: { nombre: '' },
@@ -15,7 +16,8 @@ const DEFAULT_DATA = {
     grados: [],
     gradoDiaConfig: null,
     secciones: null,
-    seccionTurno: null
+    seccionTurno: null,
+    tutoria: null
 };
 
 
@@ -76,7 +78,7 @@ export default function SetupWizard() {
     const [editingSteps, setEditingSteps] = useState([]);
     const [wizardDataBackup, setWizardDataBackup] = useState(null);
 
-    const totalSteps = wizardData.turnos && wizardData.turnos.length > 1 ? 6 : 5;
+    const totalSteps = wizardData.turnos && wizardData.turnos.length > 1 ? 7 : 6;
 
     // Cargar desde sessionStorage solo en el cliente (después de montar)
     useEffect(() => {
@@ -190,9 +192,17 @@ export default function SetupWizard() {
                             if (secTurnoRes.ok) {
                                 const secTurnoDb = await secTurnoRes.json();
                                 if (secTurnoDb.length > 0) {
-                                    // Si existe, el wizard está completo.
-                                    window.location.href = '/dashboard';
-                                    return;
+                                    newSavedSteps.push(4);
+                                    
+                                    // Check Tutoria (Step 6)
+                                    const tutoriaFlag = localStorage.getItem('edusync_tutoria_configured');
+                                    if (tutoriaFlag) {
+                                        window.location.href = '/dashboard';
+                                        return;
+                                    } else {
+                                        newSavedSteps.push(5);
+                                        finalStep = 6;
+                                    }
                                 } else if (finalStep === 4 && newWizardData.secciones) {
                                     // Si existen secciones pero no seccion-turno, avanzamos al paso 5
                                     newSavedSteps.push(4);
@@ -750,6 +760,73 @@ export default function SetupWizard() {
         }
     };
 
+    const saveStep6Data = async () => {
+        setIsSaving(true);
+        try {
+            const { tutoria } = wizardData;
+            
+            if (tutoria === 'oficial' || tutoria === 'normal') {
+                const nombreDelCurso = tutoria === 'oficial' ? 'Tutoría' : 'Tutoría Psicológica';
+                
+                // 1. Buscar o crear área "Desarrollo Personal"
+                const areasRes = await fetch('http://127.0.0.1:8000/api/areas');
+                const areas = await areasRes.json();
+                
+                let areaId = null;
+                const areaExistente = areas.find(a =>
+                    (a.nombre_area || a.nombre) === "Desarrollo Personal" || (a.nombre_area || a.nombre) === "Tutoría"
+                );
+    
+                if (areaExistente) {
+                    areaId = areaExistente.id_area || areaExistente.id;
+                } else {
+                    const resArea = await fetch('http://127.0.0.1:8000/api/areas', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ nombre: "Desarrollo Personal", max_horas_dia: 2 })
+                    });
+                    if (resArea.ok) {
+                        const newArea = await resArea.json();
+                        areaId = newArea.id_area || newArea.id;
+                    }
+                }
+                
+                // 2. Crear curso de tutoría si no existe
+                if (areaId) {
+                    const cursosRes = await fetch('http://127.0.0.1:8000/api/cursos');
+                    const cursos = await cursosRes.json();
+                    
+                    const cursoExiste = cursos.find(c => c.nombre_curso === nombreDelCurso);
+                    if (!cursoExiste) {
+                        await fetch('http://127.0.0.1:8000/api/cursos', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                nombre_curso: nombreDelCurso,
+                                id_area: areaId,
+                                requiere_espacio_unico: false
+                            })
+                        });
+                    }
+                }
+            }
+            
+            // Mark Tutoria configured
+            localStorage.setItem('edusync_tutoria_configured', 'true');
+            
+            setSavedSteps(prev => prev.includes(totalSteps - 1) ? prev : [...prev, totalSteps - 1]);
+            setEditingSteps(prev => prev.filter(s => s !== (totalSteps - 1)));
+            
+            // Avanzar al paso final (Resumen)
+            setStep(totalSteps);
+        } catch (error) {
+            console.error("Error al guardar tutoría:", error);
+            showError("Hubo un error guardando la tutoría.");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     const handleNext = () => {
         if (step === 1) {
             setErrorMsg('');
@@ -854,7 +931,7 @@ export default function SetupWizard() {
             } else {
                 saveStep4Data();
             }
-        } else if (step === 5 && totalSteps === 6) {
+        } else if (step === 5 && totalSteps === 7) {
             setErrorMsg('');
 
             const { seccionTurno, secciones } = wizardData;
@@ -871,7 +948,6 @@ export default function SetupWizard() {
                                 missingShifts = true;
                                 break;
                             } else if (typeof val === 'object') {
-                                // En modo avanzado, hay que verificar que ningún día esté vacío
                                 if (Object.values(val).some(v => v === null || v === undefined || v === '')) {
                                     missingShifts = true;
                                     break;
@@ -889,15 +965,27 @@ export default function SetupWizard() {
                 return;
             }
 
-            saveStep5Data();
+            if (savedSteps.includes(5) && !editingSteps.includes(5)) {
+                setStep(6);
+            } else {
+                saveStep5Data();
+            }
+        } else if (step === 5 && totalSteps === 6) {
+            // Un solo turno, el paso 5 es Tutoria (porque saltamos el paso de asignación)
+            saveStep6Data();
+        } else if (step === 6 && totalSteps === 7) {
+            // El paso 6 es Tutoria si hay multiples turnos
+            saveStep6Data();
         } else if (step === totalSteps) {
+            // Pantalla final de resumen
             if (typeof window !== 'undefined') {
                 setTimeout(() => {
                     sessionStorage.removeItem('edusync_wizard_step');
                     sessionStorage.removeItem('edusync_wizard_data');
                     sessionStorage.removeItem('edusync_wizard_saved_steps');
+                    sessionStorage.setItem('edusync_first_login', 'true');
                     window.location.href = '/dashboard';
-                }, 800);
+                }, 400);
             }
         }
     };
@@ -975,7 +1063,8 @@ export default function SetupWizard() {
                         else if (stepNum === 2) stepName = "Días / Grados";
                         else if (stepNum === 3) stepName = "Bloques";
                         else if (stepNum === 4) stepName = "Secciones";
-                        else if (stepNum === 5 && totalSteps === 6) stepName = "Turnos";
+                        else if (stepNum === 5 && totalSteps === 7) stepName = "Turnos";
+                        else if (stepNum === totalSteps - 1) stepName = "Tutoría";
                         else if (stepNum === totalSteps) stepName = "Finalizado";
 
                         return (
@@ -1133,7 +1222,7 @@ export default function SetupWizard() {
                                     />
                                 </div>
                             )}
-                            {step === 5 && totalSteps === 6 && (
+                            {step === 5 && totalSteps === 7 && (
                                 <div className="animate-fade-in" style={{ animationDuration: '0.6s' }}>
                                     <Paso5Turnos
                                         data={wizardData}
@@ -1149,6 +1238,26 @@ export default function SetupWizard() {
                                                 setWizardData(wizardDataBackup);
                                             }
                                             setEditingSteps(prev => prev.filter(s => s !== 5));
+                                        }}
+                                    />
+                                </div>
+                            )}
+                            {step === (totalSteps - 1) && (
+                                <div className="animate-fade-in" style={{ animationDuration: '0.6s' }}>
+                                    <Paso6Tutoria
+                                        data={wizardData}
+                                        setData={setWizardData}
+                                        isSaved={savedSteps.includes(totalSteps - 1) && !editingSteps.includes(totalSteps - 1)}
+                                        onEnableEdit={() => {
+                                            setWizardDataBackup(JSON.parse(JSON.stringify(wizardData)));
+                                            setEditingSteps(prev => [...prev, totalSteps - 1]);
+                                        }}
+                                        isEditing={editingSteps.includes(totalSteps - 1)}
+                                        onCancelEdit={() => {
+                                            if (wizardDataBackup) {
+                                                setWizardData(wizardDataBackup);
+                                            }
+                                            setEditingSteps(prev => prev.filter(s => s !== (totalSteps - 1)));
                                         }}
                                     />
                                 </div>

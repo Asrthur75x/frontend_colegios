@@ -25,9 +25,32 @@ export default function MainNavbar({ currentPath = '' }) {
                     fetch(`${API_BASE}/cursos`),
                     fetch(`${API_BASE}/planes`),
                 ]);
-                if (areasRes.ok) setAreasCount((await areasRes.json()).length);
-                if (cursosRes.ok) setCursosCount((await cursosRes.json()).length);
-                if (planesRes.ok) setPlanesCount((await planesRes.json()).length);
+                let numAreas = 0;
+                let numCursos = 0;
+                let numPlanes = 0;
+
+                if (areasRes.ok) numAreas = (await areasRes.json()).length;
+                if (cursosRes.ok) numCursos = (await cursosRes.json()).length;
+                if (planesRes.ok) numPlanes = (await planesRes.json()).length;
+                
+                setAreasCount(numAreas);
+                setCursosCount(numCursos);
+                setPlanesCount(numPlanes);
+
+                // --- ROUTE GUARD (Seguridad de navegación) ---
+                const path = window.location.pathname;
+                const isAcademicComplete = numAreas > 0 && numCursos > 0 && numPlanes > 0;
+                let shouldRedirect = false;
+
+                // Reglas idénticas a los candados visuales
+                if (path.startsWith('/cursos') && numAreas === 0) shouldRedirect = true;
+                if ((path.startsWith('/reservas') || path.startsWith('/planes')) && numCursos === 0) shouldRedirect = true;
+                if ((path.startsWith('/profesores') || path.startsWith('/carga-academica') || path.startsWith('/tutorias')) && !isAcademicComplete) shouldRedirect = true;
+
+                if (shouldRedirect) {
+                    window.location.replace('/dashboard');
+                }
+
             } catch (err) {
                 console.error("Error fetching navbar counts:", err);
             }
