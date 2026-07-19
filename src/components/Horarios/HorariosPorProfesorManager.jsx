@@ -18,6 +18,7 @@ const CURSO_COLORS = [
 ];
 
 import ConfiguracionTiemposModal from './ConfiguracionTiemposModal';
+import ModuleSidebar from '../Shared/ModuleSidebar';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -52,7 +53,7 @@ export default function HorariosPorProfesorManager() {
         }
     };
     const [searchQuery, setSearchQuery] = useState('');
-    
+
     const [isTimeModalOpen, setIsTimeModalOpen] = useState(false);
     const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
@@ -62,23 +63,23 @@ export default function HorariosPorProfesorManager() {
             if (saved) {
                 try { setTimeConfig(JSON.parse(saved)); } catch (e) { }
             }
-            
+
             const handleStorageChange = () => {
-            fetch('http://localhost:8000/api/bloques', { cache: 'no-store' })
-                .then(r => r.json())
-                .then(b => {
-                    const data = Array.isArray(b) ? b : (b.data || []);
-                    setBloques(Array.isArray(data) ? data.sort((a,b) => a.numero_bloque - b.numero_bloque) : []);
-                })
-                .catch(e => console.error("Error al actualizar bloques:", e));
-        };    window.addEventListener('edusync_time_config_changed', handleStorageChange);
+                fetch('http://localhost:8000/api/bloques', { cache: 'no-store' })
+                    .then(r => r.json())
+                    .then(b => {
+                        const data = Array.isArray(b) ? b : (b.data || []);
+                        setBloques(Array.isArray(data) ? data.sort((a, b) => a.numero_bloque - b.numero_bloque) : []);
+                    })
+                    .catch(e => console.error("Error al actualizar bloques:", e));
+            }; window.addEventListener('edusync_time_config_changed', handleStorageChange);
             return () => window.removeEventListener('edusync_time_config_changed', handleStorageChange);
         }
     }, []);
 
     const handleDownloadPDF = async () => {
         const normalize = (str) => str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim() : "";
-        
+
         setIsDownloadingPdf(true);
         try {
             const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
@@ -92,7 +93,7 @@ export default function HorariosPorProfesorManager() {
             }
 
             profesoresAExportar.forEach(prof => {
-                const profAsignaciones = asignaciones.filter(a => String(a.profesor_id).replace('PROF_','') === String(prof.id_profesor));
+                const profAsignaciones = asignaciones.filter(a => String(a.profesor_id).replace('PROF_', '') === String(prof.id_profesor));
                 if (profAsignaciones.length === 0) return;
 
                 turnos.forEach(turno => {
@@ -108,9 +109,9 @@ export default function HorariosPorProfesorManager() {
 
                     if (!isFirstPage) pdf.addPage();
                     isFirstPage = false;
-                    
+
                     const titulo = `Profesor: ${prof.nombre_profesor} - Turno: ${turno.nombre}`;
-                    
+
                     pdf.setFontSize(14);
                     pdf.text(titulo, 14, 20);
 
@@ -132,10 +133,10 @@ export default function HorariosPorProfesorManager() {
 
                                 if (asignaciones.length > 0) {
                                     row.push(asignaciones.map(a => {
-                                        const cId = parseInt(a.curso_id?.replace('CUR_','') || '0');
+                                        const cId = parseInt(a.curso_id?.replace('CUR_', '') || '0');
                                         const cursoObj = cursos.find(c => c.id_curso === cId);
                                         const cName = cursoObj ? cursoObj.nombre_curso : a.curso_id;
-                                        
+
                                         const secIdNum = parseInt(String(a.seccion_id).replace('SEC_', ''));
                                         const secObj = secciones.find(s => s.id_seccion === secIdNum);
                                         let secStr = String(a.seccion_id).replace('SEC_', '');
@@ -143,7 +144,7 @@ export default function HorariosPorProfesorManager() {
                                             const gradoObj = grados.find(g => g.id_grado === secObj.id_grado);
                                             secStr = `${gradoObj ? gradoObj.numero + '° ' : ''}Sec. ${secObj.nombre}`;
                                         }
-                                        
+
                                         return `${cName}\n${secStr}`;
                                     }).join("\n\n"));
                                 } else {
@@ -162,7 +163,7 @@ export default function HorariosPorProfesorManager() {
                         styles: { fontSize: 8, cellPadding: 2, halign: 'center', valign: 'middle' },
                         headStyles: { fillColor: [139, 92, 246], textColor: [255, 255, 255], fontStyle: 'bold' },
                         columnStyles: { 0: { fontStyle: 'bold', cellWidth: 20 } },
-                        didParseCell: function(data) {
+                        didParseCell: function (data) {
                             if (data.row.raw[1] === 'RECREO' && data.column.index > 0) {
                                 data.cell.styles.fillColor = [253, 230, 138];
                                 data.cell.styles.textColor = [180, 83, 9];
@@ -191,7 +192,7 @@ export default function HorariosPorProfesorManager() {
             if (profesoresAExportar.length === 0) return;
 
             profesoresAExportar.forEach(prof => {
-                const profAsignaciones = asignaciones.filter(a => String(a.profesor_id).replace('PROF_','') === String(prof.id_profesor));
+                const profAsignaciones = asignaciones.filter(a => String(a.profesor_id).replace('PROF_', '') === String(prof.id_profesor));
                 if (profAsignaciones.length === 0) return;
 
                 turnos.forEach(turno => {
@@ -227,7 +228,7 @@ export default function HorariosPorProfesorManager() {
 
                                 if (asignaciones.length > 0) {
                                     row.push(asignaciones.map(a => {
-                                        const cId = parseInt(a.curso_id?.replace('CUR_','') || '0');
+                                        const cId = parseInt(a.curso_id?.replace('CUR_', '') || '0');
                                         const cursoObj = cursos.find(c => c.id_curso === cId);
                                         const cName = cursoObj ? cursoObj.nombre_curso : a.curso_id;
 
@@ -250,11 +251,11 @@ export default function HorariosPorProfesorManager() {
                     });
 
                     const ws = XLSX.utils.aoa_to_sheet(wsData);
-                    
+
                     // Configurar ancho de columnas
                     const colWidths = [{ wch: 15 }, ...gridDias.map(() => ({ wch: 28 }))];
                     ws['!cols'] = colWidths;
-                    
+
                     const safeSheetName = sheetName.substring(0, 31).replace(/[\\/?*[\]]/g, '');
                     XLSX.utils.book_append_sheet(wb, ws, safeSheetName);
                 });
@@ -266,7 +267,7 @@ export default function HorariosPorProfesorManager() {
             }
 
             XLSX.writeFile(wb, `Horarios_Profesores_Completos.xlsx`);
-        } catch(error) {
+        } catch (error) {
             console.error("Error al generar Excel: ", error);
         }
     };
@@ -384,13 +385,6 @@ export default function HorariosPorProfesorManager() {
         return profesores.filter(p => normalize(p.nombre_profesor).includes(q));
     }, [profesores, searchQuery]);
 
-    // Auto-seleccionar el primer profesor que coincida con la búsqueda
-    useEffect(() => {
-        if (searchQuery.trim() && filteredProfesores.length > 0) {
-            setSelectedProfesor(`PROF_${filteredProfesores[0].id_profesor}`);
-        }
-    }, [filteredProfesores, searchQuery]);
-
     // Asignaciones del profesor seleccionado
     const filteredAsignaciones = asignaciones.filter(a => a.profesor_id === selectedProfesor);
 
@@ -402,7 +396,7 @@ export default function HorariosPorProfesorManager() {
     const getMappedBlocks = (idTurno) => {
         const result = [];
         const bloquesTurno = bloques.filter(b => String(b.id_turno) === String(idTurno));
-        
+
         if (bloquesTurno.length === 0) {
             return Array.from({ length: maxBloquesDia }, (_, i) => ({
                 type: 'clase',
@@ -476,262 +470,316 @@ export default function HorariosPorProfesorManager() {
     }, [asignaciones]);
 
     return (
-        <div className={`w-full h-full flex flex-col animate-fade-in relative ${status === 'empty' ? 'justify-center items-center' : ''}`}>
-            
-            {/* ENCABEZADO */}
-            {status !== 'empty' && (
-                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8 w-full">
-                    <div>
-                        <h1 className="text-3xl font-black text-slate-800 tracking-tight">Horarios por Profesor</h1>
-                        <p className="text-slate-500 text-[14px] mt-1 font-medium">Visualiza y exporta el horario individual de cada docente.</p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-3 flex-shrink-0">
-                        <button onClick={handleDownloadExcel} className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl hover:bg-emerald-100 hover:shadow-md font-black text-[13px] transition-all cursor-pointer">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                            Descargar Excel (Todos)
-                        </button>
-                        <button onClick={handleDownloadPDF} disabled={isDownloadingPdf} className={`flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl hover:bg-rose-100 hover:shadow-md font-black text-[13px] transition-all cursor-pointer ${isDownloadingPdf ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                            <svg className={`w-4 h-4 ${isDownloadingPdf ? 'animate-bounce' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                            {isDownloadingPdf ? 'Generando PDF...' : 'Descargar PDF (Todos)'}
-                        </button>
-                    </div>
-                </div>
-            )}
-            
-            {status === 'loading' && (
-                <div className="flex flex-col items-center justify-center gap-4 mt-20">
-                    <div className="relative w-16 h-16">
-                        <div className="absolute inset-0 border-4 border-slate-100 rounded-full" />
-                        <div className="absolute inset-0 border-4 border-brand-primary rounded-full border-t-transparent animate-spin" style={{ animationDuration: '1s' }} />
-                    </div>
-                    <p className="text-slate-400 text-sm font-semibold">Cargando horarios...</p>
-                </div>
-            )}
+        <div className="w-full animate-fade-in relative">
+            <div className="flex flex-col md:flex-row gap-6 min-h-[calc(100vh-144px)]">
+                {status !== 'empty' && (
+                    <ModuleSidebar
+                        title="Horarios por Profesor"
+                        description="Visualiza y exporta el horario individual de cada docente."
+                        hideAddButton={true}
+                        svgImage="/profe.svg"
+                    >
+                        <div className="bg-white border border-slate-100 shadow-sm rounded-[20px] p-4 flex flex-col gap-3 h-full">
+                            <div className="flex items-center justify-between gap-3">
+                                <div>
+                                    <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Directorio</h3>
+                                    <p className="text-[11px] text-slate-400 font-semibold mt-1">Busca y selecciona un docente.</p>
+                                </div>
+                                <span className="text-[10px] font-black text-brand-primary bg-[var(--color-brand-light)] px-2 py-1 rounded-lg">{filteredProfesores.length}</span>
+                            </div>
 
-            {status === 'empty' && (
-                <div className="relative flex flex-col items-center justify-center max-w-2xl w-full mx-auto mt-6 p-8 rounded-[40px] overflow-hidden group transition-all duration-500">
-                    <div className="relative z-10 flex flex-col items-center text-center animate-fade-in-up w-full">
-                        <div className="w-40 h-40 mb-6 flex items-center justify-center drop-shadow-xl hover:scale-105 transition-transform duration-500">
-                            <img src="/imagen.svg" alt="Ilustración de horarios" className="w-full h-full object-contain" />
-                        </div>
-                        <h2 className="text-[28px] leading-tight font-black text-transparent bg-clip-text bg-gradient-to-r from-slate-800 to-slate-500 mb-3 tracking-tight">
-                            Aún no hay horarios listos
-                        </h2>
-                        <p className="text-slate-500 text-[15px] font-medium max-w-[420px] mx-auto leading-relaxed mb-8">
-                            Para ver el horario de los profesores, primero debes generar un horario general desde la sección "Generar Horario".
-                        </p>
-                    </div>
-                </div>
-            )}
+                            <div className="relative mt-1">
+                                <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                                <input
+                                    type="text"
+                                    placeholder="Buscar docente..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full bg-slate-50 border border-slate-200 text-slate-700 text-[12px] font-bold rounded-xl pl-9 pr-3 py-2.5 outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 transition-all"
+                                />
+                                {searchQuery && (
+                                    <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500 transition-colors p-1 rounded-full hover:bg-red-50 cursor-pointer">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                                    </button>
+                                )}
+                            </div>
 
-            {status === 'ready' && (
-                <div className="w-full flex flex-col gap-6 animate-fade-in-up">
-                    
-                    {/* TARJETA UNIFICADA: SELECTOR + PERFIL */}
-                    <div className="w-full bg-white rounded-[24px] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden">
-                        {/* Fila 1: Selector de Profesor */}
-                        <div className="p-5 border-b border-slate-100 bg-slate-50/50">
-                            <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4">
-                                <div className="flex flex-col w-full sm:w-[45%] shrink-0">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Buscar</label>
-                                    <div className="relative">
-                                        <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                                        <input
-                                            type="text"
-                                            placeholder="Filtrar por nombre..."
-                                            value={searchQuery}
-                                            onChange={e => setSearchQuery(e.target.value)}
-                                            className="w-full bg-white border border-slate-200 text-slate-700 text-[13px] font-bold rounded-xl pl-10 pr-4 py-2.5 outline-none focus:border-brand-primary shadow-sm transition-all"
-                                        />
+                            <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1 stylish-scroll mt-2 flex-1">
+                                {filteredProfesores.length === 0 ? (
+                                    <div className="text-center py-6 px-2">
+                                        <p className="text-xs font-bold text-slate-400">No se encontraron docentes.</p>
                                     </div>
-                                </div>
-                                <div className="flex flex-col flex-1 w-full">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Profesor</label>
-                                    <select
-                                        value={selectedProfesor}
-                                        onChange={e => { setSelectedProfesor(e.target.value); setSearchQuery(''); }}
-                                        className="w-full bg-white border-2 border-slate-200 text-slate-800 text-[14px] font-black rounded-xl px-4 py-2.5 outline-none focus:border-brand-primary shadow-sm transition-all cursor-pointer"
-                                    >
-                                        <option value="">Seleccione un Profesor</option>
-                                        {filteredProfesores.map(p => (
-                                            <option key={p.id_profesor} value={`PROF_${p.id_profesor}`}>{p.nombre_profesor}</option>
-                                        ))}
-                                    </select>
-                                </div>
+                                ) : (
+                                    filteredProfesores.map(prof => {
+                                        const profIdKey = `PROF_${prof.id_profesor}`;
+                                        const isSelected = selectedProfesor === profIdKey;
+                                        const horas = horasPorProfesor[profIdKey] || 0;
+
+                                        return (
+                                            <button
+                                                key={prof.id_profesor}
+                                                onClick={() => setSelectedProfesor(profIdKey)}
+                                                className={`w-full text-left px-3 py-3 rounded-xl font-bold text-[12px] transition-all flex items-center justify-between border-2 cursor-pointer
+                                                    ${isSelected
+                                                        ? 'bg-brand-primary border-brand-primary text-white shadow-md'
+                                                        : 'bg-white border-slate-100 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                                                    }`}
+                                            >
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-black uppercase
+                                                        ${isSelected ? 'bg-white/20 text-white' : 'bg-brand-primary/10 text-brand-primary'}
+                                                    `}>
+                                                        {getInitials(prof.nombre_profesor)}
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <p className="truncate block">{prof.nombre_profesor}</p>
+                                                        <p className={`text-[9px] font-bold mt-0.5 uppercase tracking-widest ${isSelected ? 'text-white/80' : 'text-slate-400'}`}>
+                                                            {horas} horas
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                {isSelected && (
+                                                    <svg className="w-4 h-4 shrink-0 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                                                    </svg>
+                                                )}
+                                            </button>
+                                        );
+                                    })
+                                )}
                             </div>
                         </div>
+                    </ModuleSidebar>
+                )}
 
-                        {/* Fila 2: Perfil del Profesor + Stats */}
-                        {profSeleccionado && (
-                            <div className="p-6">
-                                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
-                                    {/* Nombre del Profesor */}
-                                    <div>
-                                        <h2 className="text-[22px] md:text-[26px] font-black text-slate-800 tracking-tight leading-none mb-1">
-                                            {profSeleccionado.nombre_profesor}
-                                        </h2>
-                                        <span className="text-slate-400 font-bold text-[12px] uppercase tracking-wider">Docente</span>
+                <main className={`flex flex-col gap-5 min-w-0 ${status !== 'empty' ? 'md:w-3/4' : 'w-full'}`}>
+
+                    {/* ENCABEZADO CON BOTONES DE EXPORTAR (Si hay profesores) */}
+                    {status !== 'empty' && status === 'ready' && profSeleccionado && (
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full">
+                            <div>
+                                <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight leading-none mb-1">
+                                    {profSeleccionado.nombre_profesor}
+                                </h2>
+                                <span className="text-slate-400 font-bold text-[12px] uppercase tracking-wider">Docente</span>
+                            </div>
+                            {/* Stats en el encabezado superior derecho con pequeño título */}
+                            <div className="flex flex-col items-end gap-1.5 flex-shrink-0 mt-2 sm:mt-0">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Resumen de Carga</span>
+                                <div className="flex items-center gap-2">
+                                    <div className="text-center px-3 py-2 rounded-xl bg-[var(--color-brand-light)] border border-[var(--color-brand-primary)]/20 min-w-[85px]">
+                                        <p className="text-[18px] font-black text-[var(--color-brand-primary)] leading-none">{stats.totalHoras}</p>
+                                        <p className="text-[9px] font-black text-[var(--color-brand-primary)]/80 uppercase tracking-widest mt-1">Horas</p>
                                     </div>
-
-                                    {/* Stats */}
-                                    <div className="flex items-center gap-3 flex-shrink-0">
-                                        <div className="text-center px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-100 min-w-[72px]">
-                                            <p className="text-[20px] font-black text-emerald-700 leading-none">{stats.totalHoras}</p>
-                                            <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest mt-1">Horas</p>
-                                        </div>
-                                        <div className="text-center px-4 py-2.5 rounded-xl bg-blue-50 border border-blue-100 min-w-[72px]">
-                                            <p className="text-[20px] font-black text-blue-700 leading-none">{stats.cursosUnicos}</p>
-                                            <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest mt-1">Cursos</p>
-                                        </div>
-                                        <div className="text-center px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-100 min-w-[72px]">
-                                            <p className="text-[20px] font-black text-amber-700 leading-none">{stats.seccionesUnicas}</p>
-                                            <p className="text-[9px] font-black text-amber-500 uppercase tracking-widest mt-1">Secciones</p>
-                                        </div>
+                                    <div className="text-center px-3 py-2 rounded-xl bg-[var(--color-brand-light)] border border-[var(--color-brand-primary)]/20 min-w-[85px]">
+                                        <p className="text-[18px] font-black text-[var(--color-brand-primary)] leading-none">{stats.cursosUnicos}</p>
+                                        <p className="text-[9px] font-black text-[var(--color-brand-primary)]/80 uppercase tracking-widest mt-1">Cursos</p>
+                                    </div>
+                                    <div className="text-center px-3 py-2 rounded-xl bg-[var(--color-brand-light)] border border-[var(--color-brand-primary)]/20 min-w-[85px]">
+                                        <p className="text-[18px] font-black text-[var(--color-brand-primary)] leading-none">{stats.seccionesUnicas}</p>
+                                        <p className="text-[9px] font-black text-[var(--color-brand-primary)]/80 uppercase tracking-widest mt-1">Secciones</p>
                                     </div>
                                 </div>
                             </div>
-                        )}
-                    </div>
-
-                    {/* MENSAJE VACÍO */}
-                    {selectedProfesor && filteredAsignaciones.length === 0 && (
-                        <div className="p-8 bg-white border border-slate-200 rounded-[24px] text-center shadow-sm">
-                            <p className="text-slate-400 font-bold text-[15px]">Este profesor no tiene asignaciones en el horario actual.</p>
                         </div>
                     )}
 
-                    {/* TABLAS POR TURNO */}
-                    {selectedProfesor && filteredAsignaciones.length > 0 && (
-                        <div className="flex flex-col gap-6 w-full">
-                            {turnos.map(turno => {
-                                const asignacionesTurno = filteredAsignaciones.filter(a => {
-                                    const secId = parseInt(a.seccion_id.replace('SEC_', ''));
-                                    const diaObj = dias.find(d => normalize(d.nombre_dia) === normalize(a.dia));
-                                    if (!diaObj) return false;
-                                    const st = seccionTurnos.find(st => st.id_seccion === secId && st.id_dia === diaObj.id_dia);
-                                    return st && st.id_turno === turno.id_turno;
-                                });
+                    {status === 'loading' && (
+                        <div className="flex flex-col items-center justify-center gap-4 mt-20">
+                            <div className="relative w-16 h-16">
+                                <div className="absolute inset-0 border-4 border-slate-100 rounded-full" />
+                                <div className="absolute inset-0 border-4 border-brand-primary rounded-full border-t-transparent animate-spin" style={{ animationDuration: '1s' }} />
+                            </div>
+                            <p className="text-slate-400 text-sm font-semibold">Cargando horarios...</p>
+                        </div>
+                    )}
 
-                                if (asignacionesTurno.length === 0) return null;
+                    {status === 'empty' && (
+                        <div className="relative flex flex-col items-center justify-center max-w-2xl w-full mx-auto mt-6 p-8 rounded-[40px] overflow-hidden group transition-all duration-500 h-full min-h-[400px]">
+                            <div className="relative z-10 flex flex-col items-center text-center animate-fade-in-up w-full">
+                                <div className="w-40 h-40 mb-6 flex items-center justify-center drop-shadow-xl hover:scale-105 transition-transform duration-500">
+                                    <img src="/imagen.svg" alt="Ilustración de horarios" className="w-full h-full object-contain" />
+                                </div>
+                                <h2 className="text-[28px] leading-tight font-black text-transparent bg-clip-text bg-gradient-to-r from-slate-800 to-slate-500 mb-3 tracking-tight">
+                                    Aún no hay horarios listos
+                                </h2>
+                                <p className="text-slate-500 text-[15px] font-medium max-w-[420px] mx-auto leading-relaxed mb-8">
+                                    Para ver el horario de los profesores, primero debes generar un horario general desde la sección "Generar Horario".
+                                </p>
+                            </div>
+                        </div>
+                    )}
 
-                                return (
-                                    <div key={turno.id_turno} className="flex flex-col gap-4 w-full">
-                                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-2 ml-2">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-3 h-3 rounded-full bg-brand-primary"></div>
-                                                <h3 className="text-[16px] font-black text-slate-800 uppercase tracking-widest">Turno {turno.nombre}</h3>
-                                            </div>
-                                        </div>
-                                        <div id={`horario-profesor-table-${turno.nombre}`} className="w-full bg-white rounded-[24px] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-x-auto p-6 pt-4">
-                                            <table className="w-full border-collapse min-w-[600px] table-fixed">
-                                            <thead>
-                                                <tr>
-                                                    <th className="w-16 pb-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Blq</th>
-                                                    {gridDias.map((dia) => (
-                                                        <th key={dia.id_dia} className="pb-3 px-1">
-                                                            <div className="rounded-xl py-2.5 px-3 text-center" style={{ backgroundColor: DIA_COLOR.bg }}>
-                                                                <p className="text-[9px] font-black uppercase tracking-widest text-white/70">{dia.nombre_dia.slice(0, 3).toUpperCase()}</p>
-                                                                <p className="text-[14px] font-black text-white">{dia.nombre_dia}</p>
+                    {status === 'ready' && !profSeleccionado && (
+                        <div className="flex flex-col items-center justify-center h-full min-h-[400px] bg-white border border-slate-200 rounded-[32px] p-8 shadow-sm">
+                            <div className="w-24 h-24 mb-6 bg-slate-50 rounded-full flex items-center justify-center shadow-inner text-slate-300">
+                                <svg width="48" height="48" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                            </div>
+                            <h2 className="text-2xl font-black text-slate-800 mb-3 tracking-tight text-center">Horario Individual</h2>
+                            <p className="text-slate-500 text-[15px] font-medium max-w-[420px] text-center leading-relaxed mb-8">
+                                Selecciona un docente en la barra lateral izquierda para ver su horario asignado.
+                            </p>
+                        </div>
+                    )}
+
+                    {status === 'ready' && profSeleccionado && (
+                        <div className="w-full flex flex-col gap-6 animate-fade-in-up">
+                            {/* Stats movidos al encabezado */}
+
+                            {/* MENSAJE VACÍO SI EL PROFESOR SELECCIONADO NO TIENE HORARIO */}
+                            {filteredAsignaciones.length === 0 && (
+                                <div className="p-8 bg-white border border-slate-200 rounded-[24px] text-center shadow-sm">
+                                    <p className="text-slate-400 font-bold text-[15px]">Este profesor no tiene asignaciones en el horario actual.</p>
+                                </div>
+                            )}
+
+                            {/* TABLAS POR TURNO */}
+                            {selectedProfesor && filteredAsignaciones.length > 0 && (
+                                <div className="flex flex-col gap-6 w-full">
+                                    {turnos.map(turno => {
+                                        const asignacionesTurno = filteredAsignaciones.filter(a => {
+                                            const secId = parseInt(a.seccion_id.replace('SEC_', ''));
+                                            const diaObj = dias.find(d => normalize(d.nombre_dia) === normalize(a.dia));
+                                            if (!diaObj) return false;
+                                            const st = seccionTurnos.find(st => st.id_seccion === secId && st.id_dia === diaObj.id_dia);
+                                            return st && st.id_turno === turno.id_turno;
+                                        });
+                                        return { turno, asignacionesTurno };
+                                    })
+                                        .filter(t => t.asignacionesTurno.length > 0)
+                                        .map(({ turno, asignacionesTurno }, renderIdx) => {
+                                            return (
+                                                <div key={turno.id_turno} className="flex flex-col gap-4 w-full">
+                                                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-2 ml-2">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-3 h-3 rounded-full bg-brand-primary"></div>
+                                                            <h3 className="text-[16px] font-black text-slate-800 uppercase tracking-widest">Turno {turno.nombre}</h3>
+                                                        </div>
+                                                        {renderIdx === 0 && (
+                                                            <div className="flex flex-wrap items-center gap-3 flex-shrink-0 mr-4">
+                                                                <button onClick={handleDownloadExcel} className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl hover:bg-emerald-100 hover:shadow-md font-black text-[13px] transition-all cursor-pointer">
+                                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                                                    Descargar Excel
+                                                                </button>
+                                                                <button onClick={handleDownloadPDF} disabled={isDownloadingPdf} className={`flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl hover:bg-rose-100 hover:shadow-md font-black text-[13px] transition-all cursor-pointer ${isDownloadingPdf ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                                                    <svg className={`w-4 h-4 ${isDownloadingPdf ? 'animate-bounce' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                                                    {isDownloadingPdf ? 'Generando PDF...' : 'Descargar PDF'}
+                                                                </button>
                                                             </div>
-                                                        </th>
-                                                    ))}
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {getMappedBlocks(turno.id_turno).map((bloque, idx) => {
-                                                    if (bloque.type === 'recreo') {
-                                                        return null;
-                                                    }
-
-                                                    const bNum = bloque.numero;
-                                                    return (
-                                                        <tr key={`clase-${bNum}`} style={{ height: '100px' }}>
-                                                            {/* Número de bloque */}
-                                                            <td className="py-2 pr-3 text-center align-middle" style={{ width: '70px' }}>
-                                                                <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center mx-auto">
-                                                                    <span className="text-[11px] font-black text-slate-600">{bNum}</span>
-                                                                </div>
-                                                            </td>
-                                                            {gridDias.map((dia) => {
-                                                                // Buscar asignación
-                                                                const asigOriginal = asignacionesTurno.find(x =>
-                                                                    normalize(x.dia) === normalize(dia.nombre_dia)
-                                                                    && (x.slot_inicio + 1) <= bNum
-                                                                    && (x.slot_inicio + x.horas) >= bNum
-                                                                );
-
-                                                                let renderAsignacion = null;
-                                                                if (asigOriginal) {
-                                                                    const startBlock = asigOriginal.slot_inicio + 1;
-                                                                    const endBlock = asigOriginal.slot_inicio + asigOriginal.horas;
-                                                                    const isStart = bNum === startBlock;
-                                                                    
-                                                                    if (isStart) {
-                                                                        let currentSpan = 0;
-                                                                        for (let r = bNum; r <= endBlock; r++) {
-                                                                            currentSpan++;
-                                                                        }
-                                                                        renderAsignacion = { a: asigOriginal, span: currentSpan };
-                                                                    } else {
-                                                                        return null; // Ocupado por span superior
+                                                        )}
+                                                    </div>
+                                                    <div id={`horario-profesor-table-${turno.nombre}`} className="w-full bg-white rounded-[24px] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-x-auto p-6 pt-4">
+                                                        <table className="w-full border-collapse min-w-[600px] table-fixed">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th className="w-16 pb-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Blq</th>
+                                                                    {gridDias.map((dia) => (
+                                                                        <th key={dia.id_dia} className="pb-3 px-1">
+                                                                            <div className="rounded-xl py-2.5 px-3 text-center" style={{ backgroundColor: DIA_COLOR.bg }}>
+                                                                                <p className="text-[9px] font-black uppercase tracking-widest text-white/70">{dia.nombre_dia.slice(0, 3).toUpperCase()}</p>
+                                                                                <p className="text-[14px] font-black text-white">{dia.nombre_dia}</p>
+                                                                            </div>
+                                                                        </th>
+                                                                    ))}
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {getMappedBlocks(turno.id_turno).map((bloque, idx) => {
+                                                                    if (bloque.type === 'recreo') {
+                                                                        return null;
                                                                     }
-                                                                }
 
-                                                                if (renderAsignacion) {
-                                                                    const a = renderAsignacion.a;
-                                                                    const col = getColor(a.curso_id);
-                                                                    const span = renderAsignacion.span;
-
+                                                                    const bNum = bloque.numero;
                                                                     return (
-                                                                        <td key={dia.id_dia} rowSpan={span} className="py-1 px-1" style={{ verticalAlign: 'middle' }}>
-                                                                            <div className="rounded-2xl p-3 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-200 hover:shadow-lg border-2 relative z-10"
-                                                                                style={{ backgroundColor: col.pastel, borderColor: col.solid, height: `calc(${span} * 100px - 8px)` }}>
-                                                                                <div>
-                                                                                    {span > 1 && (
-                                                                                        <span className="inline-block mb-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border" style={{ borderColor: col.solid, color: col.solid, backgroundColor: 'transparent' }}>
-                                                                                            {span} horas
-                                                                                        </span>
-                                                                                    )}
-                                                                                    <p className="text-[18px] font-black leading-snug" style={{ color: col.text }}>
-                                                                                        {getCurso(a.curso_id)}
-                                                                                    </p>
-                                                                                    
-                                                                                    <div className="mt-4 w-full flex flex-col gap-2 items-center">
-                                                                                        <span className="block text-[14px] font-black tracking-widest uppercase" style={{ color: col.text }}>
-                                                                                            {getGradoSeccion(a.seccion_id)}
-                                                                                        </span>
-                                                                                        
-                                                                                        <span className="block text-[11px] font-bold tracking-widest uppercase opacity-75" style={{ color: col.text }}>
-                                                                                            {getSedePorSeccion(a.seccion_id)}
-                                                                                        </span>
-                                                                                    </div>
+                                                                        <tr key={`clase-${bNum}`} style={{ height: '100px' }}>
+                                                                            {/* Número de bloque */}
+                                                                            <td className="py-2 pr-3 text-center align-middle" style={{ width: '70px' }}>
+                                                                                <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center mx-auto">
+                                                                                    <span className="text-[11px] font-black text-slate-600">{bNum}</span>
                                                                                 </div>
-                                                                            </div>
-                                                                        </td>
+                                                                            </td>
+                                                                            {gridDias.map((dia) => {
+                                                                                // Buscar asignación
+                                                                                const asigOriginal = asignacionesTurno.find(x =>
+                                                                                    normalize(x.dia) === normalize(dia.nombre_dia)
+                                                                                    && (x.slot_inicio + 1) <= bNum
+                                                                                    && (x.slot_inicio + x.horas) >= bNum
+                                                                                );
+
+                                                                                let renderAsignacion = null;
+                                                                                if (asigOriginal) {
+                                                                                    const startBlock = asigOriginal.slot_inicio + 1;
+                                                                                    const endBlock = asigOriginal.slot_inicio + asigOriginal.horas;
+                                                                                    const isStart = bNum === startBlock;
+
+                                                                                    if (isStart) {
+                                                                                        let currentSpan = 0;
+                                                                                        for (let r = bNum; r <= endBlock; r++) {
+                                                                                            currentSpan++;
+                                                                                        }
+                                                                                        renderAsignacion = { a: asigOriginal, span: currentSpan };
+                                                                                    } else {
+                                                                                        return null; // Ocupado por span superior
+                                                                                    }
+                                                                                }
+
+                                                                                if (renderAsignacion) {
+                                                                                    const a = renderAsignacion.a;
+                                                                                    const col = getColor(a.curso_id);
+                                                                                    const span = renderAsignacion.span;
+
+                                                                                    return (
+                                                                                        <td key={dia.id_dia} rowSpan={span} className="py-1 px-1" style={{ verticalAlign: 'middle' }}>
+                                                                                            <div className="rounded-2xl p-3 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-200 hover:shadow-lg border-2 relative z-10"
+                                                                                                style={{ backgroundColor: col.pastel, borderColor: col.solid, height: `calc(${span} * 100px - 8px)` }}>
+                                                                                                <div>
+                                                                                                    {span > 1 && (
+                                                                                                        <span className="inline-block mb-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border" style={{ borderColor: col.solid, color: col.solid, backgroundColor: 'transparent' }}>
+                                                                                                            {span} horas
+                                                                                                        </span>
+                                                                                                    )}
+                                                                                                    <p className="text-[18px] font-black leading-snug" style={{ color: col.text }}>
+                                                                                                        {getCurso(a.curso_id)}
+                                                                                                    </p>
+
+                                                                                                    <div className="mt-4 w-full flex flex-col gap-2 items-center">
+                                                                                                        <span className="block text-[14px] font-black tracking-widest uppercase" style={{ color: col.text }}>
+                                                                                                            {getGradoSeccion(a.seccion_id)}
+                                                                                                        </span>
+
+                                                                                                        <span className="block text-[11px] font-bold tracking-widest uppercase opacity-75" style={{ color: col.text }}>
+                                                                                                            {getSedePorSeccion(a.seccion_id)}
+                                                                                                        </span>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        </td>
+                                                                                    );
+                                                                                } else {
+                                                                                    return (
+                                                                                        <td key={dia.id_dia} className="py-1 px-1" style={{ verticalAlign: 'middle' }}>
+                                                                                            <div className="rounded-xl bg-slate-50 border border-dashed border-slate-200 flex items-center justify-center" style={{ height: 'calc(100px - 8px)' }}>
+                                                                                                <div className="w-1 h-1 rounded-full bg-slate-300" />
+                                                                                            </div>
+                                                                                        </td>
+                                                                                    );
+                                                                                }
+                                                                            })}
+                                                                        </tr>
                                                                     );
-                                                                } else {
-                                                                    return (
-                                                                        <td key={dia.id_dia} className="py-1 px-1" style={{ verticalAlign: 'middle' }}>
-                                                                            <div className="rounded-xl bg-slate-50 border border-dashed border-slate-200 flex items-center justify-center" style={{ height: 'calc(100px - 8px)' }}>
-                                                                                <div className="w-1 h-1 rounded-full bg-slate-300" />
-                                                                            </div>
-                                                                        </td>
-                                                                    );
-                                                                }
-                                                            })}
-                                                        </tr>
-                                                    );
-                                                })}
-                                            </tbody>
-                                        </table>
-                                    </div>
+                                                                })}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
                                 </div>
-                            );
-                            })}
+                            )}
                         </div>
                     )}
-                </div>
-            )}
+                </main>
+            </div>
 
             <style>{`
                 .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }

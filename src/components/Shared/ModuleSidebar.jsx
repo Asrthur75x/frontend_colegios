@@ -56,7 +56,7 @@ const ModuleSidebar = ({
 
                     {/* Imagen SVG */}
                     {svgImage && (
-                        <div className="relative z-10 flex items-center justify-center mt-6 h-36">
+                        <div className="relative z-10 flex items-center justify-center mt-6 h-29">
                             <img
                                 src={svgImage}
                                 alt="Ilustración"

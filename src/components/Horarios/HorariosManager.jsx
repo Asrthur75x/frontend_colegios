@@ -546,9 +546,9 @@ export default function HorariosManager({ isEditPage = false }) {
     const handleDragStart = (e, asignacion) => {
         if (!isEditMode) return;
         const data = {
-            seccion_id: parseInt(asignacion.seccion_id.replace('SEC_', '')),
-            curso_id: parseInt(asignacion.curso_id.replace('CUR_', '')),
-            profesor_id: parseInt(asignacion.profesor_id.replace('PROF_', '')),
+            seccion_id: parseInt(String(asignacion.seccion_id).replace('SEC_', '')),
+            curso_id: parseInt(String(asignacion.curso_id).replace('CUR_', '')),
+            profesor_id: parseInt(String(asignacion.profesor_id).replace('PROF_', '')),
             dia_origen: asignacion.dia,
             slot_inicio_origen: asignacion.slot_inicio,
             horas_origen: asignacion.horas,
@@ -1303,6 +1303,43 @@ export default function HorariosManager({ isEditPage = false }) {
 
                                             {isEditPage && (
                                                 <div className="flex items-center gap-2 shrink-0">
+                                                    {!isEditMode ? (
+                                                        <button
+                                                            onClick={toggleEditMode}
+                                                            title="Activar el cambio de horarios (Arrastrar y Soltar)"
+                                                            className="h-[42px] px-3.5 flex items-center gap-2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl hover:bg-indigo-100 font-black text-[12px] transition-all cursor-pointer"
+                                                        >
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                                            Activar Edición
+                                                        </button>
+                                                    ) : (
+                                                        <>
+                                                            <button
+                                                                onClick={handleCancelEdit}
+                                                                title="Cancelar los cambios y restaurar"
+                                                                className="h-[42px] px-3.5 flex items-center gap-2 bg-slate-50 text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-100 font-black text-[12px] transition-all cursor-pointer"
+                                                            >
+                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
+                                                                Cancelar
+                                                            </button>
+                                                            <button
+                                                                onClick={handleSaveEdits}
+                                                                disabled={isSavingEdits}
+                                                                title="Guardar el nuevo horario editado"
+                                                                className={`h-[42px] px-3.5 flex items-center gap-2 bg-[var(--color-brand-primary)] text-white border border-transparent rounded-xl hover:brightness-90 font-black text-[12px] transition-all cursor-pointer shadow-md ${isSavingEdits ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                            >
+                                                                {isSavingEdits ? (
+                                                                    <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                                                ) : (
+                                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
+                                                                )}
+                                                                {isSavingEdits ? 'Guardando...' : 'Guardar'}
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                    
+                                                    <div className="w-px h-6 bg-slate-200 mx-1"></div>
+
                                                     <button
                                                         onClick={handleDownloadExcel}
                                                         title="Descargar el horario completo en Excel"
@@ -1481,10 +1518,27 @@ export default function HorariosManager({ isEditPage = false }) {
                                                                         const isDragging = isEditMode && dragData && dragData.raw === a;
 
                                                                         return (
-                                                                            <td key={dia.id_dia} rowSpan={span} className="py-1 px-1" style={{ verticalAlign: 'middle' }}>
+                                                                            <td key={dia.id_dia} rowSpan={span} className="py-1 px-1" style={{ verticalAlign: 'middle' }}
+                                                                                onDragOver={isEditMode ? (e) => handleDragOver(e, dia.id_dia, bNum) : undefined}
+                                                                                onDragLeave={isEditMode ? handleDragLeave : undefined}
+                                                                                onDrop={isEditMode ? (e) => handleDrop(e, dia, bNum) : undefined}
+                                                                            >
                                                                                 <div
-                                                                                    className={`rounded-2xl p-3 flex flex-col items-center justify-center text-center transition-all duration-200 border-2 relative z-10`}
+                                                                                    draggable={isEditMode}
+                                                                                    onDragStart={isEditMode ? (e) => handleDragStart(e, a) : undefined}
+                                                                                    onDragEnd={isEditMode ? handleDragEnd : undefined}
+                                                                                    className={`group rounded-2xl p-3 flex flex-col items-center justify-center text-center transition-all duration-200 border-2 relative z-10 
+                                                                                        ${isEditMode ? 'animate-jiggle cursor-grab hover:shadow-lg hover:scale-[1.02]' : ''} 
+                                                                                        ${isDragging ? 'opacity-50 scale-95 shadow-inner' : 'shadow-sm'}
+                                                                                    `}
                                                                                     style={{ backgroundColor: col.pastel, borderColor: col.solid, height: `calc(${span} * 100px - 8px)` }}>
+                                                                                    
+                                                                                    {isEditMode && (
+                                                                                        <div className="absolute top-2 right-2 opacity-60 text-slate-600 transition-opacity">
+                                                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 9h8M8 15h8" /></svg>
+                                                                                        </div>
+                                                                                    )}
+
                                                                                     <div>
                                                                                         {span > 1 && (
                                                                                             <span className="inline-block mb-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border" style={{ borderColor: col.solid, color: col.solid, backgroundColor: 'transparent' }}>
@@ -1634,6 +1688,14 @@ export default function HorariosManager({ isEditPage = false }) {
                 @keyframes spin-reverse { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
                 .animate-fade-in-up { animation: fadeInUp 0.5s ease-out forwards; }
                 @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+                
+                @keyframes jiggle {
+                    0% { transform: rotate(-1deg); }
+                    50% { transform: rotate(1.5deg); }
+                    100% { transform: rotate(-1deg); }
+                }
+                .animate-jiggle { animation: jiggle 0.3s infinite ease-in-out; }
+
                 .stylish-scroll::-webkit-scrollbar { width: 6px; }
                 .stylish-scroll::-webkit-scrollbar-track { background: transparent; }
                 .stylish-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
