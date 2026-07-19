@@ -1,11 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import ModuleSidebar from '../Shared/ModuleSidebar';
 
 const API_BASE = 'http://localhost:8000/api';
+const TOTAL_DISPONIBILIDAD_KEY = 'horavlep_profesores_disponibilidad_total';
 
-const ProfesorCard = ({ prof, sedesStr, cantGrados, cantDispo, onEdit, onDelete, isSelected, onToggleSelect, isSelectionMode, faltanDatos }) => {
+function getDisponibilidadTotalIds() {
+    if (typeof window === 'undefined') return [];
+    try {
+        const value = JSON.parse(localStorage.getItem(TOTAL_DISPONIBILIDAD_KEY) || '[]');
+        return Array.isArray(value) ? value.map(Number).filter(Number.isFinite) : [];
+    } catch {
+        return [];
+    }
+}
+
+const PROFESOR_STEPS = [
+    { id: 'perfil', label: 'Perfil' },
+    { id: 'alcance', label: 'Alcance Académico' },
+    { id: 'carga', label: 'Carga Académica' },
+    { id: 'disponibilidad', label: 'Disponibilidad' },
+    { id: 'horas_minimas', label: 'Horas Mínimas' },
+];
+
+const ProfesorCard = ({ prof, sedesStr, cursosNombres, cantGrados, cantDispo, onView, onEdit, onDelete, isSelected, onToggleSelect, isSelectionMode, faltanDatos }) => {
     return (
         <div
-            className={`relative bg-white rounded-[20px] border p-6 flex flex-col gap-5 hover:shadow-md transition-all group cursor-pointer
+            className={`relative h-full bg-white rounded-[20px] border p-6 flex flex-col gap-5 hover:shadow-md transition-all group cursor-pointer
                 ${isSelected ? 'border-brand-primary shadow-sm ring-1 ring-brand-primary/20 bg-brand-primary/10' : 'border-slate-100 shadow-sm'}
                 ${faltanDatos ? 'border-amber-200 bg-amber-50/30' : ''}
             `}
@@ -29,7 +49,7 @@ const ProfesorCard = ({ prof, sedesStr, cantGrados, cantDispo, onEdit, onDelete,
             )}
 
             {/* Cabecera de la Tarjeta */}
-            <div className={`flex items-center gap-4 ${isSelectionMode ? 'pr-8' : ''}`}>
+            <div className={`flex items-center gap-4 h-[76px] shrink-0 ${isSelectionMode ? 'pr-8' : ''}`}>
                 {/* Avatar */}
                 <div className={`w-16 h-16 rounded-full flex items-center justify-center shadow-sm flex-shrink-0 border-2 border-white ring-2 transition-colors ${isSelected ? 'bg-brand-primary text-white ring-brand-primary/30' : 'bg-brand-primary/10 text-brand-primary ring-brand-primary/20'}`}>
                     <span className="font-black text-2xl uppercase tracking-wider">{prof.nombre_profesor.charAt(0)}</span>
@@ -62,19 +82,41 @@ const ProfesorCard = ({ prof, sedesStr, cantGrados, cantDispo, onEdit, onDelete,
                 </div>
             </div>
 
+            <div className="border-t border-dashed border-slate-200 pt-4 min-h-[94px] shrink-0">
+                <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Cursos que enseña</span>
+                {cursosNombres.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                        {cursosNombres.map(nombre => (
+                            <span key={nombre} className="max-w-full truncate px-2.5 py-1 rounded-full border border-[var(--color-brand-primary)]/20 text-[10px] font-bold text-[var(--color-brand-primary)]" title={nombre}>
+                                {nombre}
+                            </span>
+                        ))}
+                    </div>
+                ) : (
+                    <span className="text-xs font-semibold text-amber-600">Sin cursos asignados</span>
+                )}
+            </div>
+
             {/* Botones de Acción (ocultos en modo selección) */}
             {!isSelectionMode && (
-                <div className="grid grid-cols-2 gap-3 mt-auto">
+                <div className="flex flex-wrap justify-end gap-2 mt-auto">
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onView(prof); }}
+                        className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 text-[12px] font-bold rounded-full transition-colors shadow-sm cursor-pointer"
+                    >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+                        Ver
+                    </button>
                     <button
                         onClick={(e) => { e.stopPropagation(); onEdit(prof); }}
-                        className="py-2 px-3 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:text-brand-primary hover:border-brand-primary hover:bg-brand-primary/5 transition-all flex justify-center items-center gap-1.5 cursor-pointer"
+                        className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-[var(--color-brand-primary)]/10 border border-[var(--color-brand-primary)] text-[var(--color-brand-primary)] text-[12px] font-bold rounded-full transition-colors shadow-sm cursor-pointer"
                     >
                         <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                         Editar
                     </button>
                     <button
                         onClick={(e) => { e.stopPropagation(); onDelete(prof.id_profesor); }}
-                        className="py-2 px-3 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:text-red-500 hover:border-red-500 hover:bg-red-50 transition-all flex justify-center items-center gap-1.5 cursor-pointer"
+                        className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-red-50 border border-red-200 text-red-600 text-[12px] font-bold rounded-full transition-colors shadow-sm cursor-pointer"
                     >
                         <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
                         Eliminar
@@ -111,6 +153,10 @@ export default function ProfesoresManager() {
     const [seccionTurnos, setSeccionTurnos] = useState([]);
     const [profesorCursos, setProfesorCursos] = useState([]);
     const [planes, setPlanes] = useState([]);
+    const [cursos, setCursos] = useState([]);
+    const [areas, setAreas] = useState([]);
+    const [disponibilidadTotalIds, setDisponibilidadTotalIds] = useState([]);
+    const legacyTotalMigratedRef = useRef(false);
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -131,10 +177,13 @@ export default function ProfesoresManager() {
     const [sedesError, setSedesError] = useState('');
     const [gradosError, setGradosError] = useState('');
     const [dispoError, setDispoError] = useState('');
+    const [cargaError, setCargaError] = useState('');
     const [formSedes, setFormSedes] = useState([]); // array of id_sede
     const [formGrados, setFormGrados] = useState([]); // array of id_grado
     const [formDispo, setFormDispo] = useState([]); // array of { id_dia, id_turno, nro_bloque }
     const [formPreferencia, setFormPreferencia] = useState([]); // array of { id_dia, id_turno, nro_bloque }
+    const [formCursos, setFormCursos] = useState([]); // array of id_curso
+    const [activeCargaArea, setActiveCargaArea] = useState(null);
     const [isDragging, setIsDragging] = useState(false);
     const [dragAction, setDragAction] = useState(null); // 'add' or 'remove'
     const [esDisponibilidadTotal, setEsDisponibilidadTotal] = useState(false);
@@ -145,7 +194,7 @@ export default function ProfesoresManager() {
     // List Management State
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
-    const ITEMS_PER_PAGE = 12;
+    const ITEMS_PER_PAGE = 9;
     const [isSelectionMode, setIsSelectionMode] = useState(false);
     const [selectedIds, setSelectedIds] = useState([]);
 
@@ -153,13 +202,18 @@ export default function ProfesoresManager() {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [itemsToDelete, setItemsToDelete] = useState([]);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [profesorEnVista, setProfesorEnVista] = useState(null);
 
     // Derived: filtered + paginated lists
     const filteredProfesores = profesores.filter(p =>
         p.nombre_profesor?.toLowerCase().includes(searchTerm.toLowerCase())
     ).sort((a, b) => {
-        const aFaltan = gradoProfesores.filter(x => x.id_profesor === a.id_profesor).length === 0;
-        const bFaltan = gradoProfesores.filter(x => x.id_profesor === b.id_profesor).length === 0;
+        const aFaltan = !gradoProfesores.some(x => x.id_profesor === a.id_profesor)
+            || !profesorCursos.some(x => x.id_profesor === a.id_profesor)
+            || (!disponibilidadTotalIds.includes(Number(a.id_profesor)) && !disponibilidades.some(x => Number(x.id_profesor) === Number(a.id_profesor)));
+        const bFaltan = !gradoProfesores.some(x => x.id_profesor === b.id_profesor)
+            || !profesorCursos.some(x => x.id_profesor === b.id_profesor)
+            || (!disponibilidadTotalIds.includes(Number(b.id_profesor)) && !disponibilidades.some(x => Number(x.id_profesor) === Number(b.id_profesor)));
         if (aFaltan && !bFaltan) return -1;
         if (!aFaltan && bFaltan) return 1;
         return 0;
@@ -169,6 +223,12 @@ export default function ProfesoresManager() {
         (currentPage - 1) * ITEMS_PER_PAGE,
         currentPage * ITEMS_PER_PAGE
     );
+    const profesoresIncompletos = profesores.filter(p =>
+        !gradoProfesores.some(x => x.id_profesor === p.id_profesor)
+        || !profesorCursos.some(x => x.id_profesor === p.id_profesor)
+        || (!disponibilidadTotalIds.includes(Number(p.id_profesor)) && !disponibilidades.some(x => Number(x.id_profesor) === Number(p.id_profesor)))
+    ).length;
+    const activeStepIndex = Math.max(0, PROFESOR_STEPS.findIndex(step => step.id === activeTab));
 
     // Reset to page 1 when search changes
     const handleSearchChange = (val) => {
@@ -193,11 +253,11 @@ export default function ProfesoresManager() {
         setIsDeleting(true);
         try {
             for (let id of itemsToDelete) {
-                const disps = disponibilidades.filter(x => x.id_profesor === id);
+                const disps = disponibilidades.filter(x => Number(x.id_profesor) === Number(id));
                 for (let d of disps) {
                     await fetch(`${API_BASE}/profesor-disponibilidad/${d.id_disponibilidad}`, { method: 'DELETE' });
                 }
-                const prefs = preferencias.filter(x => x.id_profesor === id);
+                const prefs = preferencias.filter(x => Number(x.id_profesor) === Number(id));
                 for (let p of prefs) {
                     await fetch(`${API_BASE}/profesor-preferencia/${p.id_preferencia}`, { method: 'DELETE' });
                 }
@@ -205,11 +265,16 @@ export default function ProfesoresManager() {
                 for (let g of gp) {
                     await fetch(`${API_BASE}/grado-profesor/${g.id_grado_profesor}`, { method: 'DELETE' });
                 }
+                const pc = profesorCursos.filter(x => x.id_profesor === id);
+                for (let relacion of pc) {
+                    await fetch(`${API_BASE}/profesor-curso/${relacion.id_profesor_curso}`, { method: 'DELETE' });
+                }
                 const ps = profesorSedes.filter(x => x.id_profesor === id);
                 for (let s of ps) {
                     await fetch(`${API_BASE}/profesor-sedes/${s.id_sede_profesor}`, { method: 'DELETE' });
                 }
                 await fetch(`${API_BASE}/profesores/${id}`, { method: 'DELETE' });
+                guardarMarcaDisponibilidadTotal(id, false);
             }
             setSelectedIds(prev => prev.filter(id => !itemsToDelete.includes(id)));
             setIsSelectionMode(false);
@@ -231,7 +296,7 @@ export default function ProfesoresManager() {
                 'profesores', 'sedes', 'profesor-sedes',
                 'profesor-disponibilidad', 'profesor-preferencia', 'dias', 'turnos', 'bloques', 'grado-dia-config',
                 'grados', 'grado-profesor', 'secciones', 'seccion-turno',
-                'profesor-curso', 'planes'
+                'profesor-curso', 'planes', 'cursos', 'areas'
             ];
 
             const responses = await Promise.all(
@@ -260,6 +325,33 @@ export default function ProfesoresManager() {
             setSeccionTurnos(data[12] || []);
             setProfesorCursos(data[13] || []);
             setPlanes(data[14] || []);
+            setCursos(data[15] || []);
+            setAreas(data[16] || []);
+
+            // En bases antiguas, "disponibilidad total" se representaba sin filas
+            // en profesor_disponibilidad. Recuperamos esa marca una sola vez al cargar,
+            // únicamente para docentes que ya tienen completo el resto de su registro.
+            if (!legacyTotalMigratedRef.current) {
+                const profesoresData = data[0] || [];
+                const disponibilidadesData = data[3] || [];
+                const gradosProfesorData = data[10] || [];
+                const cursosProfesorData = data[13] || [];
+                const guardados = getDisponibilidadTotalIds();
+                const inferidos = profesoresData
+                    .filter(prof => {
+                        const id = Number(prof.id_profesor);
+                        const tieneBloques = disponibilidadesData.some(item => Number(item.id_profesor) === id);
+                        const tieneGrados = gradosProfesorData.some(item => Number(item.id_profesor) === id);
+                        const tieneCursos = cursosProfesorData.some(item => Number(item.id_profesor) === id);
+                        const tieneHoras = Number(prof.horas_minimas) >= 1;
+                        return !tieneBloques && tieneGrados && tieneCursos && tieneHoras;
+                    })
+                    .map(prof => Number(prof.id_profesor));
+                const marcasRecuperadas = [...new Set([...guardados, ...inferidos])];
+                setDisponibilidadTotalIds(marcasRecuperadas);
+                localStorage.setItem(TOTAL_DISPONIBILIDAD_KEY, JSON.stringify(marcasRecuperadas));
+                legacyTotalMigratedRef.current = true;
+            }
 
             // Calcular el máximo de bloques por día desde grado-dia-config
             const gdc = data[8] || [];
@@ -278,9 +370,20 @@ export default function ProfesoresManager() {
 
     useEffect(() => {
         const controller = new AbortController();
+        setDisponibilidadTotalIds(getDisponibilidadTotalIds());
         fetchDatos(controller.signal);
         return () => controller.abort();
     }, []);
+
+    const guardarMarcaDisponibilidadTotal = (idProfesor, activa) => {
+        setDisponibilidadTotalIds(prev => {
+            const next = activa
+                ? [...new Set([...prev, idProfesor])]
+                : prev.filter(id => id !== idProfesor);
+            localStorage.setItem(TOTAL_DISPONIBILIDAD_KEY, JSON.stringify(next));
+            return next;
+        });
+    };
 
     // Sincronizar activeSede con formSedes si se deselecciona o está vacío
     useEffect(() => {
@@ -291,13 +394,22 @@ export default function ProfesoresManager() {
         }
     }, [formSedes, activeSede]);
 
+    // Si la institución solo tiene una sede, se asigna sin pedir una decisión innecesaria.
+    useEffect(() => {
+        if (sedes.length === 1 && !formSedes.includes(sedes[0].id_sede)) {
+            setFormSedes([sedes[0].id_sede]);
+            setActiveSede(sedes[0].id_sede);
+            setSedesError('');
+        }
+    }, [sedes, formSedes]);
+
     // Helper para Sedes asignadas a un profesor
     const getSedesProfesor = (id_prof) => {
         let ps = profesorSedes.filter(x => x.id_profesor === id_prof).map(x => x.id_sede);
         if (ps.length === 0) {
             // Fallback a disponibilidades si el endpoint de sedes falló/no existe
-            const disps = disponibilidades.filter(x => x.id_profesor === id_prof).map(x => x.id_sede);
-            const prefs = preferencias.filter(x => x.id_profesor === id_prof).map(x => x.id_sede);
+            const disps = disponibilidades.filter(x => Number(x.id_profesor) === Number(id_prof)).map(x => x.id_sede);
+            const prefs = preferencias.filter(x => Number(x.id_profesor) === Number(id_prof)).map(x => x.id_sede);
             ps = [...new Set([...disps, ...prefs])].filter(id => id != null);
         }
 
@@ -314,12 +426,8 @@ export default function ProfesoresManager() {
     };
 
     const getCantDispo = (id_prof) => {
-        const cant = disponibilidades.filter(x => x.id_profesor === id_prof).length;
-        if (cant === 0) {
-            const prefs = preferencias.filter(x => x.id_profesor === id_prof).length;
-            const tieneGrados = gradoProfesores.some(x => x.id_profesor === id_prof);
-            if (prefs === 0 && tieneGrados) return 'Total';
-        }
+        const cant = disponibilidades.filter(x => Number(x.id_profesor) === Number(id_prof)).length;
+        if (cant === 0 && disponibilidadTotalIds.includes(Number(id_prof))) return 'Total';
         return cant;
     };
 
@@ -327,8 +435,19 @@ export default function ProfesoresManager() {
         return gradoProfesores.filter(x => x.id_profesor === id_prof).length;
     };
 
+    const getCursosProfesor = (id_prof) => profesorCursos
+        .filter(relacion => relacion.id_profesor === id_prof)
+        .map(relacion => cursos.find(curso => curso.id_curso === relacion.id_curso))
+        .filter(Boolean);
+
+    const getGradosProfesor = (id_prof) => gradoProfesores
+        .filter(relacion => relacion.id_profesor === id_prof)
+        .map(relacion => grados.find(grado => grado.id_grado === relacion.id_grado))
+        .filter(Boolean);
+
     // ── Abrir Modal ──
     const abrirModalNueva = () => {
+        setProfesorEnVista(null);
         setIsEditing(false);
         setIsNewRegistration(true);
         setEditId(null);
@@ -341,6 +460,9 @@ export default function ProfesoresManager() {
         setFormGrados([]);
         setFormDispo([]);
         setFormPreferencia([]);
+        setFormCursos([]);
+        setActiveCargaArea(null);
+        setCargaError('');
         setEsDisponibilidadTotal(false);
         setModoPincel('disponible');
         setActiveSede(null);
@@ -350,6 +472,7 @@ export default function ProfesoresManager() {
     };
 
     const abrirModalEdicion = (prof) => {
+        setProfesorEnVista(null);
         setIsEditing(true);
         setIsNewRegistration(false);
         setEditId(prof.id_profesor);
@@ -373,8 +496,8 @@ export default function ProfesoresManager() {
             .map(x => x.id_sede);
 
         if (sedesActuales.length === 0) {
-            const disps = disponibilidades.filter(x => x.id_profesor === prof.id_profesor).map(x => x.id_sede);
-            const prefs = preferencias.filter(x => x.id_profesor === prof.id_profesor).map(x => x.id_sede);
+            const disps = disponibilidades.filter(x => Number(x.id_profesor) === Number(prof.id_profesor)).map(x => x.id_sede);
+            const prefs = preferencias.filter(x => Number(x.id_profesor) === Number(prof.id_profesor)).map(x => x.id_sede);
             sedesActuales = [...new Set([...disps, ...prefs])].filter(id => id != null);
         }
 
@@ -388,7 +511,7 @@ export default function ProfesoresManager() {
 
         // Cargar dispo actual
         const dispoActual = disponibilidades
-            .filter(x => x.id_profesor === prof.id_profesor)
+            .filter(x => Number(x.id_profesor) === Number(prof.id_profesor))
             .map(x => ({
                 id_dia: x.id_dia,
                 id_turno: x.id_turno,
@@ -399,7 +522,7 @@ export default function ProfesoresManager() {
 
         // Cargar preferencias actuales
         const prefActual = preferencias
-            .filter(x => x.id_profesor === prof.id_profesor)
+            .filter(x => Number(x.id_profesor) === Number(prof.id_profesor))
             .map(x => ({
                 id_dia: x.id_dia,
                 id_turno: x.id_turno,
@@ -407,14 +530,36 @@ export default function ProfesoresManager() {
                 id_sede: x.id_sede
             }));
         setFormPreferencia(prefActual);
+        setFormCursos(
+            profesorCursos
+                .filter(x => x.id_profesor === prof.id_profesor)
+                .map(x => x.id_curso)
+        );
+        setActiveCargaArea(null);
+        setCargaError('');
 
-        // Si es un profe válido y no tiene bloques, entonces sí tiene disponibilidad total.
-        const esDispoTotal = !estaIncompleto && dispoActual.length === 0 && prefActual.length === 0;
-        setEsDisponibilidadTotal(prof.es_disponibilidad_total === true || esDispoTotal);
+        const esDispoTotalGuardada = disponibilidadTotalIds.includes(Number(prof.id_profesor));
+        setEsDisponibilidadTotal(esDispoTotalGuardada);
         setModoPincel('disponible');
         setActiveSede(sedesActuales.length > 0 ? sedesActuales[0] : null);
         setActiveTurnoTab(null);
-        setActiveTab('perfil');
+
+        const tieneAlcanceCompleto = sedesActuales.length > 0 && gradosActuales.length > 0;
+        const tieneCargaAcademica = profesorCursos.some(x => x.id_profesor === prof.id_profesor);
+        const tieneDisponibilidad = esDispoTotalGuardada || dispoActual.length > 0;
+        const tieneHorasMinimas = Number(prof.horas_minimas) >= 1;
+
+        if (!tieneAlcanceCompleto) {
+            setActiveTab('alcance');
+        } else if (!tieneCargaAcademica) {
+            setActiveTab('carga');
+        } else if (!tieneDisponibilidad) {
+            setActiveTab('disponibilidad');
+        } else if (!tieneHorasMinimas) {
+            setActiveTab('horas_minimas');
+        } else {
+            setActiveTab('perfil');
+        }
         setIsModalOpen(true);
     };
 
@@ -441,7 +586,7 @@ export default function ProfesoresManager() {
         // Validaciones con datos del profesor
         if (profId) {
             // 1. Validación física (Bloqueante): bloques de disponibilidad pintados
-            const bloquesDisponibles = disponibilidades.filter(d => d.id_profesor === profId).length;
+            const bloquesDisponibles = disponibilidades.filter(d => Number(d.id_profesor) === Number(profId)).length;
             if (bloquesDisponibles > 0 && val > bloquesDisponibles) {
                 return { error: `Excede la disponibilidad física. Solo tiene ${bloquesDisponibles} bloques pintados pero exiges ${val} horas.`, warnings };
             }
@@ -509,9 +654,59 @@ export default function ProfesoresManager() {
             });
             if (!res.ok) throw new Error(await parseApiError(res, 'Error al guardar horas mínimas'));
             await fetchDatos();
+            window.dispatchEvent(new Event('edusync_data_updated'));
             setIsModalOpen(false);
         } catch (err) {
             alert(`Error: ${err.message}`);
+        } finally {
+            setGuardando(false);
+        }
+    };
+
+    const toggleCurso = (id_curso) => {
+        setFormCursos(prev =>
+            prev.includes(id_curso)
+                ? prev.filter(id => id !== id_curso)
+                : [...prev, id_curso]
+        );
+        if (cargaError) setCargaError('');
+    };
+
+    const handleGuardarCarga = async () => {
+        if (!editId) return;
+        if (formCursos.length === 0) {
+            setCargaError('Debes asignar al menos un curso al docente para continuar.');
+            return;
+        }
+
+        setGuardando(true);
+        try {
+            const actuales = profesorCursos.filter(x => x.id_profesor === editId);
+            const actualesIds = actuales.map(x => x.id_curso);
+
+            for (const relacion of actuales) {
+                if (!formCursos.includes(relacion.id_curso)) {
+                    const res = await fetch(`${API_BASE}/profesor-curso/${relacion.id_profesor_curso}`, { method: 'DELETE' });
+                    if (!res.ok) throw new Error(await parseApiError(res, 'Error al quitar un curso'));
+                }
+            }
+
+            for (const id_curso of formCursos) {
+                if (!actualesIds.includes(id_curso)) {
+                    const res = await fetch(`${API_BASE}/profesor-curso`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id_profesor: editId, id_curso })
+                    });
+                    if (!res.ok) throw new Error(await parseApiError(res, 'Error al asignar un curso'));
+                }
+            }
+
+            await fetchDatos();
+            window.dispatchEvent(new Event('edusync_data_updated'));
+            setActiveTab('disponibilidad');
+        } catch (err) {
+            setCargaError(err.message);
         } finally {
             setGuardando(false);
         }
@@ -548,7 +743,7 @@ export default function ProfesoresManager() {
                 setIsEditing(true);
             }
             await fetchDatos();
-            setActiveTab('sedes'); // Mover a sedes tras crear/editar nombre
+            setActiveTab('alcance');
         } catch (err) {
             alert(`Error: ${err.message}`);
         } finally {
@@ -566,40 +761,6 @@ export default function ProfesoresManager() {
         if (sedesError) setSedesError('');
     };
 
-    const handleGuardarSedes = async () => {
-        if (!editId) return;
-        if (formSedes.length === 0) {
-            setSedesError('Debes seleccionar al menos una sede para continuar.');
-            return;
-        }
-        setGuardando(true);
-        try {
-            // Eliminar actuales
-            const actuales = profesorSedes.filter(x => x.id_profesor === editId);
-            for (let a of actuales) {
-                await fetch(`${API_BASE}/profesor-sedes/${a.id_sede_profesor}`, { method: 'DELETE' });
-            }
-            // Insertar nuevas
-            for (let sid of formSedes) {
-                await fetch(`${API_BASE}/profesor-sedes`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id_profesor: editId, id_sede: sid })
-                });
-            }
-            await fetchDatos();
-            if (formSedes.length > 0 && (!activeSede || !formSedes.includes(activeSede))) {
-                setActiveSede(formSedes[0]);
-            }
-            setActiveTab('grados');
-        } catch (err) {
-            alert(`Error: ${err.message}`);
-        } finally {
-            setGuardando(false);
-        }
-    };
-
-    // ── Guardar Grados ──
     const toggleGrado = (id_grado) => {
         setFormGrados(prev =>
             prev.includes(id_grado)
@@ -609,29 +770,57 @@ export default function ProfesoresManager() {
         if (gradosError) setGradosError('');
     };
 
-    const handleGuardarGrados = async () => {
+    const toggleTodosLosGrados = () => {
+        const todosSeleccionados = grados.length > 0 && grados.every(g => formGrados.includes(g.id_grado));
+        setFormGrados(todosSeleccionados ? [] : grados.map(g => g.id_grado));
+        if (gradosError) setGradosError('');
+    };
+
+    const handleGuardarAlcance = async () => {
         if (!editId) return;
+        let hasError = false;
+        if (formSedes.length === 0) {
+            setSedesError('Debes seleccionar al menos una sede para continuar.');
+            hasError = true;
+        }
         if (formGrados.length === 0) {
             setGradosError('Debes seleccionar al menos un grado para continuar.');
-            return;
+            hasError = true;
         }
+        if (hasError) return;
+
         setGuardando(true);
         try {
-            // Eliminar actuales
-            const actuales = gradoProfesores.filter(x => x.id_profesor === editId);
-            for (let a of actuales) {
-                await fetch(`${API_BASE}/grado-profesor/${a.id_grado_profesor}`, { method: 'DELETE' });
+            const sedesActuales = profesorSedes.filter(x => x.id_profesor === editId);
+            for (const relacion of sedesActuales) {
+                await fetch(`${API_BASE}/profesor-sedes/${relacion.id_sede_profesor}`, { method: 'DELETE' });
             }
-            // Insertar nuevas
-            for (let gid of formGrados) {
-                await fetch(`${API_BASE}/grado-profesor`, {
+            for (const id_sede of formSedes) {
+                const res = await fetch(`${API_BASE}/profesor-sedes`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id_profesor: editId, id_grado: gid })
+                    body: JSON.stringify({ id_profesor: editId, id_sede })
                 });
+                if (!res.ok) throw new Error(await parseApiError(res, 'Error al asignar una sede'));
             }
+
+            const gradosActuales = gradoProfesores.filter(x => x.id_profesor === editId);
+            for (const a of gradosActuales) {
+                await fetch(`${API_BASE}/grado-profesor/${a.id_grado_profesor}`, { method: 'DELETE' });
+            }
+            for (const id_grado of formGrados) {
+                const res = await fetch(`${API_BASE}/grado-profesor`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id_profesor: editId, id_grado })
+                });
+                if (!res.ok) throw new Error(await parseApiError(res, 'Error al asignar un grado'));
+            }
+
             await fetchDatos();
-            setActiveTab('disponibilidad');
+            if (!activeSede || !formSedes.includes(activeSede)) setActiveSede(formSedes[0]);
+            setActiveCargaArea(null);
+            setActiveTab('carga');
         } catch (err) {
             alert(`Error: ${err.message}`);
         } finally {
@@ -731,11 +920,11 @@ export default function ProfesoresManager() {
         setGuardando(true);
         try {
             // Eliminar actuales
-            const actualesD = disponibilidades.filter(x => x.id_profesor === editId);
+            const actualesD = disponibilidades.filter(x => Number(x.id_profesor) === Number(editId));
             for (let a of actualesD) {
                 await fetch(`${API_BASE}/profesor-disponibilidad/${a.id_disponibilidad}`, { method: 'DELETE' });
             }
-            const actualesP = preferencias.filter(x => x.id_profesor === editId);
+            const actualesP = preferencias.filter(x => Number(x.id_profesor) === Number(editId));
             for (let a of actualesP) {
                 await fetch(`${API_BASE}/profesor-preferencia/${a.id_preferencia}`, { method: 'DELETE' });
             }
@@ -744,7 +933,9 @@ export default function ProfesoresManager() {
                 // El backend ahora maneja las sedes correctamente en profesor_sedes,
                 // así que si es "Libre", simplemente dejamos sus tablas de disponibilidad y preferencia vacías.
                 // No se necesita enviar ningún bloque de tiempo.
+                guardarMarcaDisponibilidadTotal(editId, true);
             } else {
+                guardarMarcaDisponibilidadTotal(editId, false);
                 // Insertar nuevas
                 for (let d of formDispo) {
                     await fetch(`${API_BASE}/profesor-disponibilidad`, {
@@ -789,101 +980,69 @@ export default function ProfesoresManager() {
 
 
     return (
-        <div className="w-full space-y-8 animate-fade-in relative">
-            {/* Cabecera Superior (Banner + Espacio Derecho) */}
-            <div className="flex flex-col md:flex-row gap-6">
-                {/* Banner Principal (Izquierda) */}
-                <div className="md:w-2/3 bg-[var(--color-brand-primary)]/10 rounded-[24px] p-8 shadow-md relative overflow-hidden flex flex-col justify-center min-h-[180px] border border-[var(--color-brand-primary)]/70">
-                    <div className="relative z-10 flex flex-col md:flex-row justify-between items-center md:items-start gap-6">
-                        <div className="max-w-md">
-                            <h2 className="text-3xl md:text-4xl font-black text-slate-800 tracking-tight leading-tight mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
-                                Directorio de Docentes
-                            </h2>
-                            <p className="text-slate-500 text-[13px] font-medium mb-6 leading-relaxed max-w-sm drop-shadow-sm">
-                                Administra el personal docente, asigna sus sedes correspondientes y define su disponibilidad horaria exacta.
-                            </p>
+        <div className="w-full animate-fade-in relative">
+            <div className="flex flex-col md:flex-row gap-6 min-h-[calc(100vh-144px)]">
+                <ModuleSidebar
+                    title="Gestión de Docentes"
+                    description="Registra a tus docentes, configura su disponibilidad y asigna los cursos que pueden enseñar para generar horarios sin cruces."
+                    onAddClick={abrirModalNueva}
+                    addButtonText="Añadir Nuevo Docente"
+                    svgImage="/profe.svg"
+                    stats={[
+                        { label: 'Docentes registrados', value: profesores.length, subtext: 'Total en el directorio' },
+                        { label: 'Por completar', value: profesoresIncompletos, subtext: profesoresIncompletos === 1 ? 'Docente con datos pendientes' : 'Docentes con datos pendientes' }
+                    ]}
+                />
 
-                            <button
-                                onClick={abrirModalNueva}
-                                className="bg-brand-primary text-white hover:bg-brand-primary/80 font-extrabold py-2.5 px-6 rounded-xl shadow-[0_4px_12px_rgba(47, 91, 255,0.3)] hover:shadow-[0_6px_16px_rgba(47, 91, 255,0.4)] hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2 text-sm w-max cursor-pointer">
-                                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
-                                Añadir Nuevo Docente
-                            </button>
-                        </div>
+                <main className="md:w-3/4 flex flex-col gap-5 min-w-0">
 
-                        {/* Imagen Ilustrativa a la derecha */}
-                        <div className="hidden sm:flex relative w-32 h-32 md:w-45 md:h-45 flex-shrink-0 items-center justify-center -mt-2 md:mr-16">
-                            {/* Brillo suave de fondo para resaltar */}
-                            <div className="absolute inset-0 bg-white/40 rounded-full blur-2xl"></div>
-                            <img
-                                src="/profe.svg"
-                                alt="Ilustración"
-                                className="relative z-10 w-full h-full object-contain drop-shadow-[0_10px_15px_rgba(0,0,0,0.1)] hover:scale-105 transition-transform duration-500"
-                            />
-                        </div>
-                    </div>
-                </div>
-
-                {/* Espacio Derecho Reservado */}
-                <div className="md:w-1/3 bg-white border-2 border-slate-200 border-dashed rounded-[24px] flex flex-col items-center justify-center p-8 min-h-[180px]">
-                    <div className="w-12 h-12 bg-brand-primary/10 rounded-full flex items-center justify-center text-brand-primary mb-3">
-                        <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
-                    </div>
-                    <p className="text-slate-400 font-extrabold text-sm">Plana Docente</p>
-                    <p className="text-slate-400/70 text-xs mt-1 text-center font-medium max-w-[160px]">
-                        Gestiona el personal y su disponibilidad.
-                    </p>
-                </div>
-            </div>
-
-            {error && (
+            {!isModalOpen && !profesorEnVista && error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-2xl">
                     <p className="text-sm font-medium">{error}</p>
                 </div>
             )}
 
+            {loading && !isModalOpen && !profesorEnVista && (
+                <div className="flex justify-center py-20">
+                    <div className="w-8 h-8 border-4 border-[var(--color-brand-primary)]/30 border-t-[var(--color-brand-primary)] rounded-full animate-spin"></div>
+                </div>
+            )}
+
             {/* Toolbar y Grid de Profesores */}
-            {!loading && (
-                <div className="pt-4">
-                    {/* Toolbar en una sola línea */}
-                    <div className="flex items-center justify-between mb-8 bg-white py-2 px-4 rounded-[20px] border border-slate-100 shadow-sm h-16 w-full overflow-hidden">
-                        {/* Izquierda: Título */}
-                        <div className="flex-shrink-0 flex items-center gap-3 w-1/4">
-                            <div className="w-10 h-10 bg-brand-primary/10 rounded-xl flex items-center justify-center text-brand-primary">
-                                <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
-                            </div>
-                            <h2 className="text-[20px] font-black text-slate-800 tracking-tight whitespace-nowrap">Docentes <span className="text-slate-400 text-[15px] font-bold ml-1">({filteredProfesores.length})</span></h2>
+            {!loading && !isModalOpen && !profesorEnVista && (
+                <div>
+                    <div className="mb-8 space-y-4">
+                        <div className="px-2 flex items-center justify-between gap-4">
+                            <h2 className="text-slate-800 text-[20px] font-black">Total docentes: {profesores.length} registrados</h2>
+                            {searchTerm && (
+                                <span className="text-[12px] font-bold text-slate-400 whitespace-nowrap">{filteredProfesores.length} encontrados</span>
+                            )}
                         </div>
 
-                        {/* Medio: Buscador Pill */}
-                        <div className="flex-1 max-w-lg mx-4">
-                            <div className="relative group flex items-center bg-white rounded-full p-1.5 border-2 border-slate-200 focus-within:border-brand-primary transition-all h-12 w-full">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                            <div className="relative flex items-center flex-1 bg-slate-50 rounded-[14px] border border-slate-200 h-14 px-4 focus-within:border-[var(--color-brand-primary)] focus-within:ring-4 focus-within:ring-[var(--color-brand-primary)]/10 transition-all">
+                                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                                 <input
                                     type="text"
                                     placeholder="Buscar docente por nombre..."
                                     value={searchTerm}
                                     onChange={(e) => handleSearchChange(e.target.value)}
-                                    className="flex-1 bg-transparent pl-6 pr-3 py-1 outline-none text-[14px] font-medium text-slate-700 placeholder:text-slate-400 h-full w-full"
+                                    className="flex-1 bg-transparent pl-3 pr-2 outline-none text-[14px] font-medium text-slate-700 placeholder:text-slate-400 h-full min-w-0"
                                 />
                                 {searchTerm && (
-                                    <button onClick={() => setSearchTerm('')} className="mr-2 text-slate-400 hover:text-red-500 transition-colors p-1.5 rounded-full hover:bg-red-50 flex-shrink-0">
+                                    <button onClick={() => handleSearchChange('')} className="text-slate-400 hover:text-red-500 transition-colors p-1.5 rounded-full hover:bg-red-50 flex-shrink-0 cursor-pointer">
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                                     </button>
                                 )}
-                                <div className="w-9 h-9 rounded-full bg-brand-primary flex items-center justify-center text-white flex-shrink-0 shadow-sm mr-0.5">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
-                                </div>
                             </div>
-                        </div>
 
-                        {/* Derecha: Seleccionar + Eliminar */}
-                        <div className="flex items-center gap-3 justify-end flex-shrink-0 w-1/4">
+                            <div className="flex items-center gap-3 justify-end flex-shrink-0">
                             <button
                                 onClick={() => { setIsSelectionMode(!isSelectionMode); if (isSelectionMode) setSelectedIds([]); }}
-                                className={`text-[12px] font-bold transition-all cursor-pointer px-4 py-2.5 rounded-xl flex items-center gap-2 border shadow-sm whitespace-nowrap
+                                className={`h-14 text-[12px] font-bold transition-all cursor-pointer px-5 rounded-[14px] flex items-center justify-center gap-2 border whitespace-nowrap
                                     ${isSelectionMode
-                                        ? 'bg-slate-800 border-slate-800 text-white hover:bg-slate-700'
-                                        : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-600'
+                                        ? 'bg-[var(--color-brand-dark)] border-[var(--color-brand-dark)] text-white hover:bg-[var(--color-brand-primary)]'
+                                        : 'bg-transparent hover:bg-[var(--color-brand-primary)]/5 border-slate-300 text-slate-600 hover:border-[var(--color-brand-primary)] hover:text-[var(--color-brand-primary)]'
                                     }`}
                             >
                                 <div className={`w-4 h-4 rounded-[4px] border flex items-center justify-center transition-colors ${isSelectionMode ? 'bg-white/20 border-white/30 text-white' : 'bg-white border-slate-300'}`}>
@@ -895,7 +1054,7 @@ export default function ProfesoresManager() {
                                 <button
                                     onClick={() => selectedIds.length > 0 && openDeleteModal(selectedIds)}
                                     disabled={selectedIds.length === 0}
-                                    className={`text-[12px] font-bold px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 border shadow-sm whitespace-nowrap
+                                    className={`h-14 text-[12px] font-bold px-5 rounded-[14px] transition-all flex items-center gap-2 border whitespace-nowrap
                                         ${selectedIds.length > 0
                                             ? 'bg-red-500 text-white border-red-500 hover:bg-red-600 cursor-pointer'
                                             : 'bg-red-50 text-red-300 border-red-100 opacity-60 cursor-not-allowed'
@@ -905,6 +1064,7 @@ export default function ProfesoresManager() {
                                     Eliminar {selectedIds.length > 0 && `(${selectedIds.length})`}
                                 </button>
                             )}
+                            </div>
                         </div>
                     </div>
 
@@ -925,10 +1085,13 @@ export default function ProfesoresManager() {
                         </div>
                     ) : (
                         <>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6 px-1">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 auto-rows-fr items-stretch gap-6 px-1">
                                 {currentProfesores.map((prof, index) => {
                                     const hasGrados = gradoProfesores.some(x => x.id_profesor === prof.id_profesor);
-                                    const faltanDatos = !hasGrados;
+                                    const hasCursos = profesorCursos.some(x => x.id_profesor === prof.id_profesor);
+                                    const hasDisponibilidad = disponibilidadTotalIds.includes(Number(prof.id_profesor))
+                                        || disponibilidades.some(x => Number(x.id_profesor) === Number(prof.id_profesor));
+                                    const faltanDatos = !hasGrados || !hasCursos || !hasDisponibilidad;
 
                                     return (
                                         <ProfesorCard
@@ -936,8 +1099,10 @@ export default function ProfesoresManager() {
                                             prof={prof}
                                             index={index}
                                             sedesStr={getSedesProfesor(prof.id_profesor)}
+                                            cursosNombres={getCursosProfesor(prof.id_profesor).map(curso => curso.nombre_curso)}
                                             cantGrados={getCantGrados(prof.id_profesor)}
                                             cantDispo={getCantDispo(prof.id_profesor)}
+                                            onView={setProfesorEnVista}
                                             onEdit={abrirModalEdicion}
                                             onDelete={() => openDeleteModal(prof.id_profesor)}
                                             isSelected={selectedIds.includes(prof.id_profesor)}
@@ -969,6 +1134,69 @@ export default function ProfesoresManager() {
                 </div>
             )}
 
+            {/* Vista de información del docente */}
+            {!isModalOpen && profesorEnVista && (
+                <div className="animate-fade-in">
+                    <div className="bg-white rounded-[24px] shadow-sm w-full border border-slate-100 overflow-hidden">
+                        <div className="px-7 py-5 border-b border-slate-100 flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-11 h-11 rounded-full bg-[var(--color-brand-primary)]/10 text-[var(--color-brand-primary)] flex items-center justify-center font-black text-lg shrink-0">
+                                    {profesorEnVista.nombre_profesor?.charAt(0)?.toUpperCase()}
+                                </div>
+                                <div className="min-w-0">
+                                    <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Información del docente</span>
+                                    <h2 className="text-lg font-black text-slate-800 truncate">{profesorEnVista.nombre_profesor}</h2>
+                                </div>
+                            </div>
+                            <button type="button" onClick={() => setProfesorEnVista(null)} className="text-[var(--color-brand-primary)] hover:text-[var(--color-brand-dark)] flex items-center gap-2 text-sm font-bold px-4 py-2.5 rounded-xl transition-colors cursor-pointer">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                                Volver al listado
+                            </button>
+                        </div>
+
+                        <div className="p-7 space-y-7">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                                <div>
+                                    <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Sede</span>
+                                    <p className="text-sm font-bold text-slate-700">{getSedesProfesor(profesorEnVista.id_profesor)}</p>
+                                </div>
+                                <div>
+                                    <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Horas mínimas</span>
+                                    <p className="text-sm font-bold text-slate-700">{profesorEnVista.horas_minimas || 0} horas semanales</p>
+                                </div>
+                                <div>
+                                    <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Disponibilidad</span>
+                                    <p className="text-sm font-bold text-slate-700">{getCantDispo(profesorEnVista.id_profesor) === 'Total' ? 'Disponibilidad total' : `${getCantDispo(profesorEnVista.id_profesor)} bloques`}</p>
+                                </div>
+                            </div>
+
+                            <div className="border-t border-slate-100 pt-5">
+                                <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Grados asignados</span>
+                                <div className="flex flex-wrap gap-2">
+                                    {getGradosProfesor(profesorEnVista.id_profesor).length > 0 ? getGradosProfesor(profesorEnVista.id_profesor).map(grado => (
+                                        <span key={grado.id_grado} className="px-3 py-1.5 rounded-full border border-slate-200 text-xs font-bold text-slate-600">
+                                            {grado.nombre_grado || `Grado ${grado.numero || grado.id_grado}`}
+                                        </span>
+                                    )) : <span className="text-xs font-semibold text-amber-600">Sin grados asignados</span>}
+                                </div>
+                            </div>
+
+                            <div className="border-t border-slate-100 pt-5">
+                                <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Cursos que enseña</span>
+                                <div className="flex flex-wrap gap-2">
+                                    {getCursosProfesor(profesorEnVista.id_profesor).length > 0 ? getCursosProfesor(profesorEnVista.id_profesor).map(curso => (
+                                        <span key={curso.id_curso} className="px-3 py-1.5 rounded-full border border-[var(--color-brand-primary)]/25 text-xs font-bold text-[var(--color-brand-primary)]">
+                                            {curso.nombre_curso}
+                                        </span>
+                                    )) : <span className="text-xs font-semibold text-amber-600">Sin cursos asignados</span>}
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            )}
+
             {/* Modal de Eliminación Visual */}
             {isDeleteModalOpen && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm animate-fade-in p-4">
@@ -996,46 +1224,75 @@ export default function ProfesoresManager() {
 
             {/* Modal Principal con TABS */}
             {isModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-fade-in p-4 sm:p-6">
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-full sm:max-h-[90vh] border border-slate-100 flex flex-col overflow-hidden transform animate-slide-up">
+                <div className="animate-fade-in">
+                    <div className="bg-white rounded-[24px] shadow-[0_4px_20px_rgba(0,0,0,0.04)] w-full min-h-[650px] border border-slate-100 flex flex-col overflow-hidden">
 
                         {/* Header Limpio */}
                         <div className="bg-white px-8 py-6 flex justify-between items-start border-b border-slate-100 shrink-0">
                             <div>
                                 <h2 className="text-2xl font-bold text-slate-800 tracking-tight">{!isNewRegistration ? 'Gestión de Docente' : 'Nuevo Docente'}</h2>
-                                <p className="text-sm text-slate-500 mt-1">{!isNewRegistration ? 'Edita los datos y disponibilidad del docente.' : 'Registra un nuevo docente en el sistema.'}</p>
+                                <p className="text-sm text-slate-500 mt-1">{!isNewRegistration ? 'Revisa y actualiza su configuración académica.' : 'Completa los cinco pasos para registrar al docente.'}</p>
                             </div>
-                            <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 bg-slate-50 hover:bg-slate-100 w-9 h-9 rounded-full flex items-center justify-center transition-colors cursor-pointer">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                            <button onClick={() => setIsModalOpen(false)} className="text-[var(--color-brand-primary)] hover:text-[var(--color-brand-dark)] flex items-center gap-2 text-sm font-bold px-4 py-2.5 rounded-xl transition-colors cursor-pointer">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                                Volver
                             </button>
                         </div>
 
-                        {/* Body (Sidebar + Content) */}
-                        <div className="flex flex-col md:flex-row flex-1 min-h-0">
-
-                            {/* Sidebar Nav */}
-                            <div className="w-full md:w-64 bg-slate-50 border-b md:border-b-0 md:border-r border-slate-100 flex md:flex-col shrink-0 p-4 gap-2 overflow-x-auto md:overflow-x-visible">
-                                <button onClick={() => !isNewRegistration && setActiveTab('perfil')} className={`text-left px-4 py-3 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'perfil' ? 'bg-white shadow-sm border border-slate-200 text-brand-primary' : 'border border-transparent text-slate-500 hover:bg-slate-100/50 hover:text-slate-700'} ${isNewRegistration && activeTab !== 'perfil' ? 'pointer-events-none opacity-50' : isNewRegistration ? 'cursor-default' : 'cursor-pointer'}`}>1. Perfil Personal</button>
-                                <button onClick={() => editId && !isNewRegistration && setActiveTab('sedes')} disabled={!editId || isNewRegistration} className={`text-left px-4 py-3 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${(!editId || (isNewRegistration && activeTab !== 'sedes')) ? 'opacity-40 cursor-not-allowed border border-transparent' : activeTab === 'sedes' ? 'bg-white shadow-sm border border-slate-200 text-brand-primary' : 'border border-transparent text-slate-500 hover:bg-slate-100/50 hover:text-slate-700 cursor-pointer'}`}>2. Asignar Sedes</button>
-                                <button onClick={() => editId && !isNewRegistration && setActiveTab('grados')} disabled={!editId || isNewRegistration} className={`text-left px-4 py-3 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${(!editId || (isNewRegistration && activeTab !== 'grados')) ? 'opacity-40 cursor-not-allowed border border-transparent' : activeTab === 'grados' ? 'bg-white shadow-sm border border-slate-200 text-brand-primary' : 'border border-transparent text-slate-500 hover:bg-slate-100/50 hover:text-slate-700 cursor-pointer'}`}>3. Grados Permitidos</button>
-                                <button onClick={() => editId && !isNewRegistration && setActiveTab('disponibilidad')} disabled={!editId || isNewRegistration} className={`text-left px-4 py-3 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${(!editId || (isNewRegistration && activeTab !== 'disponibilidad')) ? 'opacity-40 cursor-not-allowed border border-transparent' : activeTab === 'disponibilidad' ? 'bg-white shadow-sm border border-slate-200 text-brand-primary' : 'border border-transparent text-slate-500 hover:bg-slate-100/50 hover:text-slate-700 cursor-pointer'}`}>4. Disponibilidad</button>
-                                <button onClick={() => editId && !isNewRegistration && setActiveTab('horas_minimas')} disabled={!editId || isNewRegistration} className={`text-left px-4 py-3 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${(!editId || (isNewRegistration && activeTab !== 'horas_minimas')) ? 'opacity-40 cursor-not-allowed border border-transparent' : activeTab === 'horas_minimas' ? 'bg-white shadow-sm border border-slate-200 text-brand-primary' : 'border border-transparent text-slate-500 hover:bg-slate-100/50 hover:text-slate-700 cursor-pointer'}`}>5. Horas Mínimas</button>
+                        {/* Body: progreso horizontal + contenido */}
+                        <div className="flex flex-col flex-1 min-h-0">
+                            <div className="w-full overflow-x-auto border-b border-slate-100 px-4 sm:px-6 py-6">
+                                <div className="min-w-[720px] flex items-start justify-center mx-auto">
+                                    {PROFESOR_STEPS.map((step, index) => {
+                                        const reached = index <= activeStepIndex;
+                                        const canNavigate = !isNewRegistration;
+                                        return (
+                                            <React.Fragment key={step.id}>
+                                                <div className="flex flex-col items-center gap-1.5 relative z-10 w-24">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => canNavigate && setActiveTab(step.id)}
+                                                        disabled={!canNavigate}
+                                                        className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-sm transition-all ${canNavigate ? 'cursor-pointer' : 'cursor-not-allowed'} ${reached ? 'bg-[var(--color-brand-primary)] text-white shadow-md ring-2 ring-white' : 'bg-slate-100 text-slate-400'}`}
+                                                    >
+                                                        {index + 1}
+                                                    </button>
+                                                    <span className={`text-[9px] font-black uppercase tracking-wider text-center whitespace-nowrap ${reached ? 'text-[var(--color-brand-primary)]' : 'text-slate-400'}`}>
+                                                        {step.label}
+                                                    </span>
+                                                </div>
+                                                {index < PROFESOR_STEPS.length - 1 && (
+                                                    <div className={`w-12 xl:w-16 h-0.5 rounded-full -mx-3 mt-4 z-0 transition-all duration-500 ${index < activeStepIndex ? 'bg-[var(--color-brand-primary)]' : 'bg-slate-100'}`}></div>
+                                                )}
+                                            </React.Fragment>
+                                        );
+                                    })}
+                                </div>
                             </div>
 
                             {/* Tab Content */}
                             <div className="flex-1 p-6 md:p-8 overflow-y-auto">
                                 {/* TAB 1: PERFIL */}
                                 {activeTab === 'perfil' && (
-                                    <form onSubmit={handleGuardarPerfil} autoComplete="off" className="max-w-md mx-auto space-y-5">
+                                    <form onSubmit={handleGuardarPerfil} autoComplete="off" className="max-w-xl mx-auto space-y-5">
                                         <div>
-                                            <label className="text-sm font-bold text-slate-700 block mb-2">Nombre del Docente</label>
-                                            <input
-                                                type="text"
-                                                value={formNombre}
-                                                onChange={(e) => setFormNombre(e.target.value)}
-                                                className={`w-full px-4 py-3 rounded-xl border ${nombreError ? 'border-red-300 focus:border-red-500 focus:ring-red-500/10' : 'border-slate-200 focus:border-brand-primary focus:ring-brand-primary/10'} bg-slate-50 text-slate-800 focus:bg-white focus:ring-4 outline-none transition-all text-sm font-medium`}
-                                                placeholder="Ej. Juan Pérez"
-                                            />
+                                            <h3 className="text-base font-black text-slate-800">Información del docente</h3>
+                                            <p className="text-xs text-slate-500 mt-1">Comienza con el nombre que se mostrará en horarios y asignaciones.</p>
+                                        </div>
+                                        <div>
+                                            <label className="text-[11px] font-black uppercase tracking-wider text-slate-500 block mb-2 ml-1">Nombre completo</label>
+                                            <div className="relative">
+                                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center text-slate-400 pointer-events-none">
+                                                    <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="7" r="4"/><path d="M4 21v-2a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v2"/></svg>
+                                                </div>
+                                                <input
+                                                    type="text"
+                                                    value={formNombre}
+                                                    onChange={(e) => { setFormNombre(e.target.value); if (nombreError) setNombreError(''); }}
+                                                    className={`w-full pl-11 pr-4 py-3.5 rounded-xl border ${nombreError ? 'border-red-300 focus:border-red-500 focus:ring-red-500/10 bg-red-50/30' : 'border-slate-200 focus:border-[var(--color-brand-primary)] focus:ring-[var(--color-brand-primary)]/10 bg-slate-50'} text-slate-800 focus:bg-white focus:ring-4 outline-none transition-all text-sm font-medium`}
+                                                    placeholder="Ej. Juan Pérez García"
+                                                />
+                                            </div>
                                             {nombreError && (
                                                 <p className="text-red-500 text-xs mt-1.5 flex items-center gap-1">
                                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
@@ -1052,117 +1309,86 @@ export default function ProfesoresManager() {
                                     </form>
                                 )}
 
-                                {/* TAB 2: SEDES */}
-                                {activeTab === 'sedes' && (
-                                    <div className="max-w-2xl mx-auto">
-                                        <div className="flex items-center gap-3 mb-6 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                            <div className="w-9 h-9 bg-brand-primary/10 rounded-xl flex items-center justify-center text-brand-primary shrink-0">
-                                                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
-                                            </div>
-                                            <div>
-                                                <p className="font-bold text-slate-700 text-sm">Sedes del Docente</p>
-                                                <p className="text-[11px] text-slate-400">Selecciona una o más sedes donde imparte clases</p>
-                                            </div>
-                                        </div>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
-                                            {sedes.map(s => {
-                                                const activo = formSedes.includes(s.id_sede);
-                                                return (
-                                                    <div
-                                                        key={s.id_sede}
-                                                        onClick={() => toggleSede(s.id_sede)}
-                                                        className={`cursor-pointer p-4 rounded-2xl border-2 transition-all flex items-center gap-4 ${activo ? 'border-brand-primary bg-brand-primary/5 shadow-sm shadow-brand-primary/10' : 'border-slate-100 hover:border-slate-200 bg-white hover:shadow-sm'
-                                                            }`}
-                                                    >
-                                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${activo ? 'bg-brand-primary text-white' : 'bg-slate-100 text-slate-400'
-                                                            }`}>
-                                                            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <p className="text-[12px] text-slate-500 mt-0.5 truncate">Nombre de la sede:</p>
-                                                            <p className={`font-bold text-sm truncate ${activo ? 'text-brand-primary' : 'text-slate-700'}`}>{s.nombre_sede}</p>
-                                                        </div>
-                                                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${activo ? 'border-brand-primary bg-brand-primary' : 'border-slate-200'
-                                                            }`}>
-                                                            {activo && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5"><polyline points="20 6 9 17 4 12" /></svg>}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                            {sedes.length === 0 && (
-                                                <div className="col-span-2 text-center py-8 text-slate-400">
-                                                    <svg className="mx-auto mb-2" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg>
-                                                    <p className="text-sm font-medium">No hay sedes registradas</p>
-                                                </div>
-                                            )}
-                                        </div>
-                                        {sedesError && (
-                                            <div className="mt-4 bg-red-50 text-red-500 text-xs font-bold p-3 rounded-xl border border-red-100 flex items-center gap-2">
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-                                                {sedesError}
-                                            </div>
-                                        )}
-                                        <div className="flex gap-4 mt-6">
-                                            <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3.5 text-sm font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all cursor-pointer">Cancelar</button>
-                                            <button disabled={guardando} onClick={handleGuardarSedes} className={`flex-1 py-3.5 bg-brand-primary hover:bg-brand-primary/90 text-white font-bold rounded-xl shadow-md shadow-brand-primary/20 transition-all flex items-center justify-center gap-2 text-sm ${guardando ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'}`}>
-                                                {guardando ? (<><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Guardando...</>) : (<>Continuar <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg></>)}
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* TAB 3: GRADOS */}
-                                {activeTab === 'grados' && (
-                                    <div className="max-w-2xl mx-auto animate-fade-in">
-                                        <div className="flex items-center gap-3 mb-6 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                            <div className="w-9 h-9 bg-brand-primary/10 rounded-xl flex items-center justify-center text-brand-primary shrink-0">
-                                                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 14l9-5-9-5-9 5 9 5z" /><path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" /></svg>
-                                            </div>
-                                            <div>
-                                                <p className="font-bold text-slate-700 text-sm">Grados Permitidos</p>
-                                                <p className="text-[11px] text-slate-400">Selecciona los grados en los que este docente puede enseñar</p>
-                                            </div>
+                                {/* TAB 2: ALCANCE ACADÉMICO */}
+                                {activeTab === 'alcance' && (
+                                    <div className="max-w-4xl mx-auto space-y-5 animate-fade-in">
+                                        <div>
+                                            <h3 className="text-base font-black text-slate-800">Alcance académico</h3>
+                                            <p className="text-xs text-slate-500 mt-1">Define en qué sedes y grados está autorizado para enseñar.</p>
                                         </div>
 
-                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
-                                            {grados.map(g => {
-                                                const activo = formGrados.includes(g.id_grado);
-                                                return (
-                                                    <div
-                                                        key={g.id_grado}
-                                                        onClick={() => toggleGrado(g.id_grado)}
-                                                        className={`cursor-pointer p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 text-center ${activo ? 'border-brand-primary bg-brand-primary/5 shadow-sm shadow-brand-primary/10' : 'border-slate-100 hover:border-slate-200 bg-white hover:shadow-sm'}`}
-                                                    >
-                                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors ${activo ? 'bg-brand-primary text-white' : 'bg-slate-100 text-slate-400'}`}>
-                                                            <span className="font-black text-sm">{g.nombre_grado?.charAt(0) || g.id_grado}</span>
-                                                        </div>
-                                                        <div className="flex-1 min-w-0 w-full">
-                                                            <p className={`font-bold text-xs truncate ${activo ? 'text-brand-primary' : 'text-slate-700'}`}>{g.nombre_grado || `Grado ${g.id_grado}`}</p>
-                                                            {g.nivel && <p className="text-[10px] text-slate-400 mt-0.5 truncate uppercase">{g.nivel}</p>}
-                                                        </div>
-                                                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors mt-1 ${activo ? 'border-brand-primary bg-brand-primary' : 'border-slate-200'}`}>
-                                                            {activo && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5"><polyline points="20 6 9 17 4 12" /></svg>}
-                                                        </div>
+                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                                            <section className="rounded-2xl border border-slate-200 p-5 bg-white">
+                                                <div className="flex items-center justify-between mb-4">
+                                                    <div>
+                                                        <h3 className="font-black text-slate-800 text-sm">Sedes</h3>
+                                                        <p className="text-[11px] text-slate-400 mt-0.5">{sedes.length === 1 ? 'Asignada automáticamente' : 'Puede seleccionar más de una'}</p>
                                                     </div>
-                                                );
-                                            })}
-                                            {grados.length === 0 && (
-                                                <div className="col-span-full text-center py-8 text-slate-400">
-                                                    <svg className="mx-auto mb-2" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 14l9-5-9-5-9 5 9 5z" /></svg>
-                                                    <p className="text-sm font-medium">No hay grados registrados</p>
+                                                    <span className="text-[11px] font-black text-[var(--color-brand-primary)]">{formSedes.length} elegida{formSedes.length !== 1 ? 's' : ''}</span>
                                                 </div>
-                                            )}
+                                                <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
+                                                    {sedes.map(s => {
+                                                        const activo = formSedes.includes(s.id_sede);
+                                                        return (
+                                                            <button key={s.id_sede} type="button" disabled={sedes.length === 1} onClick={() => toggleSede(s.id_sede)} className={`w-full p-3 rounded-xl border-2 transition-all flex items-center gap-3 text-left ${sedes.length === 1 ? 'cursor-default' : 'cursor-pointer'} ${activo ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)]/5' : 'border-slate-100 hover:border-slate-200'}`}>
+                                                                <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${activo ? 'bg-[var(--color-brand-primary)] text-white' : 'bg-slate-100 text-slate-400'}`}>
+                                                                    <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 9l9-7 9 7v11H3z"/></svg>
+                                                                </div>
+                                                                <span className={`flex-1 text-xs font-extrabold truncate ${activo ? 'text-[var(--color-brand-dark)]' : 'text-slate-700'}`}>{s.nombre_sede}</span>
+                                                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${activo ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)]' : 'border-slate-200'}`}>
+                                                                    {activo && <svg width="10" height="10" fill="none" stroke="white" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>}
+                                                                </div>
+                                                            </button>
+                                                        );
+                                                    })}
+                                                    {sedes.length === 0 && <p className="text-center py-8 text-xs text-slate-400">No hay sedes registradas</p>}
+                                                </div>
+                                                {sedesError && <p className="mt-3 text-red-500 text-xs font-bold">{sedesError}</p>}
+                                            </section>
+
+                                            <section className="rounded-2xl border border-slate-200 p-5 bg-white">
+                                                <div className="flex items-start justify-between gap-3 mb-4">
+                                                    <div>
+                                                        <h3 className="font-black text-slate-800 text-sm">Grados permitidos</h3>
+                                                        <p className="text-[11px] text-slate-400 mt-0.5">Niveles en los que puede enseñar</p>
+                                                    </div>
+                                                    <span className="text-[11px] font-black text-[var(--color-brand-primary)]">{formGrados.length} elegido{formGrados.length !== 1 ? 's' : ''}</span>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-2 max-h-[280px] overflow-y-auto pr-1">
+                                                    {grados.length > 1 && (() => {
+                                                        const todosSeleccionados = grados.every(g => formGrados.includes(g.id_grado));
+                                                        return (
+                                                            <button type="button" onClick={toggleTodosLosGrados} className={`p-3 rounded-xl border-2 transition-all flex items-center gap-2 text-left cursor-pointer ${todosSeleccionados ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)]/5' : 'border-slate-100 hover:border-slate-200'}`}>
+                                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-[10px] font-black ${todosSeleccionados ? 'bg-[var(--color-brand-primary)] text-white' : 'bg-slate-100 text-slate-400'}`}>
+                                                                    {todosSeleccionados ? (
+                                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+                                                                    ) : (
+                                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                                                                    )}
+                                                                </div>
+                                                                <span className={`text-[11px] font-extrabold truncate ${todosSeleccionados ? 'text-[var(--color-brand-dark)]' : 'text-slate-700'}`}>Todos</span>
+                                                            </button>
+                                                        );
+                                                    })()}
+                                                    {grados.map(g => {
+                                                        const activo = formGrados.includes(g.id_grado);
+                                                        return (
+                                                            <button key={g.id_grado} type="button" onClick={() => toggleGrado(g.id_grado)} className={`p-3 rounded-xl border-2 transition-all flex items-center gap-2 text-left cursor-pointer ${activo ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)]/5' : 'border-slate-100 hover:border-slate-200'}`}>
+                                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-xs font-black ${activo ? 'bg-[var(--color-brand-primary)] text-white' : 'bg-slate-100 text-slate-400'}`}>{g.numero || g.nombre_grado?.charAt(0) || g.id_grado}</div>
+                                                                <span className={`text-[11px] font-extrabold truncate ${activo ? 'text-[var(--color-brand-dark)]' : 'text-slate-700'}`}>{g.nombre_grado || `Grado ${g.numero || g.id_grado}`}</span>
+                                                            </button>
+                                                        );
+                                                    })}
+                                                    {grados.length === 0 && <p className="col-span-2 text-center py-8 text-xs text-slate-400">No hay grados registrados</p>}
+                                                </div>
+                                                {gradosError && <p className="mt-3 text-red-500 text-xs font-bold">{gradosError}</p>}
+                                            </section>
                                         </div>
-                                        {gradosError && (
-                                            <div className="mt-4 bg-red-50 text-red-500 text-xs font-bold p-3 rounded-xl border border-red-100 flex items-center gap-2">
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-                                                {gradosError}
-                                            </div>
-                                        )}
-                                        <div className="flex gap-4 mt-6">
-                                            <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3.5 text-sm font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all cursor-pointer">Cancelar</button>
-                                            <button disabled={guardando} onClick={handleGuardarGrados} className={`flex-1 py-3.5 bg-brand-primary hover:bg-brand-primary/90 text-white font-bold rounded-xl shadow-md shadow-brand-primary/20 transition-all flex items-center justify-center gap-2 text-sm ${guardando ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'}`}>
-                                                {guardando ? (<><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Guardando...</>) : (<>Continuar <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg></>)}
+
+                                        <div className="flex gap-4 pt-4 border-t border-slate-100">
+                                            <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 text-sm font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all cursor-pointer">Cancelar</button>
+                                            <button disabled={guardando} onClick={handleGuardarAlcance} className={`flex-1 py-3 bg-[var(--color-brand-primary)] hover:bg-[var(--color-brand-dark)] text-white font-bold rounded-xl shadow-md transition-all ${guardando ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}>
+                                                {guardando ? 'Guardando...' : 'Continuar'}
                                             </button>
                                         </div>
                                     </div>
@@ -1171,37 +1397,70 @@ export default function ProfesoresManager() {
                                 {/* TAB 4: DISPONIBILIDAD */}
                                 {activeTab === 'disponibilidad' && (
                                     <div className="space-y-4">
-                                        {/* Row de Sedes */}
-                                        {formSedes.length > 0 && (
-                                            <div className="mb-4">
-                                                <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">Sedes</label>
-                                                <div className="flex gap-2 flex-wrap bg-slate-100/50 p-2 rounded-2xl border border-slate-100">
-                                                    {formSedes.map(sid => {
-                                                        const sObj = sedes.find(s => s.id_sede === sid);
-                                                        if (!sObj) return null;
-                                                        return (
-                                                            <button
-                                                                key={sid}
-                                                                onClick={() => setActiveSede(sid)}
-                                                                className={`px-6 py-2.5 rounded-xl font-extrabold text-sm transition-all cursor-pointer ${activeSede === sid ? 'bg-brand-primary text-white shadow-md shadow-brand-primary/20' : 'bg-white text-slate-500 hover:text-brand-primary border border-slate-200 hover:border-brand-primary'} ${esDisponibilidadTotal ? 'opacity-30 pointer-events-none grayscale' : ''}`}
-                                                            >
-                                                                {sObj.nombre_sede}
-                                                            </button>
-                                                        );
-                                                    })}
-                                                </div>
+                                        <div className="flex items-start justify-between gap-4 mb-5">
+                                            <div>
+                                                <h3 className="text-base font-black text-slate-800">Disponibilidad semanal</h3>
+                                                <p className="text-xs text-slate-500 mt-1">Marca los bloques disponibles y resalta sus horarios preferidos.</p>
                                             </div>
-                                        )}
+                                            <span className="hidden sm:inline text-[11px] font-black text-[var(--color-brand-primary)] whitespace-nowrap pt-1">
+                                                {esDisponibilidadTotal ? 'Disponibilidad total' : `${formDispo.length} bloques`}
+                                            </span>
+                                        </div>
 
-                                        <div className={`transition-all duration-300 ${esDisponibilidadTotal ? 'opacity-30 pointer-events-none grayscale' : ''}`}>
+                                        {/* Sedes y disponibilidad total */}
+                                        <div className="mb-4 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                                            {formSedes.length > 0 && (
+                                                <div className={`transition-opacity ${esDisponibilidadTotal ? 'opacity-40 pointer-events-none' : ''}`}>
+                                                    <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide">1. Selecciona la sede</label>
+                                                    <div className="flex gap-2 flex-wrap">
+                                                        {formSedes.map(sid => {
+                                                            const sObj = sedes.find(s => s.id_sede === sid);
+                                                            if (!sObj) return null;
+                                                            return (
+                                                                <button
+                                                                    key={sid}
+                                                                    onClick={() => setActiveSede(sid)}
+                                                                    className={`px-5 py-2 rounded-xl border-2 font-extrabold text-xs transition-all cursor-pointer ${activeSede === sid ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)] text-white shadow-sm' : 'border-slate-200 bg-transparent text-slate-500 hover:border-slate-400'}`}
+                                                                >
+                                                                    {sObj.nombre_sede}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )}
 
-                                            <div className="flex flex-wrap items-center justify-between gap-4 p-2.5 bg-slate-50 rounded-xl border border-slate-100">
+                                            <div className="flex items-center gap-2 sm:pb-2 sm:ml-auto shrink-0">
+                                                <span className="text-xs font-bold text-slate-600 whitespace-nowrap">Disponibilidad total</span>
+                                                <button
+                                                    type="button"
+                                                    role="switch"
+                                                    aria-checked={esDisponibilidadTotal}
+                                                    onClick={() => {
+                                                        const next = !esDisponibilidadTotal;
+                                                        setEsDisponibilidadTotal(next);
+                                                        if (next) {
+                                                            setFormDispo([]);
+                                                            setFormPreferencia([]);
+                                                            setDispoError('');
+                                                        }
+                                                    }}
+                                                    className={`relative w-9 h-5 rounded-full transition-colors cursor-pointer ${esDisponibilidadTotal ? 'bg-[var(--color-brand-primary)]' : 'bg-slate-300'}`}
+                                                >
+                                                    <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${esDisponibilidadTotal ? 'translate-x-4' : 'translate-x-0'}`} />
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div className={`transition-opacity ${esDisponibilidadTotal ? 'opacity-40 pointer-events-none' : ''}`}>
+                                            <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide">2. Elige el tipo de horario</label>
+                                            <div className="flex flex-wrap items-center justify-between gap-4 py-2.5 border-y border-slate-100">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="flex bg-slate-200/50 p-1 rounded-lg">
-                                                        <button onClick={() => setModoPincel('disponible')} className={`px-3 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${modoPincel === 'disponible' ? 'bg-white text-brand-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                                                    <div className="flex gap-2">
+                                                        <button onClick={() => setModoPincel('disponible')} className={`px-3 py-1.5 rounded-lg border text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 bg-transparent ${modoPincel === 'disponible' ? 'border-[var(--color-brand-primary)] text-[var(--color-brand-primary)]' : 'border-slate-200 text-slate-500 hover:border-slate-400'}`}>
                                                             <div className={`w-1.5 h-1.5 rounded-full ${modoPincel === 'disponible' ? 'bg-brand-primary' : 'bg-slate-300'}`}></div> Disponible
                                                         </button>
-                                                        <button onClick={() => setModoPincel('preferido')} className={`px-3 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${modoPincel === 'preferido' ? 'bg-white text-amber-500 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                                                        <button onClick={() => setModoPincel('preferido')} className={`px-3 py-1.5 rounded-lg border text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 bg-transparent ${modoPincel === 'preferido' ? 'border-amber-400 text-amber-500' : 'border-slate-200 text-slate-500 hover:border-slate-400'}`}>
                                                             <div className={`w-1.5 h-1.5 rounded-full ${modoPincel === 'preferido' ? 'bg-amber-400' : 'bg-slate-300'}`}></div> Preferido
                                                         </button>
                                                     </div>
@@ -1209,14 +1468,10 @@ export default function ProfesoresManager() {
                                                 <div className="flex items-center gap-4">
                                                     {/* Leyenda compacta */}
                                                     <div className="hidden sm:flex items-center gap-3 text-[10px] font-bold text-slate-500">
-                                                        <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded bg-brand-primary"></div>Disp</div>
-                                                        <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded bg-amber-400"></div>Pref</div>
-                                                        <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded border border-red-200 bg-red-50"></div>No Disp</div>
+                                                        <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded bg-brand-primary"></div>Disponible</div>
+                                                        <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded bg-amber-400"></div>Preferido</div>
+                                                        <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded border border-slate-200 bg-white"></div>No disponible</div>
                                                     </div>
-                                                    <button onClick={() => setDispoAll(false)} className="bg-white hover:bg-red-50 text-slate-500 hover:text-red-600 px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 shadow-sm border border-slate-200 hover:border-red-200 font-bold text-[11px]" title="Limpiar todo">
-                                                        <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
-                                                        Limpiar
-                                                    </button>
                                                 </div>
                                             </div>
                                         </div>
@@ -1249,39 +1504,25 @@ export default function ProfesoresManager() {
 
                                             return (
                                                 <div className="space-y-4">
-                                                    {/* Header de Turnos + Toggle Total */}
-                                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                                                    {/* Selector de turnos */}
+                                                    {turnosRender.length > 1 && <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
 
                                                         {/* Tabs de Turnos */}
                                                         <div className="flex gap-2 overflow-x-auto pb-1 flex-1 w-full sm:w-auto">
-                                                            {turnosRender.length > 1 && turnosRender.map(t => (
+                                                            {turnosRender.map(t => (
                                                                 <button
                                                                     key={t.id_turno}
                                                                     onClick={() => setActiveTurnoTab(t.id_turno)}
-                                                                    className={`px-4 py-2 rounded-xl font-bold text-xs transition-all cursor-pointer whitespace-nowrap ${currentTurnoId === t.id_turno ? 'bg-brand-primary text-white shadow-md shadow-brand-primary/20' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'} ${esDisponibilidadTotal ? 'opacity-30 pointer-events-none grayscale' : ''}`}
+                                                                    className={`px-4 py-2 rounded-xl border-2 bg-transparent font-bold text-xs transition-all cursor-pointer whitespace-nowrap ${currentTurnoId === t.id_turno ? 'border-[var(--color-brand-primary)] text-[var(--color-brand-primary)]' : 'border-slate-200 text-slate-500 hover:border-slate-400'}`}
                                                                 >
                                                                     {t.nombre}
                                                                 </button>
                                                             ))}
                                                         </div>
 
-                                                        {/* Toggle Total (Movido a esta fila) */}
-                                                        <div className="flex items-center gap-2 bg-brand-primary/5 px-3 py-1.5 rounded-lg border border-brand-primary/20 shrink-0">
-                                                            <span className="font-bold text-brand-primary text-xs">Disponibilidad Total</span>
-                                                            <div
-                                                                onClick={() => {
-                                                                    setEsDisponibilidadTotal(!esDisponibilidadTotal);
-                                                                    if (!esDisponibilidadTotal) {
-                                                                        setFormDispo([]);
-                                                                        setFormPreferencia([]);
-                                                                    }
-                                                                }}
-                                                                className={`w-8 h-4 rounded-full transition-colors cursor-pointer relative shrink-0 ${esDisponibilidadTotal ? 'bg-brand-primary' : 'bg-slate-300'}`}
-                                                            >
-                                                                <div className={`absolute top-0.5 left-0.5 bg-white w-3 h-3 rounded-full transition-transform ${esDisponibilidadTotal ? 'translate-x-4' : 'translate-x-0'}`}></div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
+                                                    </div>}
+
+                                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide">3. Marca la disponibilidad</label>
 
                                                     <div className={`transition-all duration-300 ${esDisponibilidadTotal ? 'opacity-30 pointer-events-none grayscale' : ''}`}>
 
@@ -1315,10 +1556,16 @@ export default function ProfesoresManager() {
                                                             const diasRender = dias.filter(d => diasValidosIds.includes(d.id_dia));
 
                                                             return (
-                                                                <div key={turno.id_turno} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                                                                    <div className="px-5 py-3 bg-slate-50 border-b border-slate-100 flex items-center gap-2">
-                                                                        <div className="w-2 h-2 rounded-full bg-brand-primary"></div>
-                                                                        <h3 className="font-extrabold text-slate-700 text-xs uppercase tracking-widest">{turno.nombre}</h3>
+                                                                <div key={turno.id_turno} className="rounded-2xl border border-slate-200 overflow-hidden">
+                                                                    <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between gap-4">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <div className="w-2 h-2 rounded-full bg-brand-primary"></div>
+                                                                            <h3 className="font-extrabold text-slate-700 text-xs uppercase tracking-widest">{turno.nombre}</h3>
+                                                                        </div>
+                                                                        <button onClick={() => setDispoAll(false)} className="bg-red-50 text-red-600 hover:bg-red-100 px-3.5 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 border border-red-200 font-bold text-[11px] shrink-0" title="Limpiar toda la disponibilidad">
+                                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+                                                                            Limpiar
+                                                                        </button>
                                                                     </div>
                                                                     <div className="overflow-x-auto">
                                                                         <div className="min-w-full p-2 sm:p-4">
@@ -1329,15 +1576,15 @@ export default function ProfesoresManager() {
                                                                             >
                                                                                 <thead>
                                                                                     <tr>
-                                                                                        <th className="p-3 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest w-16 bg-white border-r border-slate-100">Blq</th>
-                                                                                        {diasRender.map(d => <th key={d.id_dia} className="p-3 text-center text-[10px] font-black text-slate-600 bg-white min-w-[50px]">{d.nombre_dia?.slice(0, 3).toUpperCase() || d.nombre_dia}</th>)}
+                                                                                        <th className="p-3 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest w-16 border-r border-slate-100">Blq</th>
+                                                                                        {diasRender.map(d => <th key={d.id_dia} className="p-3 text-center text-[10px] font-black text-slate-600 min-w-[50px]">{d.nombre_dia?.slice(0, 3).toUpperCase() || d.nombre_dia}</th>)}
 
                                                                                     </tr>
                                                                                 </thead>
                                                                                 <tbody>
                                                                                     {bloquesRender.map((b, bi) => (
-                                                                                        <tr key={b.id_bloque} className={bi % 2 === 0 ? 'bg-slate-50/50' : 'bg-white'}>
-                                                                                            <td className="p-3 text-sm font-black text-slate-400 whitespace-nowrap text-center bg-slate-50 border-r border-slate-100">
+                                                                                        <tr key={b.id_bloque} className="border-t border-slate-100">
+                                                                                            <td className="p-3 text-sm font-black text-slate-400 whitespace-nowrap text-center border-r border-slate-100">
                                                                                                 {b.numero_bloque}
                                                                                             </td>
                                                                                             {diasRender.map(d => {
@@ -1355,7 +1602,7 @@ export default function ProfesoresManager() {
                                                                                                             ? 'bg-amber-400 border-transparent shadow-md shadow-amber-400/20 text-white'
                                                                                                             : isDispo
                                                                                                                 ? 'bg-brand-primary border-transparent shadow-md shadow-brand-primary/20 text-white'
-                                                                                                                : 'bg-red-50 hover:bg-red-100 border-red-100 text-red-400'
+                                                                                                                : 'bg-transparent hover:border-slate-400 border-slate-200 text-slate-300'
                                                                                                             }`}>
                                                                                                             {isPref ? (
                                                                                                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
@@ -1399,30 +1646,56 @@ export default function ProfesoresManager() {
 
                                 {/* TAB 5: HORAS MÍNIMAS */}
                                 {activeTab === 'horas_minimas' && (
-                                    <div className="max-w-md mx-auto space-y-5">
-                                        <div className="flex items-center gap-3 mb-2 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                            <div className="w-9 h-9 bg-brand-primary/10 rounded-xl flex items-center justify-center text-brand-primary shrink-0">
-                                                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                                            </div>
-                                            <div>
-                                                <p className="font-bold text-slate-700 text-sm">Horas Mínimas Exigidas</p>
-                                                <p className="text-[11px] text-slate-400">Define la carga horaria mínima semanal que debe cumplir este docente.</p>
-                                            </div>
+                                    <div className="max-w-xl mx-auto space-y-6">
+                                        <div>
+                                            <h3 className="text-base font-black text-slate-800">Horas mínimas exigidas</h3>
+                                            <p className="text-xs text-slate-500 mt-1">Indica cuántas horas debe recibir como mínimo el docente cada semana.</p>
                                         </div>
 
                                         <div>
-                                            <label className="text-sm font-bold text-slate-700 block mb-2">Cantidad de Horas</label>
-                                            <input
-                                                type="number"
-                                                min="1"
-                                                max="40"
-                                                step="1"
-                                                value={formHorasMinimas}
-                                                onChange={handleHorasMinChange}
-                                                className={`w-full px-4 py-3 rounded-xl border ${horasMinError ? 'border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-500/10' : 'border-slate-200 bg-slate-50 focus:border-brand-primary focus:ring-brand-primary/10'} text-slate-800 focus:bg-white focus:ring-4 outline-none transition-all text-sm font-medium`}
-                                            />
+                                            <label className="text-xs font-bold text-slate-500 block mb-2 uppercase tracking-wide">Carga semanal mínima</label>
+                                            <div className={`flex items-stretch rounded-2xl border-2 overflow-hidden transition-colors ${horasMinError ? 'border-red-300' : 'border-slate-200 focus-within:border-[var(--color-brand-primary)]'}`}>
+                                                <button
+                                                    type="button"
+                                                    aria-label="Restar una hora"
+                                                    disabled={(parseInt(formHorasMinimas, 10) || 0) <= 1}
+                                                    onClick={() => handleHorasMinChange({ target: { value: String(Math.max(1, (parseInt(formHorasMinimas, 10) || 1) - 1)) } })}
+                                                    className="w-16 text-xl font-bold text-slate-500 hover:text-[var(--color-brand-primary)] hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors border-r border-slate-200"
+                                                >
+                                                    −
+                                                </button>
+                                                <div className="flex-1 flex items-center justify-center gap-3 px-4 py-4">
+                                                    <input
+                                                        type="number"
+                                                        min="1"
+                                                        max="40"
+                                                        step="1"
+                                                        value={formHorasMinimas}
+                                                        onChange={handleHorasMinChange}
+                                                        aria-label="Horas mínimas semanales"
+                                                        className="w-20 text-center text-3xl font-black text-slate-800 bg-transparent outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                    />
+                                                    <div className="text-left leading-tight">
+                                                        <span className="block text-sm font-extrabold text-slate-700">horas</span>
+                                                        <span className="block text-[11px] font-medium text-slate-400">por semana</span>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    aria-label="Aumentar una hora"
+                                                    disabled={(parseInt(formHorasMinimas, 10) || 0) >= 40}
+                                                    onClick={() => handleHorasMinChange({ target: { value: String(Math.min(40, (parseInt(formHorasMinimas, 10) || 0) + 1)) } })}
+                                                    className="w-16 text-xl font-bold text-slate-500 hover:text-[var(--color-brand-primary)] hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors border-l border-slate-200"
+                                                >
+                                                    +
+                                                </button>
+                                            </div>
+                                            <div className="flex items-center justify-between mt-2 text-[11px] font-medium text-slate-400">
+                                                <span>Mínimo: 1 hora</span>
+                                                <span>Máximo: 40 horas</span>
+                                            </div>
                                             {horasMinError && (
-                                                <p className="text-red-500 text-xs mt-1.5 flex items-center gap-1">
+                                                <p className="text-red-500 text-xs mt-3 flex items-start gap-1.5">
                                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
                                                     {horasMinError}
                                                 </p>
@@ -1430,7 +1703,7 @@ export default function ProfesoresManager() {
                                             {!horasMinError && horasMinWarnings.length > 0 && (
                                                 <div className="mt-2 space-y-1">
                                                     {horasMinWarnings.map((w, i) => (
-                                                        <p key={i} className="text-amber-600 text-xs flex items-start gap-1.5 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                                                        <p key={i} className="text-amber-600 text-xs flex items-start gap-1.5 border-l-2 border-amber-400 pl-3 py-1">
                                                             <svg className="w-3.5 h-3.5 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
                                                             <span>{w}</span>
                                                         </p>
@@ -1438,9 +1711,9 @@ export default function ProfesoresManager() {
                                                 </div>
                                             )}
                                             {!horasMinError && horasMinWarnings.length === 0 && formHorasMinimas && parseInt(formHorasMinimas) >= 1 && (
-                                                <p className="text-emerald-600 text-xs mt-1.5 flex items-center gap-1">
+                                                <p className="text-emerald-600 text-xs mt-3 flex items-center gap-1.5">
                                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                                                    Valor válido. El motor priorizará asignarle al menos {formHorasMinimas} horas.
+                                                    El motor intentará asignarle al menos {formHorasMinimas} horas semanales.
                                                 </p>
                                             )}
                                         </div>
@@ -1453,11 +1726,101 @@ export default function ProfesoresManager() {
                                         </div>
                                     </div>
                                 )}
+
+                                {/* TAB 3: CARGA ACADÉMICA */}
+                                {activeTab === 'carga' && (
+                                    <div className="w-full max-w-4xl mx-auto space-y-5">
+                                        <div className="flex items-start justify-between gap-4">
+                                            <div>
+                                                <h3 className="text-base font-black text-slate-800">
+                                                    {activeCargaArea === null ? 'Elige un área académica' : areas.find(a => a.id_area === activeCargaArea)?.nombre}
+                                                </h3>
+                                                <p className="text-xs text-slate-500 mt-1">
+                                                    {activeCargaArea === null ? 'Selecciona un área para ver sus cursos.' : 'Selecciona los cursos que puede enseñar dentro de esta área.'}
+                                                </p>
+                                            </div>
+                                            <div className="flex items-center gap-4 pt-1">
+                                                <span className="text-[11px] font-black text-[var(--color-brand-primary)] whitespace-nowrap">
+                                                    {formCursos.length} seleccionado{formCursos.length !== 1 ? 's' : ''}
+                                                </span>
+                                                {activeCargaArea !== null && (
+                                                    <button type="button" onClick={() => setActiveCargaArea(null)} className="flex items-center gap-1.5 text-[11px] font-black text-slate-500 hover:text-[var(--color-brand-primary)] cursor-pointer transition-colors whitespace-nowrap">
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+                                                        Cambiar área
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {areas.length === 0 || cursos.length === 0 ? (
+                                            <div className="border border-dashed border-slate-300 rounded-2xl p-10 text-center">
+                                                <p className="font-bold text-slate-700">No hay cursos disponibles</p>
+                                                <p className="text-xs text-slate-400 mt-1">Primero debes registrar áreas y cursos académicos.</p>
+                                            </div>
+                                        ) : activeCargaArea === null ? (
+                                            <div className="grid grid-cols-4 gap-3 max-h-[390px] overflow-y-auto pr-2">
+                                                {areas.filter(area => cursos.some(curso => curso.id_area === area.id_area)).map(area => {
+                                                    const cursosArea = cursos.filter(curso => curso.id_area === area.id_area);
+                                                    const seleccionados = cursosArea.filter(curso => formCursos.includes(curso.id_curso)).length;
+                                                    return (
+                                                        <button
+                                                            key={area.id_area}
+                                                            type="button"
+                                                            onClick={() => setActiveCargaArea(area.id_area)}
+                                                            className="min-h-[88px] p-3.5 rounded-xl border-2 border-slate-200 hover:border-[var(--color-brand-primary)] text-left flex flex-col justify-between gap-3 transition-all cursor-pointer bg-transparent"
+                                                        >
+                                                            <span className="text-xs font-extrabold leading-snug text-slate-700">{area.nombre}</span>
+                                                            <div className="flex items-center justify-between gap-2">
+                                                                <span className="text-[10px] font-medium text-slate-400">{cursosArea.length} curso{cursosArea.length !== 1 ? 's' : ''}</span>
+                                                                {seleccionados > 0 && <span className="text-[10px] font-black text-[var(--color-brand-primary)]">{seleccionados} elegido{seleccionados !== 1 ? 's' : ''}</span>}
+                                                            </div>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        ) : (
+                                            <div className="grid grid-cols-4 gap-3 max-h-[390px] overflow-y-auto pr-2">
+                                                {cursos.filter(curso => curso.id_area === activeCargaArea).map(curso => {
+                                                    const seleccionado = formCursos.includes(curso.id_curso);
+                                                    return (
+                                                        <button
+                                                            key={curso.id_curso}
+                                                            type="button"
+                                                            onClick={() => toggleCurso(curso.id_curso)}
+                                                            className={`min-h-[82px] p-3.5 rounded-xl border-2 text-left flex flex-col justify-between gap-3 transition-all cursor-pointer bg-transparent ${seleccionado ? 'border-[var(--color-brand-primary)]' : 'border-slate-200 hover:border-slate-400'}`}
+                                                        >
+                                                            <div className="flex items-start justify-between gap-2 w-full">
+                                                                <span className={`text-xs font-extrabold leading-snug ${seleccionado ? 'text-[var(--color-brand-primary)]' : 'text-slate-700'}`}>{curso.nombre_curso}</span>
+                                                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${seleccionado ? 'border-[var(--color-brand-primary)]' : 'border-slate-300'}`}>
+                                                                    {seleccionado && <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--color-brand-primary)" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>}
+                                                                </div>
+                                                            </div>
+                                                            <span className="text-[10px] font-medium text-slate-400">{seleccionado ? 'Seleccionado' : 'Seleccionar curso'}</span>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+
+                                        {cargaError && (
+                                            <div className="bg-red-50 text-red-500 text-xs font-bold p-3 rounded-xl border border-red-100">{cargaError}</div>
+                                        )}
+
+                                        <div className="flex gap-4 pt-4 border-t border-slate-100">
+                                            <button onClick={() => setIsModalOpen(false)} className="flex-1 py-3 text-sm font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all cursor-pointer">Cancelar</button>
+                                            <button disabled={guardando || formCursos.length === 0} onClick={handleGuardarCarga} className={`flex-1 py-3 bg-[var(--color-brand-primary)] hover:bg-[var(--color-brand-dark)] text-white font-bold rounded-xl shadow-md transition-all ${(guardando || formCursos.length === 0) ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
+                                                {guardando ? 'Guardando...' : 'Continuar'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
                 </div>
             )}
+                </main>
+            </div>
         </div>
     );
 }

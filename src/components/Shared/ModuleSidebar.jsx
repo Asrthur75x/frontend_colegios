@@ -8,6 +8,10 @@ const ModuleSidebar = ({
     svgImage,
     tipText,
     stats,
+    hideAddButton = false,
+    buttonVariant = 'add',
+    headerContent,
+    children,
 }) => {
     return (
         <aside className="md:w-1/4 flex-shrink-0 -mt-8">
@@ -20,19 +24,35 @@ const ModuleSidebar = ({
 
                     <div className="relative z-10">
                         <h2 className="text-3xl font-black text-slate-800 tracking-tight leading-tight mb-3">{title}</h2>
-                        <p className="text-[13px] text-slate-600 font-medium leading-relaxed mb-6">
+                        <p className={`text-[13px] text-slate-600 font-medium leading-relaxed ${headerContent || !hideAddButton ? 'mb-6' : ''}`}>
                             {description}
                         </p>
                     </div>
 
+                    {headerContent && (
+                        <div className="relative z-10">
+                            {headerContent}
+                        </div>
+                    )}
+
                     {/* Add Button */}
-                    <button
-                        onClick={onAddClick}
-                        className="relative z-10 w-full bg-[var(--color-brand-dark)] hover:bg-[var(--color-brand-primary)] text-white font-bold py-3 px-4 rounded-[12px] shadow-[0_4px_12px_rgba(47,91,255,0.25)] hover:shadow-[0_6px_16px_rgba(47,91,255,0.35)] hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center gap-2 text-[13px] cursor-pointer"
-                    >
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-                        {addButtonText}
-                    </button>
+                    {!hideAddButton && (
+                        <button
+                            onClick={onAddClick}
+                            className={`relative z-10 w-full text-white font-bold py-3 px-4 rounded-[12px] hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center gap-2 text-[13px] cursor-pointer ${buttonVariant === 'action'
+                                ? 'bg-[var(--color-brand-primary)] hover:bg-[var(--color-brand-dark)] shadow-[0_5px_16px_rgba(47,91,255,0.32)] hover:shadow-[0_7px_20px_rgba(47,91,255,0.4)]'
+                                : 'bg-[var(--color-brand-dark)] hover:bg-[var(--color-brand-primary)] shadow-[0_4px_12px_rgba(47,91,255,0.25)] hover:shadow-[0_6px_16px_rgba(47,91,255,0.35)]'}`}
+                        >
+                            {buttonVariant === 'action' ? (
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z" /></svg>
+                            ) : buttonVariant === 'edit' ? (
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 013 3L8 18l-4 1 1-4L16.5 3.5z" /></svg>
+                            ) : (
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                            )}
+                            {addButtonText}
+                        </button>
+                    )}
 
                     {/* Imagen SVG */}
                     {svgImage && (
@@ -45,6 +65,8 @@ const ModuleSidebar = ({
                         </div>
                     )}
                 </div>
+
+                {children}
 
                 {/* Tip */}
                 {tipText && (

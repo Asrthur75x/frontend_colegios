@@ -1,11 +1,25 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 import ConfiguracionTiemposModal from './ConfiguracionTiemposModal';
+import ModuleSidebar from '../Shared/ModuleSidebar';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { subscribe, startGeneracion, clearResult, getGeneracionState, LOADING_MESSAGES } from './generacionGlobal';
 const API_BASE = 'http://localhost:8000/api';
+
+const fetchJsonWithTimeout = async (url, fallback, timeoutMs = 8000) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        const response = await fetch(url, { signal: controller.signal });
+        if (!response.ok) return fallback;
+        return await response.json();
+    } catch {
+        return fallback;
+    } finally {
+        clearTimeout(timeoutId);
+    }
+};
 
 // Colores consistentes con CursosManager: borde sólido + fondo pastel
 const CURSO_COLORS = [
@@ -68,6 +82,7 @@ export default function HorariosManager({ isEditPage = false }) {
         if (typeof window === 'undefined') return 'loading';
         const gen = getGeneracionState();
         if (gen.status === 'generating') return 'generating';
+        // No mostrar la pantalla vacía hasta confirmar si existe un horario guardado.
         return 'loading';
     });
     const [loadingStep, setLoadingStep] = useState(() => {
@@ -97,8 +112,12 @@ export default function HorariosManager({ isEditPage = false }) {
     const [selectedSeccion, setSelectedSeccion] = useState('');
 
     // Configuración de tiempos modal
-    const [isTimeModalOpen, setIsTimeModalOpen] = useState(false);
+    const [editPanelView, setEditPanelView] = useState('schedule');
+    const [editingTurnoId, setEditingTurnoId] = useState(null);
+    const [configNotice, setConfigNotice] = useState('');
     const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+    const [deleteTurnoConfigId, setDeleteTurnoConfigId] = useState(null);
+    const [isDeletingTurnoConfig, setIsDeletingTurnoConfig] = useState(false);
 
     // Drag & Drop edit mode
     const [isEditMode, setIsEditMode] = useState(false);
@@ -110,7 +129,7 @@ export default function HorariosManager({ isEditPage = false }) {
     const [isSavingEdits, setIsSavingEdits] = useState(false);
 
     // UI States
-    const [activeView, setActiveView] = useState('horario'); // 'horario' o 'metricas'
+    const [activeView] = useState('horario'); // Estadísticas ocultas temporalmente.
     const [metricasMotor, setMetricasMotor] = useState(null);
 
     // Se eliminó la dependencia de localStorage para timeConfig
@@ -158,38 +177,21 @@ export default function HorariosManager({ isEditPage = false }) {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                // Hacer todas las peticiones en paralelo
-                const [secRes, curRes, profRes, diasRes, bloqRes, configRes, horarioRes, gradosRes, sedesRes, turnosRes, seccionTurnosRes, bloqReservRes, metricasRes] = await Promise.all([
-                    fetch(`${API_BASE}/secciones`),
-                    fetch(`${API_BASE}/cursos`),
-                    fetch(`${API_BASE}/profesores`),
-                    fetch(`${API_BASE}/dias`),
-                    fetch(`${API_BASE}/bloques`),
-                    fetch(`${API_BASE}/grado-dia-config`),
-                    fetch(`${API_BASE}/cargar-horario`),
-                    fetch(`${API_BASE}/grados`),
-                    fetch(`${API_BASE}/sedes`),
-                    fetch(`${API_BASE}/turnos`),
-                    fetch(`${API_BASE}/seccion-turno`),
-                    fetch(`${API_BASE}/bloque-reservado`),
-                    fetch(`${API_BASE}/horario-metricas-motor`)
-                ]);
-
-                // Parsear todos los JSON juntos
-                const [secData, curData, profData, diasData, bloqData, configData, horarioData, gradosData, sedesData, turnosData, stData, bloqReservData, metricasData] = await Promise.all([
-                    secRes.ok ? secRes.json() : Promise.resolve([]),
-                    curRes.ok ? curRes.json() : Promise.resolve([]),
-                    profRes.ok ? profRes.json() : Promise.resolve([]),
-                    diasRes.ok ? diasRes.json() : Promise.resolve([]),
-                    bloqRes.ok ? bloqRes.json() : Promise.resolve([]),
-                    configRes.ok ? configRes.json() : Promise.resolve([]),
-                    horarioRes.ok ? horarioRes.json() : Promise.resolve(null),
-                    gradosRes.ok ? gradosRes.json() : Promise.resolve([]),
-                    sedesRes.ok ? sedesRes.json() : Promise.resolve([]),
-                    turnosRes.ok ? turnosRes.json() : Promise.resolve([]),
-                    seccionTurnosRes.ok ? seccionTurnosRes.json() : Promise.resolve([]),
-                    bloqReservRes.ok ? bloqReservRes.json() : Promise.resolve([]),
-                    metricasRes.ok ? metricasRes.json() : Promise.resolve(null)
+                // Cada consulta tiene un límite de espera para que una ruta auxiliar
+                // no mantenga bloqueada la pantalla de generación.
+                const [secData, curData, profData, diasData, bloqData, configData, horarioData, gradosData, sedesData, turnosData, stData, bloqReservData] = await Promise.all([
+                    fetchJsonWithTimeout(`${API_BASE}/secciones`, []),
+                    fetchJsonWithTimeout(`${API_BASE}/cursos`, []),
+                    fetchJsonWithTimeout(`${API_BASE}/profesores`, []),
+                    fetchJsonWithTimeout(`${API_BASE}/dias`, []),
+                    fetchJsonWithTimeout(`${API_BASE}/bloques`, []),
+                    fetchJsonWithTimeout(`${API_BASE}/grado-dia-config`, []),
+                    fetchJsonWithTimeout(`${API_BASE}/cargar-horario`, null),
+                    fetchJsonWithTimeout(`${API_BASE}/grados`, []),
+                    fetchJsonWithTimeout(`${API_BASE}/sedes`, []),
+                    fetchJsonWithTimeout(`${API_BASE}/turnos`, []),
+                    fetchJsonWithTimeout(`${API_BASE}/seccion-turno`, []),
+                    fetchJsonWithTimeout(`${API_BASE}/bloque-reservado`, [])
                 ]);
 
                 // Calcular valores derivados
@@ -218,7 +220,6 @@ export default function HorariosManager({ isEditPage = false }) {
                 setTurnos(turnosData);
                 setSeccionTurnos(stData);
                 setBloquesReservados(bloqReservData);
-                setMetricasMotor(metricasData);
                 setMaxBloquesDia(maxBlq > 0 ? maxBlq : 6);
                 setAsignaciones(asignacionesData);
                 setSelectedSeccion(primeraSeccion);
@@ -227,6 +228,11 @@ export default function HorariosManager({ isEditPage = false }) {
                 if (gen.status !== 'generating') {
                     setStatus(nuevoStatus);
                 }
+
+                // Las métricas son complementarias y se cargan después; nunca
+                // deben impedir que aparezca el horario o el botón para generarlo.
+                fetchJsonWithTimeout(`${API_BASE}/horario-metricas-motor`, null, 5000)
+                    .then(setMetricasMotor);
 
             } catch (error) {
                 console.error("Error fetching data:", error);
@@ -456,6 +462,34 @@ export default function HorariosManager({ isEditPage = false }) {
         return true;
     });
 
+    const turnosConConfiguracion = useMemo(
+        () => turnos.filter(turno => bloques.some(bloque => bloque.id_turno === turno.id_turno)),
+        [turnos, bloques]
+    );
+    const turnosPendientes = useMemo(
+        () => turnos.filter(turno => !bloques.some(bloque => bloque.id_turno === turno.id_turno)),
+        [turnos, bloques]
+    );
+    const maxBloquesPorTurno = useMemo(() => {
+        return turnos.reduce((resultado, turno) => {
+            const seccionesDelTurno = seccionTurnos
+                .filter(relacion => String(relacion.id_turno) === String(turno.id_turno))
+                .map(relacion => relacion.id_seccion);
+            const gradosDelTurno = new Set(
+                secciones
+                    .filter(seccion => seccionesDelTurno.includes(seccion.id_seccion))
+                    .map(seccion => seccion.id_grado)
+            );
+            const cantidades = configGradoDia
+                .filter(config => gradosDelTurno.has(config.id_grado))
+                .map(config => Number(config.bloques_dia) || 0);
+            resultado[turno.id_turno] = cantidades.length > 0
+                ? Math.max(...cantidades)
+                : (maxBloquesDia || 0);
+            return resultado;
+        }, {});
+    }, [turnos, seccionTurnos, secciones, configGradoDia, maxBloquesDia]);
+
     useEffect(() => {
         if (status === 'ready' || status === 'empty') {
             if (filteredSecciones.length > 0 && !filteredSecciones.find(s => `SEC_${s.id_seccion}` === selectedSeccion)) {
@@ -469,6 +503,24 @@ export default function HorariosManager({ isEditPage = false }) {
     const handleGenerar = async () => {
         setErrorMsg(null);
         startGeneracion();
+    };
+
+    const handleDeleteTurnoConfig = async (idTurno) => {
+        setIsDeletingTurnoConfig(true);
+        try {
+            const bloquesTurno = bloques.filter(b => b.id_turno === idTurno);
+            for (const bloque of bloquesTurno) {
+                const response = await fetch(`${API_BASE}/bloques/${bloque.id_bloque}`, { method: 'DELETE' });
+                if (!response.ok) throw new Error('No se pudo eliminar la configuración.');
+            }
+            setBloques(prev => prev.filter(b => b.id_turno !== idTurno));
+            setDeleteTurnoConfigId(null);
+            setConfigNotice('');
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setIsDeletingTurnoConfig(false);
+        }
     };
 
     // --- Drag & Drop Editing ---
@@ -777,22 +829,53 @@ export default function HorariosManager({ isEditPage = false }) {
         });
     }
 
+    const editSidebarActions = isEditPage ? (
+        <div>
+            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Acciones del horario</h3>
+            <div className="grid grid-cols-2 gap-2">
+                <button
+                    onClick={() => { setConfigNotice(''); setEditPanelView('list'); }}
+                    className={`min-h-[42px] px-2.5 py-2 rounded-xl border font-black text-[11px] flex items-center justify-center gap-1.5 transition-all cursor-pointer ${editPanelView === 'list'
+                        ? 'bg-brand-primary border-brand-primary text-white shadow-sm'
+                        : 'bg-transparent border-brand-primary/30 text-slate-600 hover:bg-white/50 hover:border-brand-primary/60'}`}
+                >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
+                    Listado
+                </button>
+                <button
+                    onClick={() => {
+                        if (turnosPendientes.length === 0) {
+                            setConfigNotice('Todos los turnos ya tienen una configuración. Elimina una configuración del listado para poder registrar otra.');
+                            setEditPanelView('list');
+                            return;
+                        }
+                        setConfigNotice('');
+                        setEditingTurnoId(turnosPendientes[0].id_turno);
+                        setEditPanelView('form');
+                    }}
+                    title={turnosPendientes.length === 0 ? 'Ver configuraciones registradas' : 'Configurar un turno pendiente'}
+                    className={`min-h-[42px] px-2.5 py-2 rounded-xl border font-black text-[11px] flex items-center justify-center gap-1.5 transition-all cursor-pointer ${editPanelView === 'form'
+                        ? 'bg-brand-primary border-brand-primary text-white shadow-sm'
+                        : 'bg-transparent border-brand-primary/30 text-slate-600 hover:bg-white/50 hover:border-brand-primary/60'}`}
+                >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 013 3L8 18l-4 1 1-4L16.5 3.5z" /></svg>
+                    Editar
+                </button>
+                <button
+                    onClick={() => setEditPanelView('schedule')}
+                    className={`col-span-2 min-h-[42px] px-3 py-2 rounded-xl border font-black text-[11px] flex items-center justify-center gap-2 transition-all cursor-pointer ${editPanelView === 'schedule'
+                        ? 'bg-brand-primary border-brand-primary text-white shadow-sm'
+                        : 'bg-transparent border-brand-primary/30 text-slate-600 hover:bg-white/50 hover:border-brand-primary/60'}`}
+                >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M8 2v4M16 2v4M3 9h18M8 13h3M13 13h3M8 17h3M13 17h3" /></svg>
+                    Ver horario actualizado
+                </button>
+            </div>
+        </div>
+    ) : null;
+
     return (
         <div className={`w-full h-full flex flex-col items-center animate-fade-in relative ${status === 'empty' ? 'justify-center' : 'justify-start'}`}>
-
-            {/* ENCABEZADO */}
-            {status !== 'empty' && status !== 'loading' && status !== 'generating' && (
-                <div className="flex items-center justify-between mb-8 w-full">
-                    <div>
-                        <h1 className="text-3xl font-black text-slate-800 tracking-tight">
-                            {isEditPage ? "Edición de Horarios" : "Horarios por Secciones"}
-                        </h1>
-                        <p className="text-slate-500 text-[14px] mt-1 font-medium">
-                            {isEditPage ? "Vista especializada para la revisión y control del horario general." : "Visualización detallada de los horarios generados por sección."}
-                        </p>
-                    </div>
-                </div>
-            )}
 
             {status === 'loading' && (
                 <div className="flex flex-col items-center justify-center gap-4 mt-20">
@@ -805,8 +888,8 @@ export default function HorariosManager({ isEditPage = false }) {
             )}
 
             {status === 'generating' && (
-                <div className="flex flex-col items-center justify-center max-w-xl w-full mx-auto p-12 mt-10">
-                    <div className="w-64 h-64 mb-4 flex items-center justify-center">
+                <div className="flex flex-col items-center justify-start max-w-xl w-full mx-auto px-8 pb-6 pt-0 -mt-4">
+                    <div className="w-48 h-48 mb-1 flex items-center justify-center scale-90 origin-center">
                         <div aria-label="Orange and tan hamster running in a metal wheel" role="img" className="wheel-and-hamster">
                             <div className="wheel"></div>
                             <div className="hamster">
@@ -826,11 +909,11 @@ export default function HorariosManager({ isEditPage = false }) {
                             <div className="spoke"></div>
                         </div>
                     </div>
-                    <h3 className="text-2xl font-black text-slate-800 mb-6 tracking-tight">Preparando los horarios...</h3>
-                    <div className="w-full space-y-3">
+                    <h3 className="text-2xl font-black text-slate-800 mb-4 tracking-tight">Preparando los horarios...</h3>
+                    <div className="w-full space-y-2">
                         {loadingMessages.map((msg, index) => (
-                            <div key={index} className={`flex items-center gap-4 transition-all duration-500 ${index < loadingStep ? 'opacity-100' : index === loadingStep ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden m-0'}`}>
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${index < loadingStep ? 'bg-green-100 text-green-500' : 'bg-brand-primary/10 text-brand-primary'}`}>
+                            <div key={index} className={`flex items-center gap-3 transition-all duration-500 ${index < loadingStep ? 'opacity-100' : index === loadingStep ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden m-0'}`}>
+                                <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${index < loadingStep ? 'bg-green-100 text-green-500' : 'bg-brand-primary/10 text-brand-primary'}`}>
                                     {index < loadingStep
                                         ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
                                         : <div className="w-2.5 h-2.5 rounded-full bg-brand-primary animate-ping" />
@@ -905,7 +988,7 @@ export default function HorariosManager({ isEditPage = false }) {
 
                         <button
                             onClick={handleGenerar}
-                            className="group relative flex items-center justify-center gap-2 px-8 py-4 bg-[var(--color-brand-primary)] text-white font-black text-lg rounded-2xl hover:shadow-xl hover:-translate-y-1 transition-all overflow-hidden w-full max-w-[320px] mx-auto"
+                            className="group relative flex items-center justify-center gap-2 px-8 py-4 bg-[var(--color-brand-primary)] text-white font-black text-lg rounded-2xl hover:shadow-xl hover:-translate-y-1 transition-all overflow-hidden w-full max-w-[320px] mx-auto cursor-pointer"
                         >
                             <div className="absolute inset-0 w-full h-full -ml-16 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 animate-shine" />
                             <svg className="w-6 h-6 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
@@ -919,28 +1002,6 @@ export default function HorariosManager({ isEditPage = false }) {
 
             {status === 'ready' && (
                 <div className="w-full flex flex-col gap-8 animate-fade-in-up">
-
-                    {/* TABS DE VISTA */}
-                    {!isEditPage && (
-                        <div className="flex items-center justify-center w-full">
-                            <div className="bg-slate-100/80 p-1.5 rounded-2xl flex items-center gap-1 border border-slate-200/60 shadow-sm backdrop-blur-sm">
-                                <button
-                                    onClick={() => setActiveView('horario')}
-                                    className={`cursor-pointer px-6 py-2.5 rounded-xl font-bold text-[14px] transition-all duration-300 flex items-center gap-2 ${activeView === 'horario' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
-                                >
-                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-                                    Vista por Secciones
-                                </button>
-                                <button
-                                    onClick={() => setActiveView('metricas')}
-                                    className={`cursor-pointer px-6 py-2.5 rounded-xl font-bold text-[14px] transition-all duration-300 flex items-center gap-2 ${activeView === 'metricas' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
-                                >
-                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-                                    Estadísticas Generales
-                                </button>
-                            </div>
-                        </div>
-                    )}
 
                     {activeView === 'metricas' ? (
                         <div className="w-full flex flex-col gap-6 animate-fade-in-up">
@@ -1038,130 +1099,236 @@ export default function HorariosManager({ isEditPage = false }) {
                             )}
                         </div>
                     ) : (
-                        <>
-                            {/* PANEL DE FILTROS SUPERIOR (Full Width) */}
-                            <div className="w-full bg-white rounded-[24px] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
-                                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-
-                                    {/* Filtros Izquierda */}
-                                    <div className="flex flex-wrap items-center gap-4">
-                                        {sedes.length > 1 && (
-                                            <div className="flex flex-col">
-                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Sede</label>
-                                                <select value={selectedSede} onChange={e => setSelectedSede(e.target.value)} className="bg-slate-50 border border-slate-200 text-slate-700 text-[13px] font-bold rounded-xl px-4 py-2.5 outline-none focus:border-brand-primary shadow-sm transition-all cursor-pointer">
-                                                    <option value="">Todas las sedes</option>
-                                                    {sedes.map(s => <option key={s.id_sede} value={s.id_sede}>{s.nombre_sede}</option>)}
-                                                </select>
-                                            </div>
-                                        )}
-
-                                        {turnos.length > 1 && (
-                                            <div className="flex flex-col">
-                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Turno</label>
-                                                <select value={selectedTurno} onChange={e => setSelectedTurno(e.target.value)} className="bg-slate-50 border border-slate-200 text-slate-700 text-[13px] font-bold rounded-xl px-4 py-2.5 outline-none focus:border-brand-primary shadow-sm transition-all cursor-pointer">
-                                                    <option value="">Todos los turnos</option>
-                                                    {turnos.map(t => <option key={t.id_turno} value={t.id_turno}>{t.nombre}</option>)}
-                                                </select>
-                                            </div>
-                                        )}
-
-                                        {(sedes.length > 1 || turnos.length > 1) && (
-                                            <div className="hidden md:block w-px h-10 bg-slate-200 mx-2 mt-4"></div>
-                                        )}
-
-                                        <div className="flex flex-col">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Grado y Sección</label>
-                                            <select value={selectedSeccion} onChange={e => setSelectedSeccion(e.target.value)} className="bg-white border-2 border-slate-200 text-brand-primary text-[15px] font-black rounded-xl px-5 py-2 outline-none focus:border-brand-primary shadow-sm transition-all cursor-pointer">
-                                                {grados.map(g => {
-                                                    const secs = filteredSecciones.filter(s => s.id_grado === g.id_grado);
-                                                    if (secs.length === 0) return null;
-                                                    return (
-                                                        <optgroup key={g.id_grado} label={`${g.numero}°`}>
-                                                            {secs.map(sec => (
-                                                                <option key={sec.id_seccion} value={`SEC_${sec.id_seccion}`}>
-                                                                    {g.numero}° - Sección {sec.nombre}
-                                                                </option>
-                                                            ))}
-                                                        </optgroup>
-                                                    )
-                                                })}
-                                            </select>
+                        <div className="flex flex-col md:flex-row gap-6 min-h-[calc(100vh-144px)]">
+                            <ModuleSidebar
+                                title={isEditPage ? 'Edición de Horarios' : 'Horarios por Sección'}
+                                description={isEditPage
+                                    ? 'Revisa y ajusta la configuración del horario de cada sección.'
+                                    : 'Selecciona una sección para consultar su distribución semanal de clases.'}
+                                onAddClick={handleGenerar}
+                                addButtonText="Generar Horarios"
+                                buttonVariant="action"
+                                hideAddButton={isEditPage}
+                                headerContent={editSidebarActions}
+                            >
+                                <div className="bg-white border border-slate-100 shadow-sm rounded-[20px] p-4 flex flex-col gap-3">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div>
+                                            <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Seleccionar sección</h3>
+                                            <p className="text-[11px] text-slate-400 font-semibold mt-1">Organizadas por sede.</p>
                                         </div>
+                                        <span className="text-[10px] font-black text-brand-primary bg-[var(--color-brand-light)] px-2 py-1 rounded-lg">{secciones.length}</span>
                                     </div>
 
-                                    {/* Botones Derecha */}
-                                    <div className="flex items-center gap-3 mt-4 md:mt-0 flex-shrink-0">
-                                        {isEditPage && (
-                                            <button
-                                                onClick={() => setIsTimeModalOpen(true)}
-                                                className="h-[44px] px-5 bg-white border-2 border-slate-200 text-slate-600 hover:text-brand-primary hover:border-brand-primary text-[13px] font-black rounded-xl transition-colors shadow-sm flex items-center gap-2 whitespace-nowrap cursor-pointer"
-                                            >
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-                                                Editar Horario
-                                            </button>
-                                        )}
-                                        {isEditPage && (
-                                            <button onClick={handleDownloadExcel}
-                                                className="h-[44px] px-4 flex items-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl hover:bg-emerald-100 font-black text-[13px] transition-all cursor-pointer">
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                                                Excel
-                                            </button>
-                                        )}
-                                        {isEditPage && (
-                                            <button onClick={handleDownloadPDF} disabled={isDownloadingPdf}
-                                                className={`h-[44px] px-4 flex items-center gap-2 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl hover:bg-rose-100 font-black text-[13px] transition-all cursor-pointer ${isDownloadingPdf ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                                                <svg className={`w-4 h-4 ${isDownloadingPdf ? 'animate-bounce' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                                                {isDownloadingPdf ? 'PDF...' : 'PDF'}
-                                            </button>
-                                        )}
-
-                                        {!isEditPage && (
-                                            <button
-                                                onClick={handleGenerar}
-                                                className="group relative flex items-center justify-center gap-2 px-6 h-[44px] bg-[var(--color-brand-primary)] text-white font-black text-sm rounded-xl hover:shadow-lg hover:-translate-y-0.5 transition-all overflow-hidden cursor-pointer"
-                                            >
-                                                <div className="absolute inset-0 w-full h-full -ml-16 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 animate-shine" />
-                                                <svg className="w-5 h-5 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                                </svg>
-                                                <span className="relative z-10 tracking-wide">Generar Horarios</span>
-                                            </button>
-                                        )}
+                                    <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1 stylish-scroll">
+                                        {sedes.map(sede => {
+                                            const seccionesSede = secciones.filter(sec => sec.id_sede === sede.id_sede);
+                                            if (seccionesSede.length === 0) return null;
+                                            return (
+                                                <div key={sede.id_sede}>
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-slate-400"><path strokeLinecap="round" strokeLinejoin="round" d="M12 21s7-4.35 7-11a7 7 0 10-14 0c0 6.65 7 11 7 11z" /><circle cx="12" cy="10" r="2" /></svg>
+                                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{sede.nombre_sede}</span>
+                                                    </div>
+                                                    <div className="grid grid-cols-4 gap-1.5">
+                                                        {seccionesSede.map(sec => {
+                                                            const grado = grados.find(g => g.id_grado === sec.id_grado);
+                                                            const isSelected = selectedSeccion === `SEC_${sec.id_seccion}`;
+                                                            const alturaTarjeta = seccionesSede.length <= 4
+                                                                ? 'min-h-[48px]'
+                                                                : seccionesSede.length <= 8
+                                                                    ? 'min-h-[42px]'
+                                                                    : 'min-h-[38px]';
+                                                            return (
+                                                                <button
+                                                                    key={sec.id_seccion}
+                                                                    onClick={() => setSelectedSeccion(`SEC_${sec.id_seccion}`)}
+                                                                    className={`col-span-1 min-w-0 px-1 py-2 rounded-lg border text-[10px] font-black transition-all cursor-pointer ${alturaTarjeta} ${isSelected
+                                                                        ? 'bg-brand-primary border-brand-primary text-white shadow-sm'
+                                                                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-white hover:border-brand-primary/40'}`}
+                                                                >
+                                                                    {grado ? `${grado.numero}°` : 'Grado'} · {sec.nombre}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
-                            </div>
+                            </ModuleSidebar>
 
+                            <main className="w-full md:w-3/4 min-w-0 flex flex-col gap-4">
+                            {isEditPage && editPanelView === 'form' && (
+                                <ConfiguracionTiemposModal
+                                    isOpen
+                                    inline
+                                    onClose={() => setEditPanelView('schedule')}
+                                    maxBloques={maxBloquesDia}
+                                    maxBloquesPorTurno={maxBloquesPorTurno}
+                                    initialTurnoId={editingTurnoId}
+                                    disabledTurnoIds={turnosConConfiguracion.map(turno => turno.id_turno)}
+                                    onSave={() => {
+                                        return fetch(`${API_BASE}/bloques`)
+                                            .then(r => r.json())
+                                            .then(b => {
+                                                setBloques(b.sort((x, y) => x.numero_bloque - y.numero_bloque));
+                                                setConfigNotice('');
+                                                setEditPanelView('list');
+                                            })
+                                            .catch(e => console.error(e));
+                                    }}
+                                />
+                            )}
 
+                            {isEditPage && editPanelView === 'list' && (
+                                <div className="w-full animate-fade-in-up">
+                                    <div className="mb-6 flex items-start justify-between gap-4">
+                                        <div>
+                                            <h2 className="text-[24px] font-black text-slate-800 tracking-tight">Listado de configuraciones</h2>
+                                            <p className="text-[13px] text-slate-500 font-medium mt-1">Revisa o elimina las configuraciones de horas registradas.</p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => { setConfigNotice(''); setEditPanelView('schedule'); }}
+                                            className="shrink-0 px-3 py-2 rounded-xl flex items-center gap-2 text-[12px] font-black text-brand-primary hover:text-[var(--color-brand-dark)] hover:bg-[var(--color-brand-light)] transition-colors cursor-pointer"
+                                        >
+                                            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
+                                            Volver al horario
+                                        </button>
+                                    </div>
+
+                                    {configNotice && (
+                                        <div className="mb-5 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3.5 text-amber-800">
+                                            <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="9" /><path strokeLinecap="round" d="M12 8v5M12 16h.01" /></svg>
+                                            <div>
+                                                <p className="text-[12px] font-black">No hay turnos disponibles</p>
+                                                <p className="text-[11px] font-semibold leading-relaxed mt-0.5">{configNotice}</p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {turnosConConfiguracion.length === 0 ? (
+                                        <div className="bg-white rounded-[22px] border border-dashed border-slate-200 py-14 px-6 text-center">
+                                            <div className="w-11 h-11 mx-auto rounded-full bg-slate-50 text-slate-400 flex items-center justify-center mb-3">
+                                                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+                                            </div>
+                                            <p className="text-[13px] font-black text-slate-600">No hay configuraciones registradas</p>
+                                            <p className="text-[11px] font-semibold text-slate-400 mt-1">Usa Editar para configurar las horas de un turno.</p>
+                                        </div>
+                                    ) : (
+                                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                                        {turnosConConfiguracion.map(turno => {
+                                            const bloquesTurno = bloques
+                                                .filter(b => b.id_turno === turno.id_turno)
+                                                .sort((a, b) => (a.numero_bloque || 99) - (b.numero_bloque || 99));
+                                            const clases = bloquesTurno.filter(b => !b.es_recreo);
+                                            const recreosTurno = bloquesTurno.filter(b => b.es_recreo);
+                                            const primero = clases[0];
+                                            const ultimo = clases[clases.length - 1];
+                                            const pendingDelete = deleteTurnoConfigId === turno.id_turno;
+                                            return (
+                                                <div key={turno.id_turno} className="bg-white rounded-[22px] border border-slate-100 shadow-sm p-5">
+                                                    <div className="flex items-start justify-between gap-4">
+                                                        <div className="flex items-center gap-3 min-w-0">
+                                                            <div className="w-11 h-11 rounded-xl bg-[var(--color-brand-light)] text-brand-primary flex items-center justify-center shrink-0">
+                                                                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <h3 className="text-[16px] font-black text-slate-800 truncate">Turno {turno.nombre}</h3>
+                                                                <p className="text-[11px] text-slate-400 font-bold mt-1">{clases.length > 0 ? `${clases.length} bloques configurados` : 'Sin configuración'}</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="grid grid-cols-3 gap-2 my-5">
+                                                        <div className="bg-slate-50 rounded-xl px-3 py-2.5">
+                                                            <span className="block text-[9px] font-black text-slate-400 uppercase tracking-wider">Inicio</span>
+                                                            <span className="block text-[12px] font-black text-slate-700 mt-1">{primero?.hora_inicio?.slice(0, 5) || '—'}</span>
+                                                        </div>
+                                                        <div className="bg-slate-50 rounded-xl px-3 py-2.5">
+                                                            <span className="block text-[9px] font-black text-slate-400 uppercase tracking-wider">Final</span>
+                                                            <span className="block text-[12px] font-black text-slate-700 mt-1">{ultimo?.hora_final?.slice(0, 5) || '—'}</span>
+                                                        </div>
+                                                        <div className="bg-slate-50 rounded-xl px-3 py-2.5">
+                                                            <span className="block text-[9px] font-black text-slate-400 uppercase tracking-wider">Recreos</span>
+                                                            <span className="block text-[12px] font-black text-slate-700 mt-1">{recreosTurno.length}</span>
+                                                        </div>
+                                                    </div>
+
+                                                    {pendingDelete ? (
+                                                        <div className="flex items-center gap-2 p-3 bg-rose-50 border border-rose-100 rounded-xl">
+                                                            <p className="text-[11px] font-bold text-rose-600 flex-1">¿Eliminar esta configuración?</p>
+                                                            <button onClick={() => setDeleteTurnoConfigId(null)} disabled={isDeletingTurnoConfig} className="px-2 py-1.5 text-[10px] font-black text-slate-500 cursor-pointer">Cancelar</button>
+                                                            <button onClick={() => handleDeleteTurnoConfig(turno.id_turno)} disabled={isDeletingTurnoConfig} className="px-2.5 py-1.5 rounded-lg bg-rose-500 text-white text-[10px] font-black cursor-pointer disabled:opacity-50">{isDeletingTurnoConfig ? 'Borrando...' : 'Confirmar'}</button>
+                                                        </div>
+                                                    ) : (
+                                                        bloquesTurno.length > 0 && (
+                                                            <button onClick={() => setDeleteTurnoConfigId(turno.id_turno)} className="w-full min-h-[40px] rounded-xl bg-white border border-rose-200 text-rose-500 hover:bg-rose-50 flex items-center justify-center gap-2 text-[11px] font-black cursor-pointer transition-colors">
+                                                                <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.4"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" /></svg>
+                                                                Eliminar configuración
+                                                            </button>
+                                                        )
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                    )}
+                                </div>
+                            )}
 
                             {/* CONTENIDO DEL HORARIO */}
-                            <div className="w-full flex flex-col gap-4">
-                                {/* Cabecera Dinámica del Aula */}
+                            <div className={`w-full flex flex-col gap-4 ${isEditPage && editPanelView !== 'schedule' ? 'hidden' : ''}`}>
                                 {selectedSeccion && (() => {
-                                    const currSec = secciones.find(s => `SEC_${s.id_seccion}` === selectedSeccion);
-                                    if (!currSec) return null;
-                                    const currGrado = grados.find(g => g.id_grado === currSec.id_grado);
-                                    const currSede = sedes.find(s => s.id_sede === currSec.id_sede);
-                                    const currTurnoLinks = seccionTurnos.filter(st => st.id_seccion === currSec.id_seccion);
-                                    const turnosNombres = currTurnoLinks.map(l => turnos.find(t => t.id_turno === l.id_turno)?.nombre).filter(Boolean).join(" / ");
+                                    const seccion = secciones.find(sec => `SEC_${sec.id_seccion}` === selectedSeccion);
+                                    if (!seccion) return null;
+                                    const grado = grados.find(g => g.id_grado === seccion.id_grado);
+                                    const sede = sedes.find(s => s.id_sede === seccion.id_sede);
+                                    const turnoIds = [...new Set(seccionTurnos.filter(st => st.id_seccion === seccion.id_seccion).map(st => st.id_turno))];
+                                    const turnoNombres = turnoIds.map(id => turnos.find(t => t.id_turno === id)?.nombre).filter(Boolean).join(' / ');
                                     return (
-                                        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-2 ml-2">
-                                            <div className="flex flex-col">
-                                                <h2 className="text-[28px] md:text-[34px] font-black text-slate-800 tracking-tight leading-none mb-3">
-                                                    {currGrado ? `${currGrado.numero}° - ` : ''}Sección {currSec.nombre}
+                                        <div className="px-1 pb-1 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                                            <div>
+                                                <h2 className="text-[28px] font-black text-slate-800 tracking-tight leading-tight">
+                                                    {grado ? `${grado.numero}° grado` : 'Grado'} · Sección {seccion.nombre}
                                                 </h2>
-                                                <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                                                    <span className="text-brand-primary font-black text-[15px]">{currGrado ? `Grado: ${currGrado.numero}°` : 'Sin Grado'}</span>
+                                                <div className="flex flex-wrap items-center gap-2 mt-2 text-[13px] font-bold">
+                                                    <span className="text-brand-primary">Sede {sede?.nombre_sede || 'sin sede'}</span>
                                                     <span className="text-slate-300">•</span>
-                                                    <span className="text-slate-500 font-bold text-[15px]">{currSede ? `Sede: ${currSede.nombre_sede}` : 'Sin Sede'}</span>
+                                                    <span className="text-slate-500">Turno {turnoNombres || 'sin asignar'}</span>
                                                 </div>
                                             </div>
+
+                                            {isEditPage && (
+                                                <div className="flex items-center gap-2 shrink-0">
+                                                    <button
+                                                        onClick={handleDownloadExcel}
+                                                        title="Descargar el horario completo en Excel"
+                                                        className="h-[42px] px-3.5 flex items-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl hover:bg-emerald-100 font-black text-[12px] transition-all cursor-pointer"
+                                                    >
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                                        Descargar Excel
+                                                    </button>
+                                                    <button
+                                                        onClick={handleDownloadPDF}
+                                                        disabled={isDownloadingPdf}
+                                                        title="Descargar el horario completo en PDF"
+                                                        className={`h-[42px] px-3.5 flex items-center gap-2 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl hover:bg-rose-100 font-black text-[12px] transition-all cursor-pointer ${isDownloadingPdf ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    >
+                                                        <svg className={`w-4 h-4 ${isDownloadingPdf ? 'animate-bounce' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                                        {isDownloadingPdf ? 'Preparando PDF...' : 'Descargar PDF'}
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
                                     );
                                 })()}
 
                                 {/* Tabla de Horario */}
                                 {selectedSeccion ? (
-                                    <div className="flex flex-col gap-4 w-full mt-4">
+                                    <div className="flex flex-col gap-4 w-full">
                                         <div id="horario-table-container" className="bg-white rounded-[24px] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-x-auto p-6 w-full">
                                             <table className="w-full border-collapse min-w-[600px] table-fixed">
                                                 <thead>
@@ -1379,10 +1546,12 @@ export default function HorariosManager({ isEditPage = false }) {
                                     </div>
                                 )}
                             </div>
-                        </>
+                            </main>
+                        </div>
                     )}
                 </div>
             )}
+
             {/* Modal de Conflictos */}
             {moveConflicts && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
@@ -1471,17 +1640,6 @@ export default function HorariosManager({ isEditPage = false }) {
                 .stylish-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
             `}</style>
 
-            <ConfiguracionTiemposModal
-                isOpen={isTimeModalOpen}
-                onClose={() => setIsTimeModalOpen(false)}
-                maxBloques={maxBloquesDia}
-                onSave={() => {
-                    fetch('http://localhost:8000/api/bloques')
-                        .then(r => r.json())
-                        .then(b => setBloques(b.sort((x, y) => x.numero_bloque - y.numero_bloque)))
-                        .catch(e => console.error(e));
-                }}
-            />
         </div>
     );
 }

@@ -6,18 +6,27 @@
 
 const API_BASE = 'http://localhost:8000/api';
 
-const LOADING_MESSAGES = [
-    "Evaluando disponibilidad de profesores...",
-    "Asignando carga académica...",
-    "Evitando cruces de horarios...",
-    "Estructurando bloques de clase...",
-    "Afinando los últimos detalles...",
-    "¡Horarios generados con éxito!"
+const GENERATION_STEPS = [
+    { id: 'init', label: 'Iniciando el motor de horarios...' },
+    { id: 'extracting', label: 'Leyendo la configuración de la base de datos...' },
+    { id: 'validating', label: 'Validando la integridad de los datos...' },
+    { id: 'preprocessing', label: 'Construyendo las estructuras académicas...' },
+    { id: 'modeling', label: 'Generando las restricciones del horario...' },
+    { id: 'solving', label: 'Buscando una solución óptima...' },
+    { id: 'metrics', label: 'Calculando las métricas del resultado...' },
+    { id: 'saving', label: 'Guardando el horario generado...' },
+    { id: 'done', label: '¡Horario generado correctamente!' }
 ];
+const LOADING_MESSAGES = GENERATION_STEPS.map(step => step.label);
+const STEP_VISIBLE_TIME = 20000;
+const FINAL_STEP_VISIBLE_TIME = 900;
 
 const _defaultState = {
     status: null,
     loadingStep: 0,
+    progressStep: 'init',
+    progressPercent: 0,
+    progressMessage: GENERATION_STEPS[0].label,
     errorMsg: null,
     asignaciones: null,
     intervalId: null,
@@ -30,6 +39,9 @@ function getState() {
         window.__edusync_generacion = {
             status: null,        // null | 'generating' | 'success' | 'error'
             loadingStep: 0,
+            progressStep: 'init',
+            progressPercent: 0,
+            progressMessage: GENERATION_STEPS[0].label,
             errorMsg: null,
             asignaciones: null,
             intervalId: null,
@@ -44,6 +56,33 @@ function notify() {
     state.listeners.forEach(fn => {
         try { fn({ ...state }); } catch (e) { console.error(e); }
     });
+}
+
+const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const waitForPaint = () => new Promise(resolve => {
+    if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
+        resolve();
+        return;
+    }
+
+    window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(resolve);
+    });
+});
+
+async function revealStepsUntil(state, targetIndex, visibleTime = STEP_VISIBLE_TIME) {
+    const safeTarget = Math.max(0, Math.min(GENERATION_STEPS.length - 1, targetIndex));
+    while (state.loadingStep < safeTarget) {
+        state.loadingStep += 1;
+        const visibleStep = GENERATION_STEPS[state.loadingStep];
+        state.progressStep = visibleStep.id;
+        state.progressMessage = visibleStep.label;
+        notify();
+        // Asegurar que React y el navegador rendericen cada elemento antes de avanzar.
+        await waitForPaint();
+        await wait(visibleTime);
+    }
 }
 
 /** Suscribirse a cambios de estado. Devuelve función para desuscribirse. */
@@ -70,6 +109,9 @@ export function clearResult() {
     const state = getState();
     state.status = null;
     state.loadingStep = 0;
+    state.progressStep = 'init';
+    state.progressPercent = 0;
+    state.progressMessage = GENERATION_STEPS[0].label;
     state.errorMsg = null;
     state.asignaciones = null;
     notify();
@@ -84,48 +126,96 @@ export async function startGeneracion() {
 
     state.status = 'generating';
     state.loadingStep = 0;
+    state.progressStep = 'init';
+    state.progressPercent = 0;
+    state.progressMessage = GENERATION_STEPS[0].label;
     state.errorMsg = null;
     state.asignaciones = null;
     notify();
 
-    // Avanzar pasos de loading cada 12 segundos
-    state.intervalId = setInterval(() => {
-        if (state.loadingStep < LOADING_MESSAGES.length - 2) {
-            state.loadingStep++;
-            notify();
-        }
-    }, 12000);
-
     try {
-        const res = await fetch(`${API_BASE}/generar-horario`, { method: 'POST' });
-        const data = await res.json();
+        let data = null;
+        const startRes = await fetch(`${API_BASE}/generar-horario/start`, { method: 'POST' });
 
-        clearInterval(state.intervalId);
-        state.intervalId = null;
+        if (startRes.ok) {
+            const startData = await startRes.json();
+            if (!startData.task_id) throw new Error('El servidor no devolvió el identificador de la generación.');
+
+            let intentos = 0;
+            while (intentos < 1800) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                const progressRes = await fetch(`${API_BASE}/horario-progress/${startData.task_id}`);
+                if (!progressRes.ok) throw new Error('No se pudo consultar el progreso de la generación.');
+
+                const progress = await progressRes.json();
+                if (progress.status === 'starting' || progress.status === 'running') {
+                    const percent = Number(progress.percent) || 0;
+                    const reportedStep = progress.step || 'init';
+                    const reportedIndex = GENERATION_STEPS.findIndex(step => step.id === reportedStep);
+                    state.progressPercent = Math.max(0, Math.min(100, percent));
+                    if (reportedIndex >= 0) {
+                        await revealStepsUntil(state, reportedIndex);
+                    }
+                    state.progressStep = reportedStep;
+                    state.progressMessage = progress.message || GENERATION_STEPS[state.loadingStep]?.label;
+                    notify();
+                } else if (progress.status === 'done') {
+                    data = { status: 'success', resultado: progress.resultado };
+                    break;
+                } else if (progress.status === 'error') {
+                    data = {
+                        status: 'error',
+                        errores: Array.isArray(progress.errors)
+                            ? progress.errors
+                            : [progress.message || 'El motor no pudo generar el horario.']
+                    };
+                    break;
+                } else if (progress.status === 'not_found') {
+                    throw new Error('La tarea de generación ya no está disponible en el servidor.');
+                }
+                intentos++;
+            }
+
+            if (!data) throw new Error('La generación superó el tiempo máximo de espera.');
+        } else if (startRes.status === 404 || startRes.status === 405) {
+            // Compatibilidad con versiones anteriores del backend.
+            const legacyRes = await fetch(`${API_BASE}/generar-horario`, { method: 'POST' });
+            if (!legacyRes.ok) throw new Error(`El servidor respondió con estado ${legacyRes.status}.`);
+            data = await legacyRes.json();
+        } else {
+            let detail = '';
+            try {
+                const body = await startRes.json();
+                detail = body?.detail || body?.message || '';
+            } catch {
+                // La respuesta puede no contener JSON.
+            }
+            throw new Error(detail || `No se pudo iniciar la generación (${startRes.status}).`);
+        }
 
         if (data.status === 'error' || data.errores) {
-            if (data.errores && Array.isArray(data.errores)) {
-                state.errorMsg = data.errores;
-            } else {
-                state.errorMsg = ["Error desconocido al generar el horario."];
-            }
+            state.errorMsg = Array.isArray(data.errores)
+                ? data.errores
+                : [data.errores || 'Error desconocido al generar el horario.'];
             state.status = 'error';
             notify();
-            // Disparar evento global para que el toast lo muestre
-            window.dispatchEvent(new CustomEvent('edusync_generacion_done', { detail: { success: false, error: "Validación fallida" } }));
+            window.dispatchEvent(new CustomEvent('edusync_generacion_done', { detail: { success: false, error: 'Validación fallida' } }));
             return;
         }
 
-        let asignaciones = null;
-        if (data.status === 'success' && data.resultado && data.resultado.asignaciones) {
-            asignaciones = data.resultado.asignaciones;
-        } else if (data.asignaciones) {
-            asignaciones = data.asignaciones;
-        } else {
-            throw new Error("Respuesta inválida del servidor");
+        const asignaciones = data.resultado?.asignaciones || data.asignaciones;
+        if (!Array.isArray(asignaciones) || asignaciones.length === 0) {
+            const estado = data.resultado?.estado;
+            throw new Error(estado
+                ? `El motor terminó con estado ${estado}, pero no generó asignaciones.`
+                : 'La respuesta del servidor no contiene asignaciones.');
         }
 
-        state.loadingStep = LOADING_MESSAGES.length - 1;
+        // El motor ya terminó: cerrar los estados finales sin añadir una espera artificial.
+        await revealStepsUntil(state, LOADING_MESSAGES.length - 1, FINAL_STEP_VISIBLE_TIME);
+        state.progressStep = 'done';
+        state.progressPercent = 100;
+        state.progressMessage = GENERATION_STEPS[GENERATION_STEPS.length - 1].label;
         state.asignaciones = asignaciones;
         state.status = 'success';
         notify();
@@ -140,4 +230,4 @@ export async function startGeneracion() {
     }
 }
 
-export { LOADING_MESSAGES };
+export { LOADING_MESSAGES, GENERATION_STEPS };

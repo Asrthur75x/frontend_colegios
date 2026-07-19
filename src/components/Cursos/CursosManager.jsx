@@ -474,7 +474,7 @@ export default function CursosManager() {
                                     </div>
 
                                     {/* Area Pills Filter */}
-                                    <div className="flex items-center gap-2 overflow-x-auto pb-2 custom-scrollbar w-full">
+                                    <div className="flex flex-wrap items-center gap-2 w-full">
                                         <button
                                             onClick={() => setSelectedArea('')}
                                             className={`cursor-pointer whitespace-nowrap px-4 py-1.5 rounded-full text-[13px] font-bold transition-all ${selectedArea === '' ? 'bg-[var(--color-brand-primary)]  text-white shadow-md' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
@@ -551,13 +551,13 @@ export default function CursosManager() {
 
                                     <div className="flex-1 flex flex-col items-center">
                                         <form id="cursoForm" onSubmit={handleGuardar} className="w-full max-w-4xl flex flex-col gap-8">
-                                            
+
                                             {/* Sección 1: Selección de Área */}
                                             <div className="space-y-3">
                                                 <label className="text-[12px] font-bold text-slate-500 uppercase tracking-wider ml-1">
                                                     {isEditing ? "Área Académica Seleccionada" : "1. Selecciona el Área"}
                                                 </label>
-                                                
+
                                                 {areas.length === 0 ? (
                                                     <div className="p-5 bg-amber-50 rounded-2xl border border-amber-200 text-amber-800 font-medium flex items-center gap-3 shadow-sm">
                                                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
@@ -692,11 +692,10 @@ export default function CursosManager() {
                                                                             <button
                                                                                 type="button"
                                                                                 onClick={() => toggleEspacioUnicoCurso(c.nombre)}
-                                                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer shadow-sm active:scale-95 ${
-                                                                                    c.requiere_espacio_unico 
-                                                                                        ? 'bg-[var(--color-brand-primary)] text-white shadow-[var(--color-brand-primary)]/20 hover:bg-[var(--color-brand-dark)] border border-transparent' 
-                                                                                        : 'bg-white border border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
-                                                                                }`}
+                                                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer shadow-sm active:scale-95 ${c.requiere_espacio_unico
+                                                                                    ? 'bg-[var(--color-brand-primary)] text-white shadow-[var(--color-brand-primary)]/20 hover:bg-[var(--color-brand-dark)] border border-transparent'
+                                                                                    : 'bg-white border border-slate-200 text-slate-500 hover:border-[var(--color-brand-primary)]/40 hover:bg-slate-50'
+                                                                                    }`}
                                                                                 title="Alternar espacio único"
                                                                             >
                                                                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -711,7 +710,7 @@ export default function CursosManager() {
                                                                             <button
                                                                                 type="button"
                                                                                 onClick={() => removeCursoFromList(c.nombre)}
-                                                                                className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 text-slate-400 rounded-lg hover:bg-red-50 hover:border-red-200 hover:text-red-500 transition-all cursor-pointer flex-shrink-0 shadow-sm active:scale-95">
+                                                                                className="w-8 h-8 flex items-center justify-center rounded-lg bg-red-50 border border-red-200 text-red-500 transition-all cursor-pointer flex-shrink-0 shadow-sm active:scale-95">
                                                                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                                                                             </button>
                                                                         </div>

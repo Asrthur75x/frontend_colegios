@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ModuleSidebar from '../Shared/ModuleSidebar';
 
 const API_BASE = 'http://localhost:8000/api';
 
@@ -83,7 +84,6 @@ export default function TutoriasManager() {
 
     const [searchTerm, setSearchTerm] = useState('');
     const [searchTermProfesor, setSearchTermProfesor] = useState('');
-    const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedSeccion, setSelectedSeccion] = useState(null);
     const [guardando, setGuardando] = useState(false);
 
@@ -123,7 +123,7 @@ export default function TutoriasManager() {
     };
     const getTutoriaDeSeccion = (id_seccion) => tutorias.find(t => t.id_seccion === id_seccion) || null;
 
-    const abrirModal = (sec) => { setSelectedSeccion(sec); setSearchTermProfesor(''); setIsModalOpen(true); };
+    const abrirAsignacion = (sec) => { setSelectedSeccion(sec); setSearchTermProfesor(''); };
 
     const handleQuitarTutor = async (id_seccion) => {
         const tutoriaExistente = getTutoriaDeSeccion(id_seccion);
@@ -142,7 +142,7 @@ export default function TutoriasManager() {
             if (tutoriaExistente) {
                 await fetch(`${API_BASE}/tutorias/${tutoriaExistente.id_tutoria}`, { method: 'DELETE' });
                 setTutorias(prev => prev.filter(t => t.id_tutoria !== tutoriaExistente.id_tutoria));
-                if (tutoriaExistente.id_profesor === id_profesor) { setIsModalOpen(false); return; }
+                if (tutoriaExistente.id_profesor === id_profesor) { setSelectedSeccion(null); return; }
             }
             const res = await fetch(`${API_BASE}/tutorias`, {
                 method: 'POST',
@@ -152,7 +152,7 @@ export default function TutoriasManager() {
             if (!res.ok) throw new Error('Error al asignar tutoría');
             const nueva = await res.json();
             setTutorias(prev => [...prev, nueva]);
-            setIsModalOpen(false);
+            setSelectedSeccion(null);
         } catch (err) { alert(`Error: ${err.message}`); }
         finally { setGuardando(false); }
     };
@@ -176,223 +176,184 @@ export default function TutoriasManager() {
     }, [isConfigReady, loading, secciones.length, tutorias.length]);
 
     return (
-        <div className="w-full relative pb-16">
+        <div className="w-full animate-fade-in relative">
+            <div className="flex flex-col md:flex-row gap-6 min-h-[calc(100vh-144px)]">
+                <ModuleSidebar
+                    title="Gestión de Tutorías"
+                    description="Asigna a cada sección un docente responsable de acompañar y orientar a sus estudiantes."
+                    hideAddButton
+                    svgImage="/tutor.svg"
+                    stats={[
+                        { label: 'Total de secciones', value: secciones.length, subtext: 'Secciones académicas' },
+                        { label: 'Con tutor', value: tutorias.length, subtext: 'Asignaciones completadas' },
+                        { label: 'Pendientes', value: Math.max(0, secciones.length - tutorias.length), subtext: 'Secciones sin tutor' }
+                    ]}
+                />
 
-            {/* ── Banner ── */}
-            <div className="flex flex-col md:flex-row gap-6 mb-2">
-                <div className="md:w-2/3 bg-[var(--color-brand-primary)]/10 rounded-[24px] p-8 shadow-md relative overflow-hidden flex flex-col justify-center min-h-[180px] border border-[var(--color-brand-primary)]/70">
-                    <div className="relative z-10 flex flex-col md:flex-row justify-between items-center md:items-center gap-6">
-                        <div className="max-w-md">
-                            <h2 className="text-3xl md:text-4xl font-black text-slate-800 tracking-tight leading-tight mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
-                                Asignación de tutorías
-                            </h2>
-                            <p className="text-slate-500 text-[13px] font-medium mb-6 leading-relaxed max-w-sm drop-shadow-sm">
-                                Designa al docente responsable de guiar y acompañar a los estudiantes de cada sección académica.
-                            </p>
-                        </div>
-
-                        {/* Imagen Ilustrativa a la derecha */}
-                        <div className="hidden sm:flex relative w-32 h-32 md:w-45 md:h-45 flex-shrink-0 items-center justify-center md:mr-16">
-                            {/* Brillo suave de fondo para resaltar */}
-                            <div className="absolute inset-0 bg-white/40 rounded-full blur-2xl"></div>
-                            <img
-                                src="/tutor.svg"
-                                alt="Ilustración"
-                                className="relative z-10 w-full h-full object-contain drop-shadow-[0_10px_15px_rgba(0,0,0,0.1)] hover:scale-105 transition-transform duration-500"
-                            />
-                        </div>
-                    </div>
-                </div>
-
-                <div className="md:w-1/3 bg-white border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[24px] p-6 min-h-[180px] flex flex-col relative overflow-hidden">
-                    <div className="flex justify-between items-start mb-4">
-                        <div>
-                            <p className="text-slate-400 text-[11px] font-black uppercase tracking-widest mb-1">Total Secciones</p>
-                            <div className="flex items-baseline gap-2">
-                                <h3 className="text-4xl font-black text-slate-800 tracking-tighter">{secciones.length}</h3>
-                            </div>
-                        </div>
-                        <div className="w-12 h-12 rounded-[14px] bg-brand-primary/10 text-brand-primary flex items-center justify-center border border-brand-primary/20 shadow-sm">
-                            <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
-                        </div>
-                    </div>
-
-                    <div className="mt-auto bg-[var(--color-brand-light)] rounded-xl p-3.5 border border-[var(--color-brand-light)]/60 flex gap-3 items-start">
-                        <div className="text-brand-primary bg-white p-1 rounded-lg shadow-sm border border-[var(--color-brand-light)] mt-0.5 flex-shrink-0">
-                            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="8.5" cy="7" r="4" /><polyline points="17 11 19 13 23 9" /></svg>
-                        </div>
-                        <div>
-                            <p className="text-[var(--color-brand-dark)] text-[12px] font-bold mb-0.5">Con Tutor</p>
-                            <p className="text-[var(--color-brand-dark)]/80 text-[11px] font-medium leading-relaxed">
-                                Tienes {tutorias.length} secciones con tutor asignado.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-
-
-            {/* ── Grupos por Grado ── */}
-            {!loading && (
-                <div className="mt-0">
-                    {gradosOrdenados.map((grado, index) => {
-                        const gradoColor = GRADO_COLORS[index % GRADO_COLORS.length];
-                        const seccionesDelGrado = seccionesFiltradas
-                            .filter(s => s.id_grado === grado.id_grado)
-                            .sort((a, b) => a.id_seccion - b.id_seccion);
-
-                        if (seccionesDelGrado.length === 0) return null;
-
-                        return (
-                            <div key={grado.id_grado}>
-                                <div className="py-8 flex items-center gap-4 w-full">
-                                    <div className="flex-1 h-[2px] bg-slate-200"></div>
-                                    <span
-                                        className="text-[15px] font-black uppercase tracking-[0.2em] px-8 py-2.5 rounded-full bg-white shadow-sm border border-slate-200"
-                                        style={{ color: gradoColor }}
-                                    >
-                                        {grado.numero}° Grado
-                                    </span>
-                                    <div className="flex-1 h-[2px] bg-slate-200"></div>
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                    {seccionesDelGrado.map(sec => {
-                                        const sedeObj = sedes.find(s => s.id_sede === sec.id_sede);
-                                        const sedeNombre = sedeObj ? (sedeObj.nombre_sede || sedeObj.nombre) : 'Sede Principal';
-                                        return (
-                                            <SeccionCard
-                                                key={sec.id_seccion}
-                                                sec={sec}
-                                                tutor={getTutorDeSeccion(sec.id_seccion)}
-                                                gradoColor={gradoColor}
-                                                sedeNombre={sedeNombre}
-                                                onAsignar={abrirModal}
-                                                onQuitar={handleQuitarTutor}
-                                            />
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        );
-                    })}
-
-                    {/* Sin Grado */}
-                    {(() => {
-                        const sinGrado = seccionesFiltradas
-                            .filter(s => !s.id_grado)
-                            .sort((a, b) => a.id_seccion - b.id_seccion);
-
-                        if (sinGrado.length === 0) return null;
-
-                        return (
-                            <div key="sin-grado">
-                                <div className="py-8 flex items-center gap-4 w-full">
-                                    <div className="flex-1 h-[2px] bg-slate-200"></div>
-                                    <span className="text-[15px] font-black text-slate-400 uppercase tracking-[0.2em] px-8 py-2.5 rounded-full bg-white shadow-sm border border-slate-200">
-                                        Sin Grado
-                                    </span>
-                                    <div className="flex-1 h-[2px] bg-slate-200"></div>
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                    {sinGrado.map(sec => {
-                                        const sedeObj = sedes.find(s => s.id_sede === sec.id_sede);
-                                        const sedeNombre = sedeObj ? (sedeObj.nombre_sede || sedeObj.nombre) : 'Sede Principal';
-                                        return (
-                                            <SeccionCard
-                                                key={sec.id_seccion}
-                                                sec={sec}
-                                                tutor={getTutorDeSeccion(sec.id_seccion)}
-                                                gradoColor="var(--color-brand-primary)"
-                                                sedeNombre={sedeNombre}
-                                                onAsignar={abrirModal}
-                                                onQuitar={handleQuitarTutor}
-                                            />
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        );
-                    })()}
-
-                    {seccionesFiltradas.length === 0 && (
-                        <div className="bg-slate-50 border-2 border-slate-200 border-dashed rounded-[32px] p-16 text-center">
-                            <h3 className="text-xl font-black text-slate-800">No se encontraron secciones</h3>
+                <main className="md:w-3/4 flex flex-col gap-5 min-w-0">
+                    {error && (
+                        <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-2xl">
+                            <p className="text-sm font-medium">{error}</p>
                         </div>
                     )}
-                </div>
-            )}
 
-            {/* ── Modal de Asignación ── */}
-            {isModalOpen && selectedSeccion && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 sm:p-6">
-                    <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-lg max-h-full sm:max-h-[85vh] flex flex-col overflow-hidden transform animate-slide-up">
-                        <div className="bg-white px-8 py-6 flex flex-col border-b border-slate-100 shrink-0 gap-5">
-                            <div className="flex justify-between items-start">
+                    {loading && (
+                        <div className="flex justify-center py-20">
+                            <div className="w-8 h-8 border-4 border-[var(--color-brand-primary)]/30 border-t-[var(--color-brand-primary)] rounded-full animate-spin"></div>
+                        </div>
+                    )}
+
+                    {!loading && !selectedSeccion && (
+                        <div>
+                            <div className="mb-7 space-y-4">
+                                <div className="px-2 flex items-center justify-between gap-4">
+                                    <h2 className="text-slate-800 text-[20px] font-black">Tutorados por sección</h2>
+                                    <span className="text-[12px] font-bold text-slate-400 whitespace-nowrap">{seccionesFiltradas.length} secciones</span>
+                                </div>
+                                <div className="relative flex items-center bg-slate-50 rounded-[14px] border border-slate-200 h-14 px-4 focus-within:border-[var(--color-brand-primary)] focus-within:ring-4 focus-within:ring-[var(--color-brand-primary)]/10 transition-all">
+                                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                                    <input
+                                        type="text"
+                                        placeholder="Buscar sección..."
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        className="flex-1 bg-transparent pl-3 pr-2 outline-none text-[14px] font-medium text-slate-700 placeholder:text-slate-400 h-full min-w-0"
+                                    />
+                                    {searchTerm && (
+                                        <button type="button" onClick={() => setSearchTerm('')} className="text-slate-400 hover:text-red-500 p-1.5 rounded-full hover:bg-red-50 cursor-pointer transition-colors" aria-label="Limpiar búsqueda">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="space-y-8">
+                                {gradosOrdenados.map((grado, index) => {
+                                    const gradoColor = GRADO_COLORS[index % GRADO_COLORS.length];
+                                    const seccionesDelGrado = seccionesFiltradas
+                                        .filter(s => s.id_grado === grado.id_grado)
+                                        .sort((a, b) => a.id_seccion - b.id_seccion);
+                                    if (seccionesDelGrado.length === 0) return null;
+
+                                    return (
+                                        <section key={grado.id_grado}>
+                                            <div className="flex items-center justify-between mb-3 px-1">
+                                                <h3 className="text-sm font-black text-slate-700">{grado.numero}° Grado</h3>
+                                                <span className="text-[11px] font-bold text-slate-400">{seccionesDelGrado.length} sección{seccionesDelGrado.length !== 1 ? 'es' : ''}</span>
+                                            </div>
+                                            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
+                                                {seccionesDelGrado.map(sec => {
+                                                    const sedeObj = sedes.find(s => s.id_sede === sec.id_sede);
+                                                    const sedeNombre = sedeObj ? (sedeObj.nombre_sede || sedeObj.nombre) : 'Sede Principal';
+                                                    return (
+                                                        <SeccionCard
+                                                            key={sec.id_seccion}
+                                                            sec={sec}
+                                                            tutor={getTutorDeSeccion(sec.id_seccion)}
+                                                            gradoColor={gradoColor}
+                                                            sedeNombre={sedeNombre}
+                                                            onAsignar={abrirAsignacion}
+                                                            onQuitar={handleQuitarTutor}
+                                                        />
+                                                    );
+                                                })}
+                                            </div>
+                                        </section>
+                                    );
+                                })}
+
+                                {(() => {
+                                    const sinGrado = seccionesFiltradas.filter(s => !s.id_grado).sort((a, b) => a.id_seccion - b.id_seccion);
+                                    if (sinGrado.length === 0) return null;
+                                    return (
+                                        <section>
+                                            <div className="flex items-center justify-between mb-3 px-1">
+                                                <h3 className="text-sm font-black text-slate-700">Sin grado</h3>
+                                                <span className="text-[11px] font-bold text-slate-400">{sinGrado.length} sección{sinGrado.length !== 1 ? 'es' : ''}</span>
+                                            </div>
+                                            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
+                                                {sinGrado.map(sec => {
+                                                    const sedeObj = sedes.find(s => s.id_sede === sec.id_sede);
+                                                    const sedeNombre = sedeObj ? (sedeObj.nombre_sede || sedeObj.nombre) : 'Sede Principal';
+                                                    return <SeccionCard key={sec.id_seccion} sec={sec} tutor={getTutorDeSeccion(sec.id_seccion)} gradoColor="var(--color-brand-primary)" sedeNombre={sedeNombre} onAsignar={abrirAsignacion} onQuitar={handleQuitarTutor} />;
+                                                })}
+                                            </div>
+                                        </section>
+                                    );
+                                })()}
+
+                                {seccionesFiltradas.length === 0 && (
+                                    <div className="border-2 border-slate-200 border-dashed rounded-[28px] p-14 text-center">
+                                        <h3 className="text-lg font-black text-slate-800">No se encontraron secciones</h3>
+                                        <p className="text-sm text-slate-400 mt-1">Prueba con otro término de búsqueda.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {!loading && selectedSeccion && (
+                        <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm overflow-hidden animate-fade-in">
+                            <div className="px-7 py-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                                 <div>
-                                    <h2 className="text-2xl font-black text-slate-800 tracking-tight">Elegir Tutor</h2>
-                                    <p className="text-[13px] text-slate-500 mt-1 font-medium">
-                                        Para <span className="font-bold text-brand-primary">{selectedSeccion.nombre || `Sección ${selectedSeccion.id_seccion}`}</span>
+                                    <h2 className="text-xl font-black text-slate-800">Elegir tutor</h2>
+                                    <p className="text-sm text-slate-500 mt-1">
+                                        Selecciona al docente responsable de <span className="font-bold text-[var(--color-brand-primary)]">{selectedSeccion.nombre || `Sección ${selectedSeccion.id_seccion}`}</span>.
                                     </p>
                                 </div>
-                                <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 w-10 h-10 rounded-full flex items-center justify-center transition-colors cursor-pointer">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                                <button type="button" onClick={() => setSelectedSeccion(null)} className="text-[var(--color-brand-primary)] hover:text-[var(--color-brand-dark)] flex items-center gap-2 text-sm font-bold px-3 py-2 cursor-pointer transition-colors shrink-0">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                                    Volver
                                 </button>
                             </div>
-                            <div className="w-full h-12 bg-slate-50/80 hover:bg-slate-100/80 border-2 border-slate-200 focus-within:border-brand-primary focus-within:bg-white focus-within:shadow-sm rounded-xl flex items-center transition-all duration-300 relative group overflow-hidden mt-1">
-                                <div className="pl-4 pr-3 text-slate-400 group-focus-within:text-brand-primary transition-colors">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+
+                            <div className="p-7">
+                                <div className="relative flex items-center bg-slate-50 rounded-[14px] border border-slate-200 h-14 px-4 focus-within:border-[var(--color-brand-primary)] focus-within:ring-4 focus-within:ring-[var(--color-brand-primary)]/10 transition-all mb-6">
+                                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                                    <input type="text" placeholder="Buscar docente por nombre..." value={searchTermProfesor} onChange={(e) => setSearchTermProfesor(e.target.value)} className="flex-1 bg-transparent pl-3 outline-none text-[14px] font-medium text-slate-700 placeholder:text-slate-400 h-full min-w-0" />
                                 </div>
-                                <input 
-                                    type="text" 
-                                    placeholder="Buscar docente por nombre..." 
-                                    value={searchTermProfesor}
-                                    onChange={(e) => setSearchTermProfesor(e.target.value)}
-                                    className="flex-1 bg-transparent pr-4 py-2 outline-none text-[14px] font-bold text-slate-700 placeholder:text-slate-400 h-full w-full"
-                                />
+
+                                {guardando && (
+                                    <div className="flex items-center gap-2 mb-5 text-sm font-bold text-[var(--color-brand-primary)]">
+                                        <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin"></div>
+                                        Guardando asignación...
+                                    </div>
+                                )}
+
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                                    {profesores.filter(p => (p.nombre_profesor || '').toLowerCase().includes(searchTermProfesor.toLowerCase())).map(prof => {
+                                        const isActual = tutoriaActual?.id_profesor === prof.id_profesor;
+                                        return (
+                                            <button
+                                                type="button"
+                                                key={prof.id_profesor}
+                                                disabled={guardando}
+                                                onClick={() => handleAsignarTutor(prof.id_profesor)}
+                                                className={`flex items-center gap-4 p-4 rounded-[18px] border-2 text-left transition-all cursor-pointer disabled:opacity-60 ${isActual ? 'border-emerald-400 text-emerald-700' : 'border-slate-100 hover:border-[var(--color-brand-primary)]/40 hover:shadow-sm text-slate-700'}`}
+                                            >
+                                                <div className={`w-11 h-11 rounded-full flex items-center justify-center text-white font-black shrink-0 ${isActual ? 'bg-emerald-500' : 'bg-[var(--color-brand-primary)]'}`}>
+                                                    {prof.nombre_profesor.charAt(0).toUpperCase()}
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="font-bold text-sm truncate">{prof.nombre_profesor}</p>
+                                                    <p className={`text-[11px] font-medium mt-0.5 ${isActual ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                                        {isActual ? 'Tutor actual · Presiona para quitar' : 'Presiona para asignar'}
+                                                    </p>
+                                                </div>
+                                                {isActual && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+
+                                {profesores.filter(p => (p.nombre_profesor || '').toLowerCase().includes(searchTermProfesor.toLowerCase())).length === 0 && (
+                                    <div className="border-2 border-slate-200 border-dashed rounded-2xl p-10 text-center text-sm font-medium text-slate-400">No se encontraron docentes con ese nombre.</div>
+                                )}
                             </div>
                         </div>
-
-                        <div className="p-6 overflow-y-auto flex-1 min-h-0 space-y-2 bg-slate-50/50 custom-scrollbar">
-                            {guardando && (
-                                <div className="flex items-center justify-center gap-2 mb-4 px-4 py-3 rounded-2xl text-[13px] font-bold bg-brand-primary/10 text-brand-primary">
-                                    <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin"></div>
-                                    Guardando asignación...
-                                </div>
-                            )}
-                            {profesores.filter(p => (p.nombre_profesor || '').toLowerCase().includes(searchTermProfesor.toLowerCase())).length === 0 && (
-                                <div className="text-center py-8 text-slate-400 text-[13px] font-medium border-2 border-dashed border-slate-200 rounded-2xl">
-                                    No se encontraron docentes con ese nombre.
-                                </div>
-                            )}
-                            {profesores.filter(p => (p.nombre_profesor || '').toLowerCase().includes(searchTermProfesor.toLowerCase())).map(prof => {
-                                const isActual = tutoriaActual?.id_profesor === prof.id_profesor;
-                                return (
-                                    <div
-                                        key={prof.id_profesor}
-                                        onClick={() => handleAsignarTutor(prof.id_profesor)}
-                                        className="flex items-center gap-4 p-4 rounded-[20px] border-2 cursor-pointer transition-all bg-white hover:shadow-md"
-                                        style={isActual ? { borderColor: '#10b981', backgroundColor: '#ecfdf5' } : { borderColor: '#f1f5f9' }}
-                                    >
-                                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-black text-lg shadow-sm flex-shrink-0"
-                                            style={{ backgroundColor: isActual ? '#10b981' : '#cbd5e1' }}>
-                                            {prof.nombre_profesor.charAt(0).toUpperCase()}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="font-bold text-[15px] truncate" style={{ color: isActual ? '#10b981' : '#334155' }}>
-                                                {prof.nombre_profesor}
-                                            </p>
-                                            <p className="text-[12px] text-slate-400 font-medium mt-0.5">
-                                                {isActual ? '✓ Tutor actual · Clic para quitar' : 'Clic para asignar'}
-                                            </p>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                </div>
-            )}
+                    )}
+                </main>
+            </div>
         </div>
     );
 }

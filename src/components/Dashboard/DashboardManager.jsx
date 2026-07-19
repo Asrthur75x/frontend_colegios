@@ -30,13 +30,23 @@ export default function DashboardManager() {
     useEffect(() => {
         const load = async () => {
             try {
-                const endpoints = ['profesores', 'cursos', 'areas', 'sedes', 'grados', 'secciones', 'planes', 'tutorias', 'reservas'];
-                const responses = await Promise.all(endpoints.map(e => fetch(`${API}/${e}`).then(r => r.ok ? r.json() : [])));
+                const endpoints = [
+                    { key: 'profesores', url: 'profesores' },
+                    { key: 'cursos', url: 'cursos' },
+                    { key: 'areas', url: 'areas' },
+                    { key: 'sedes', url: 'sedes' },
+                    { key: 'grados', url: 'grados' },
+                    { key: 'secciones', url: 'secciones' },
+                    { key: 'planes', url: 'planes' },
+                    { key: 'tutorias', url: 'tutorias' },
+                    { key: 'reservas', url: 'bloque-reservado' }
+                ];
+                const responses = await Promise.all(endpoints.map(e => fetch(`${API}/${e.url}`).then(r => r.ok ? r.json() : [])));
                 const c = {};
-                endpoints.forEach((e, i) => c[e] = Array.isArray(responses[i]) ? responses[i].length : 0);
+                endpoints.forEach((e, i) => c[e.key] = Array.isArray(responses[i]) ? responses[i].length : 0);
                 setStats(c);
-                const areasData = responses[endpoints.indexOf('areas')];
-                const cursosData = responses[endpoints.indexOf('cursos')];
+                const areasData = responses[endpoints.findIndex(e => e.key === 'areas')];
+                const cursosData = responses[endpoints.findIndex(e => e.key === 'cursos')];
                 
                 c.areasReales = Array.isArray(areasData) ? areasData.filter(a => a.nombre !== 'Desarrollo Personal' && a.nombre_area !== 'Desarrollo Personal').length : 0;
                 c.cursosReales = Array.isArray(cursosData) ? cursosData.filter(c => c.nombre_curso !== 'Tutoría' && c.nombre_curso !== 'Tutoría Psicológica').length : 0;
@@ -95,12 +105,16 @@ export default function DashboardManager() {
     };
 
     const generateActivePath = () => {
-        const completedNodes = nodes.filter(n => n.isCompleted);
-        if (completedNodes.length === 0) return "";
-        let path = `M ${completedNodes[0].x} ${completedNodes[0].y}`;
-        for (let i = 1; i < completedNodes.length; i++) {
-            const prev = completedNodes[i - 1];
-            const curr = completedNodes[i];
+        let maxCompletedIdx = -1;
+        nodes.forEach((n, idx) => {
+            if (n.isCompleted) maxCompletedIdx = idx;
+        });
+        if (maxCompletedIdx <= 0) return "";
+        
+        let path = `M ${nodes[0].x} ${nodes[0].y}`;
+        for (let i = 1; i <= maxCompletedIdx; i++) {
+            const prev = nodes[i - 1];
+            const curr = nodes[i];
             const cp1y = prev.y + (curr.y - prev.y) / 2;
             path += ` C ${prev.x} ${cp1y}, ${curr.x} ${cp1y}, ${curr.x} ${curr.y}`;
         }
@@ -243,12 +257,15 @@ export default function DashboardManager() {
                             </button>
 
                             {/* Button 4: Ajustes de Sistema */}
-                            <button className="bg-[var(--color-brand-light)] hover:bg-indigo-100 transition-colors text-[var(--color-brand-primary)] rounded-3xl p-5 flex flex-col items-center justify-center gap-3 shadow-sm aspect-square group cursor-pointer border border-indigo-100/50">
+                            <a
+                                href="/ajustes"
+                                className="bg-[var(--color-brand-light)] hover:bg-indigo-100 transition-colors text-[var(--color-brand-primary)] rounded-3xl p-5 flex flex-col items-center justify-center gap-3 shadow-sm aspect-square group cursor-pointer border border-indigo-100/50"
+                            >
                                 <div className="p-3 rounded-2xl group-hover:scale-110 transition-transform ">
                                     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                                 </div>
                                 <span className="font-extrabold text-[13px] text-center leading-tight">Ajustes del<br />Sistema</span>
-                            </button>
+                            </a>
                         </div>
                     </div>
                 </div>

@@ -91,8 +91,8 @@ export default function GeneracionToast() {
 
     // --- GENERANDO ---
     if (genState.status === 'generating') {
-        const currentMsg = LOADING_MESSAGES[genState.loadingStep] || LOADING_MESSAGES[0];
-        const progress = ((genState.loadingStep + 1) / LOADING_MESSAGES.length) * 100;
+        const currentMsg = genState.progressMessage || LOADING_MESSAGES[genState.loadingStep] || LOADING_MESSAGES[0];
+        const progress = Number(genState.progressPercent) || 0;
         return (
             <div style={containerStyle}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

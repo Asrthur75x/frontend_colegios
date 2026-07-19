@@ -283,29 +283,50 @@ export default function AjustesManager() {
     const handleAssignTurno = async () => {
         if (!selectedSeccionId || !selectedTurnoId) return;
         try {
-            // Eliminar turnos existentes para esta sección
-            const existingSt = seccionTurnos.filter(st => st.id_seccion === parseInt(selectedSeccionId));
-            for (let st of existingSt) {
-                await fetch(`${API_BASE}/seccion-turno/${st.id_seccion_turno}`, { method: 'DELETE' });
+            const seccionId = parseInt(selectedSeccionId);
+            const turnoId = parseInt(selectedTurnoId);
+            const gradoId = secciones.find(s => s.id_seccion === seccionId)?.id_grado;
+            const diasConfigurados = gradoDiaConfig
+                .filter(c => c.id_grado === gradoId && c.bloques_dia > 0)
+                .map(c => c.id_dia);
+            const diasHabilitados = diasConfigurados.length > 0
+                ? dias.filter(d => diasConfigurados.includes(d.id_dia))
+                : dias;
+
+            if (diasHabilitados.length === 0) {
+                showToast("El grado no tiene días habilitados.");
+                return;
             }
 
-            const gradoId = secciones.find(s => s.id_seccion === parseInt(selectedSeccionId))?.id_grado;
-            const primerDiaId = gradoDiaConfig.find(c => c.id_grado === gradoId && c.bloques_dia > 0)?.id_dia || dias[0]?.id_dia;
+            // Eliminar turnos existentes para esta sección
+            const existingSt = seccionTurnos.filter(st => st.id_seccion === seccionId);
+            for (let st of existingSt) {
+                const response = await fetch(`${API_BASE}/seccion-turno/${st.id_seccion_turno}`, { method: 'DELETE' });
+                if (!response.ok) throw new Error('No se pudo actualizar el turno de la sección.');
+            }
 
-            await fetch(`${API_BASE}/seccion-turno`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    id_seccion: parseInt(selectedSeccionId),
-                    id_turno: parseInt(selectedTurnoId),
-                    id_dia: primerDiaId
-                })
-            });
+            // El turno de la sección debe aplicarse a cada día habilitado de su grado.
+            for (const dia of diasHabilitados) {
+                const response = await fetch(`${API_BASE}/seccion-turno`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id_seccion: seccionId,
+                        id_turno: turnoId,
+                        id_dia: dia.id_dia
+                    })
+                });
+                if (!response.ok) throw new Error('No se pudo asignar el turno en todos los días.');
+            }
+
             fetchData();
-            showToast("Turno asignado correctamente.");
+            showToast(`Turno asignado en ${diasHabilitados.length} días.`);
             setSelectedSeccionId('');
             setSelectedTurnoId('');
-        } catch (err) { showToast("Error al asignar turno."); }
+        } catch (err) {
+            console.error(err);
+            showToast("Error al asignar turno.");
+        }
     };
 
     const TABS = [
