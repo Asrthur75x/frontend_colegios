@@ -961,6 +961,50 @@ export default function VersionesManager() {
             `}</style>
                 </main>
             </div>
+
+            {/* Delete Modal */}
+            {confirmDelete && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl relative overflow-hidden" style={{ animation: 'scaleIn 0.2s ease-out' }}>
+                        <div className="flex flex-col items-center text-center">
+                            <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mb-4 text-rose-500">
+                                <svg width="32" height="32" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>
+                            </div>
+                            <h3 className="text-xl font-black text-slate-800 mb-2">¿Eliminar versión?</h3>
+                            <p className="text-sm text-slate-500 mb-6">Esta acción no se puede deshacer. Todos los datos de este horario se perderán permanentemente.</p>
+                            
+                            <div className="flex gap-3 w-full">
+                                <button onClick={() => setConfirmDelete(null)} disabled={loadingAction === confirmDelete} className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold rounded-xl transition-colors cursor-pointer">Cancelar</button>
+                                <button onClick={() => handleDelete(confirmDelete)} disabled={loadingAction === confirmDelete} className="flex-1 py-3 bg-rose-500 hover:bg-rose-600 text-white text-sm font-bold rounded-xl transition-colors disabled:opacity-50 flex justify-center items-center gap-2 cursor-pointer">
+                                    {loadingAction === confirmDelete ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : 'Eliminar'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Load Modal */}
+            {confirmLoad && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl relative overflow-hidden" style={{ animation: 'scaleIn 0.2s ease-out' }}>
+                        <div className="flex flex-col items-center text-center">
+                            <div className="w-16 h-16 bg-[var(--color-brand-primary)]/10 rounded-full flex items-center justify-center mb-4 text-[var(--color-brand-primary)]">
+                                <svg width="32" height="32" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M1 4v6h6" /><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" /></svg>
+                            </div>
+                            <h3 className="text-xl font-black text-slate-800 mb-2">¿Restaurar versión?</h3>
+                            <p className="text-sm text-slate-500 mb-6">Esta versión se convertirá en el horario activo actual, reemplazando al que está ahora mismo.</p>
+                            
+                            <div className="flex gap-3 w-full">
+                                <button onClick={() => setConfirmLoad(null)} disabled={loadingAction === confirmLoad} className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold rounded-xl transition-colors cursor-pointer">Cancelar</button>
+                                <button onClick={() => handleLoad(confirmLoad)} disabled={loadingAction === confirmLoad} className="flex-1 py-3 bg-[var(--color-brand-primary)] hover:bg-[var(--color-brand-dark)] text-white text-sm font-bold rounded-xl transition-colors disabled:opacity-50 flex justify-center items-center gap-2 cursor-pointer">
+                                    {loadingAction === confirmLoad ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : 'Restaurar'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

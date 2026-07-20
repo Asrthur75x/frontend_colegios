@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import ConfiguracionTiemposModal from './ConfiguracionTiemposModal';
 import ModuleSidebar from '../Shared/ModuleSidebar';
+import IAReportWidget from './IAReportWidget';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -888,7 +889,7 @@ export default function HorariosManager({ isEditPage = false }) {
             )}
 
             {status === 'generating' && (
-                <div className="flex flex-col items-center justify-start max-w-xl w-full mx-auto px-8 pb-6 pt-0 -mt-4">
+                <div className="flex flex-col items-center justify-center min-h-[60vh] max-w-xl w-full mx-auto px-8 mt-16">
                     <div className="w-48 h-48 mb-1 flex items-center justify-center scale-90 origin-center">
                         <div aria-label="Orange and tan hamster running in a metal wheel" role="img" className="wheel-and-hamster">
                             <div className="wheel"></div>
@@ -1160,446 +1161,446 @@ export default function HorariosManager({ isEditPage = false }) {
                             </ModuleSidebar>
 
                             <main className="w-full md:w-3/4 min-w-0 flex flex-col gap-4">
-                            {isEditPage && editPanelView === 'form' && (
-                                <ConfiguracionTiemposModal
-                                    isOpen
-                                    inline
-                                    onClose={() => setEditPanelView('schedule')}
-                                    maxBloques={maxBloquesDia}
-                                    maxBloquesPorTurno={maxBloquesPorTurno}
-                                    initialTurnoId={editingTurnoId}
-                                    disabledTurnoIds={turnosConConfiguracion.map(turno => turno.id_turno)}
-                                    onSave={() => {
-                                        return fetch(`${API_BASE}/bloques`)
-                                            .then(r => r.json())
-                                            .then(b => {
-                                                setBloques(b.sort((x, y) => x.numero_bloque - y.numero_bloque));
-                                                setConfigNotice('');
-                                                setEditPanelView('list');
-                                            })
-                                            .catch(e => console.error(e));
-                                    }}
-                                />
-                            )}
+                                {isEditPage && editPanelView === 'form' && (
+                                    <ConfiguracionTiemposModal
+                                        isOpen
+                                        inline
+                                        onClose={() => setEditPanelView('schedule')}
+                                        maxBloques={maxBloquesDia}
+                                        maxBloquesPorTurno={maxBloquesPorTurno}
+                                        initialTurnoId={editingTurnoId}
+                                        disabledTurnoIds={turnosConConfiguracion.map(turno => turno.id_turno)}
+                                        onSave={() => {
+                                            return fetch(`${API_BASE}/bloques`)
+                                                .then(r => r.json())
+                                                .then(b => {
+                                                    setBloques(b.sort((x, y) => x.numero_bloque - y.numero_bloque));
+                                                    setConfigNotice('');
+                                                    setEditPanelView('list');
+                                                })
+                                                .catch(e => console.error(e));
+                                        }}
+                                    />
+                                )}
 
-                            {isEditPage && editPanelView === 'list' && (
-                                <div className="w-full animate-fade-in-up">
-                                    <div className="mb-6 flex items-start justify-between gap-4">
-                                        <div>
-                                            <h2 className="text-[24px] font-black text-slate-800 tracking-tight">Listado de configuraciones</h2>
-                                            <p className="text-[13px] text-slate-500 font-medium mt-1">Revisa o elimina las configuraciones de horas registradas.</p>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => { setConfigNotice(''); setEditPanelView('schedule'); }}
-                                            className="shrink-0 px-3 py-2 rounded-xl flex items-center gap-2 text-[12px] font-black text-brand-primary hover:text-[var(--color-brand-dark)] hover:bg-[var(--color-brand-light)] transition-colors cursor-pointer"
-                                        >
-                                            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
-                                            Volver al horario
-                                        </button>
-                                    </div>
-
-                                    {configNotice && (
-                                        <div className="mb-5 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3.5 text-amber-800">
-                                            <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="9" /><path strokeLinecap="round" d="M12 8v5M12 16h.01" /></svg>
+                                {isEditPage && editPanelView === 'list' && (
+                                    <div className="w-full animate-fade-in-up">
+                                        <div className="mb-6 flex items-start justify-between gap-4">
                                             <div>
-                                                <p className="text-[12px] font-black">No hay turnos disponibles</p>
-                                                <p className="text-[11px] font-semibold leading-relaxed mt-0.5">{configNotice}</p>
+                                                <h2 className="text-[24px] font-black text-slate-800 tracking-tight">Listado de configuraciones</h2>
+                                                <p className="text-[13px] text-slate-500 font-medium mt-1">Revisa o elimina las configuraciones de horas registradas.</p>
                                             </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => { setConfigNotice(''); setEditPanelView('schedule'); }}
+                                                className="shrink-0 px-3 py-2 rounded-xl flex items-center gap-2 text-[12px] font-black text-brand-primary hover:text-[var(--color-brand-dark)] hover:bg-[var(--color-brand-light)] transition-colors cursor-pointer"
+                                            >
+                                                <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
+                                                Volver al horario
+                                            </button>
                                         </div>
-                                    )}
 
-                                    {turnosConConfiguracion.length === 0 ? (
-                                        <div className="bg-white rounded-[22px] border border-dashed border-slate-200 py-14 px-6 text-center">
-                                            <div className="w-11 h-11 mx-auto rounded-full bg-slate-50 text-slate-400 flex items-center justify-center mb-3">
-                                                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
-                                            </div>
-                                            <p className="text-[13px] font-black text-slate-600">No hay configuraciones registradas</p>
-                                            <p className="text-[11px] font-semibold text-slate-400 mt-1">Usa Editar para configurar las horas de un turno.</p>
-                                        </div>
-                                    ) : (
-                                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                                        {turnosConConfiguracion.map(turno => {
-                                            const bloquesTurno = bloques
-                                                .filter(b => b.id_turno === turno.id_turno)
-                                                .sort((a, b) => (a.numero_bloque || 99) - (b.numero_bloque || 99));
-                                            const clases = bloquesTurno.filter(b => !b.es_recreo);
-                                            const recreosTurno = bloquesTurno.filter(b => b.es_recreo);
-                                            const primero = clases[0];
-                                            const ultimo = clases[clases.length - 1];
-                                            const pendingDelete = deleteTurnoConfigId === turno.id_turno;
-                                            return (
-                                                <div key={turno.id_turno} className="bg-white rounded-[22px] border border-slate-100 shadow-sm p-5">
-                                                    <div className="flex items-start justify-between gap-4">
-                                                        <div className="flex items-center gap-3 min-w-0">
-                                                            <div className="w-11 h-11 rounded-xl bg-[var(--color-brand-light)] text-brand-primary flex items-center justify-center shrink-0">
-                                                                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
-                                                            </div>
-                                                            <div className="min-w-0">
-                                                                <h3 className="text-[16px] font-black text-slate-800 truncate">Turno {turno.nombre}</h3>
-                                                                <p className="text-[11px] text-slate-400 font-bold mt-1">{clases.length > 0 ? `${clases.length} bloques configurados` : 'Sin configuración'}</p>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="grid grid-cols-3 gap-2 my-5">
-                                                        <div className="bg-slate-50 rounded-xl px-3 py-2.5">
-                                                            <span className="block text-[9px] font-black text-slate-400 uppercase tracking-wider">Inicio</span>
-                                                            <span className="block text-[12px] font-black text-slate-700 mt-1">{primero?.hora_inicio?.slice(0, 5) || '—'}</span>
-                                                        </div>
-                                                        <div className="bg-slate-50 rounded-xl px-3 py-2.5">
-                                                            <span className="block text-[9px] font-black text-slate-400 uppercase tracking-wider">Final</span>
-                                                            <span className="block text-[12px] font-black text-slate-700 mt-1">{ultimo?.hora_final?.slice(0, 5) || '—'}</span>
-                                                        </div>
-                                                        <div className="bg-slate-50 rounded-xl px-3 py-2.5">
-                                                            <span className="block text-[9px] font-black text-slate-400 uppercase tracking-wider">Recreos</span>
-                                                            <span className="block text-[12px] font-black text-slate-700 mt-1">{recreosTurno.length}</span>
-                                                        </div>
-                                                    </div>
-
-                                                    {pendingDelete ? (
-                                                        <div className="flex items-center gap-2 p-3 bg-rose-50 border border-rose-100 rounded-xl">
-                                                            <p className="text-[11px] font-bold text-rose-600 flex-1">¿Eliminar esta configuración?</p>
-                                                            <button onClick={() => setDeleteTurnoConfigId(null)} disabled={isDeletingTurnoConfig} className="px-2 py-1.5 text-[10px] font-black text-slate-500 cursor-pointer">Cancelar</button>
-                                                            <button onClick={() => handleDeleteTurnoConfig(turno.id_turno)} disabled={isDeletingTurnoConfig} className="px-2.5 py-1.5 rounded-lg bg-rose-500 text-white text-[10px] font-black cursor-pointer disabled:opacity-50">{isDeletingTurnoConfig ? 'Borrando...' : 'Confirmar'}</button>
-                                                        </div>
-                                                    ) : (
-                                                        bloquesTurno.length > 0 && (
-                                                            <button onClick={() => setDeleteTurnoConfigId(turno.id_turno)} className="w-full min-h-[40px] rounded-xl bg-white border border-rose-200 text-rose-500 hover:bg-rose-50 flex items-center justify-center gap-2 text-[11px] font-black cursor-pointer transition-colors">
-                                                                <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.4"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" /></svg>
-                                                                Eliminar configuración
-                                                            </button>
-                                                        )
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* CONTENIDO DEL HORARIO */}
-                            <div className={`w-full flex flex-col gap-4 ${isEditPage && editPanelView !== 'schedule' ? 'hidden' : ''}`}>
-                                {selectedSeccion && (() => {
-                                    const seccion = secciones.find(sec => `SEC_${sec.id_seccion}` === selectedSeccion);
-                                    if (!seccion) return null;
-                                    const grado = grados.find(g => g.id_grado === seccion.id_grado);
-                                    const sede = sedes.find(s => s.id_sede === seccion.id_sede);
-                                    const turnoIds = [...new Set(seccionTurnos.filter(st => st.id_seccion === seccion.id_seccion).map(st => st.id_turno))];
-                                    const turnoNombres = turnoIds.map(id => turnos.find(t => t.id_turno === id)?.nombre).filter(Boolean).join(' / ');
-                                    return (
-                                        <div className="px-1 pb-1 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                                            <div>
-                                                <h2 className="text-[28px] font-black text-slate-800 tracking-tight leading-tight">
-                                                    {grado ? `${grado.numero}° grado` : 'Grado'} · Sección {seccion.nombre}
-                                                </h2>
-                                                <div className="flex flex-wrap items-center gap-2 mt-2 text-[13px] font-bold">
-                                                    <span className="text-brand-primary">Sede {sede?.nombre_sede || 'sin sede'}</span>
-                                                    <span className="text-slate-300">•</span>
-                                                    <span className="text-slate-500">Turno {turnoNombres || 'sin asignar'}</span>
+                                        {configNotice && (
+                                            <div className="mb-5 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3.5 text-amber-800">
+                                                <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="9" /><path strokeLinecap="round" d="M12 8v5M12 16h.01" /></svg>
+                                                <div>
+                                                    <p className="text-[12px] font-black">No hay turnos disponibles</p>
+                                                    <p className="text-[11px] font-semibold leading-relaxed mt-0.5">{configNotice}</p>
                                                 </div>
                                             </div>
+                                        )}
 
-                                            {isEditPage && (
-                                                <div className="flex items-center gap-2 shrink-0">
-                                                    {!isEditMode ? (
-                                                        <button
-                                                            onClick={toggleEditMode}
-                                                            title="Activar el cambio de horarios (Arrastrar y Soltar)"
-                                                            className="h-[42px] px-3.5 flex items-center gap-2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl hover:bg-indigo-100 font-black text-[12px] transition-all cursor-pointer"
-                                                        >
-                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                                                            Activar Edición
-                                                        </button>
-                                                    ) : (
-                                                        <>
-                                                            <button
-                                                                onClick={handleCancelEdit}
-                                                                title="Cancelar los cambios y restaurar"
-                                                                className="h-[42px] px-3.5 flex items-center gap-2 bg-slate-50 text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-100 font-black text-[12px] transition-all cursor-pointer"
-                                                            >
-                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
-                                                                Cancelar
-                                                            </button>
-                                                            <button
-                                                                onClick={handleSaveEdits}
-                                                                disabled={isSavingEdits}
-                                                                title="Guardar el nuevo horario editado"
-                                                                className={`h-[42px] px-3.5 flex items-center gap-2 bg-[var(--color-brand-primary)] text-white border border-transparent rounded-xl hover:brightness-90 font-black text-[12px] transition-all cursor-pointer shadow-md ${isSavingEdits ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                            >
-                                                                {isSavingEdits ? (
-                                                                    <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                                                                ) : (
-                                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
-                                                                )}
-                                                                {isSavingEdits ? 'Guardando...' : 'Guardar'}
-                                                            </button>
-                                                        </>
-                                                    )}
-                                                    
-                                                    <div className="w-px h-6 bg-slate-200 mx-1"></div>
-
-                                                    <button
-                                                        onClick={handleDownloadExcel}
-                                                        title="Descargar el horario completo en Excel"
-                                                        className="h-[42px] px-3.5 flex items-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl hover:bg-emerald-100 font-black text-[12px] transition-all cursor-pointer"
-                                                    >
-                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                                                        Descargar Excel
-                                                    </button>
-                                                    <button
-                                                        onClick={handleDownloadPDF}
-                                                        disabled={isDownloadingPdf}
-                                                        title="Descargar el horario completo en PDF"
-                                                        className={`h-[42px] px-3.5 flex items-center gap-2 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl hover:bg-rose-100 font-black text-[12px] transition-all cursor-pointer ${isDownloadingPdf ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                    >
-                                                        <svg className={`w-4 h-4 ${isDownloadingPdf ? 'animate-bounce' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                                                        {isDownloadingPdf ? 'Preparando PDF...' : 'Descargar PDF'}
-                                                    </button>
+                                        {turnosConConfiguracion.length === 0 ? (
+                                            <div className="bg-white rounded-[22px] border border-dashed border-slate-200 py-14 px-6 text-center">
+                                                <div className="w-11 h-11 mx-auto rounded-full bg-slate-50 text-slate-400 flex items-center justify-center mb-3">
+                                                    <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
                                                 </div>
-                                            )}
-                                        </div>
-                                    );
-                                })()}
-
-                                {/* Tabla de Horario */}
-                                {selectedSeccion ? (
-                                    <div className="flex flex-col gap-4 w-full">
-                                        <div id="horario-table-container" className="bg-white rounded-[24px] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-x-auto p-6 w-full">
-                                            <table className="w-full border-collapse min-w-[600px] table-fixed">
-                                                <thead>
-                                                    <tr>
-                                                        <th className="w-16 pb-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Blq</th>
-                                                        {gridDias.map((dia) => (
-                                                            <th key={dia.id_dia} className="pb-3 px-1">
-                                                                <div className="rounded-xl py-2.5 px-3 text-center" style={{ backgroundColor: DIA_COLOR.bg }}>
-                                                                    <p className="text-[9px] font-black uppercase tracking-widest text-white/70">{dia.nombre_dia.slice(0, 3).toUpperCase()}</p>
-                                                                    <p className="text-[14px] font-black text-white">{dia.nombre_dia}</p>
+                                                <p className="text-[13px] font-black text-slate-600">No hay configuraciones registradas</p>
+                                                <p className="text-[11px] font-semibold text-slate-400 mt-1">Usa Editar para configurar las horas de un turno.</p>
+                                            </div>
+                                        ) : (
+                                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                                                {turnosConConfiguracion.map(turno => {
+                                                    const bloquesTurno = bloques
+                                                        .filter(b => b.id_turno === turno.id_turno)
+                                                        .sort((a, b) => (a.numero_bloque || 99) - (b.numero_bloque || 99));
+                                                    const clases = bloquesTurno.filter(b => !b.es_recreo);
+                                                    const recreosTurno = bloquesTurno.filter(b => b.es_recreo);
+                                                    const primero = clases[0];
+                                                    const ultimo = clases[clases.length - 1];
+                                                    const pendingDelete = deleteTurnoConfigId === turno.id_turno;
+                                                    return (
+                                                        <div key={turno.id_turno} className="bg-white rounded-[22px] border border-slate-100 shadow-sm p-5">
+                                                            <div className="flex items-start justify-between gap-4">
+                                                                <div className="flex items-center gap-3 min-w-0">
+                                                                    <div className="w-11 h-11 rounded-xl bg-[var(--color-brand-light)] text-brand-primary flex items-center justify-center shrink-0">
+                                                                        <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+                                                                    </div>
+                                                                    <div className="min-w-0">
+                                                                        <h3 className="text-[16px] font-black text-slate-800 truncate">Turno {turno.nombre}</h3>
+                                                                        <p className="text-[11px] text-slate-400 font-bold mt-1">{clases.length > 0 ? `${clases.length} bloques configurados` : 'Sin configuración'}</p>
+                                                                    </div>
                                                                 </div>
-                                                            </th>
-                                                        ))}
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {mappedBlocks.map((bloque, idx) => {
-                                                        if (bloque.type === 'recreo') {
-                                                            if (!isEditPage) return null;
-                                                            return (
-                                                                <tr key={`recreo-${idx}`} style={{ height: '65px' }} className="bg-slate-50">
-                                                                    <td className="py-2 pr-3 text-center align-middle" style={{ width: '70px' }}>
-                                                                        <div className="flex flex-col items-center justify-center bg-amber-50 border border-amber-200 shadow-sm rounded-xl py-2 px-1">
-                                                                            <span className="text-[13px] font-black text-amber-800 leading-none mb-1">{bloque.inicio}</span>
-                                                                            <div className="w-4 h-px bg-amber-300 my-0.5"></div>
-                                                                            <span className="text-[11px] font-bold text-amber-600/80 leading-none mt-1">{bloque.fin}</span>
-                                                                        </div>
-                                                                    </td>
-                                                                    <td colSpan={gridDias.length} className="px-1 py-1 h-[65px]">
-                                                                        <div className="w-full h-full min-h-[50px] flex items-center justify-center gap-4 bg-gradient-to-r from-amber-50/50 via-amber-100/50 to-amber-50/50 py-3 rounded-[16px] border border-amber-200/50 shadow-sm relative overflow-hidden">
-                                                                            <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'repeating-linear-gradient(45deg, #f59e0b 25%, transparent 25%, transparent 75%, #f59e0b 75%, #f59e0b)', backgroundSize: '10px 10px' }}></div>
-                                                                            <div className="h-px bg-amber-300/60 flex-1 ml-8 relative z-10"></div>
-                                                                            <div className="flex items-center gap-3 relative z-10">
-                                                                                <svg className="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                                                                <span className="text-[13px] font-black text-amber-700 tracking-[0.4em] uppercase mt-0.5">R E C R E O</span>
-                                                                            </div>
-                                                                            <div className="h-px bg-amber-300/60 flex-1 mr-8 relative z-10"></div>
-                                                                        </div>
-                                                                    </td>
-                                                                </tr>
-                                                            );
-                                                        }
+                                                            </div>
 
-                                                        const bNum = bloque.numero;
-                                                        return (
-                                                            <tr key={`clase-${bNum}`} style={{ height: '100px' }}>
-                                                                {/* Número de bloque o Hora */}
-                                                                <td className="py-2 pr-3 text-center align-middle" style={{ width: '70px' }}>
-                                                                    {(isEditPage && bloque.inicio) ? (
-                                                                        <div className="flex flex-col items-center justify-center bg-white border border-slate-100 shadow-sm rounded-xl py-2 px-1">
-                                                                            <span className="text-[13px] font-black text-slate-700 leading-none mb-1">{bloque.inicio}</span>
-                                                                            <div className="w-4 h-px bg-slate-200 my-0.5"></div>
-                                                                            <span className="text-[11px] font-bold text-slate-400 leading-none mt-1">{bloque.fin}</span>
-                                                                        </div>
+                                                            <div className="grid grid-cols-3 gap-2 my-5">
+                                                                <div className="bg-slate-50 rounded-xl px-3 py-2.5">
+                                                                    <span className="block text-[9px] font-black text-slate-400 uppercase tracking-wider">Inicio</span>
+                                                                    <span className="block text-[12px] font-black text-slate-700 mt-1">{primero?.hora_inicio?.slice(0, 5) || '—'}</span>
+                                                                </div>
+                                                                <div className="bg-slate-50 rounded-xl px-3 py-2.5">
+                                                                    <span className="block text-[9px] font-black text-slate-400 uppercase tracking-wider">Final</span>
+                                                                    <span className="block text-[12px] font-black text-slate-700 mt-1">{ultimo?.hora_final?.slice(0, 5) || '—'}</span>
+                                                                </div>
+                                                                <div className="bg-slate-50 rounded-xl px-3 py-2.5">
+                                                                    <span className="block text-[9px] font-black text-slate-400 uppercase tracking-wider">Recreos</span>
+                                                                    <span className="block text-[12px] font-black text-slate-700 mt-1">{recreosTurno.length}</span>
+                                                                </div>
+                                                            </div>
+
+                                                            {pendingDelete ? (
+                                                                <div className="flex items-center gap-2 p-3 bg-rose-50 border border-rose-100 rounded-xl">
+                                                                    <p className="text-[11px] font-bold text-rose-600 flex-1">¿Eliminar esta configuración?</p>
+                                                                    <button onClick={() => setDeleteTurnoConfigId(null)} disabled={isDeletingTurnoConfig} className="px-2 py-1.5 text-[10px] font-black text-slate-500 cursor-pointer">Cancelar</button>
+                                                                    <button onClick={() => handleDeleteTurnoConfig(turno.id_turno)} disabled={isDeletingTurnoConfig} className="px-2.5 py-1.5 rounded-lg bg-rose-500 text-white text-[10px] font-black cursor-pointer disabled:opacity-50">{isDeletingTurnoConfig ? 'Borrando...' : 'Confirmar'}</button>
+                                                                </div>
+                                                            ) : (
+                                                                bloquesTurno.length > 0 && (
+                                                                    <button onClick={() => setDeleteTurnoConfigId(turno.id_turno)} className="w-full min-h-[40px] rounded-xl bg-white border border-rose-200 text-rose-500 hover:bg-rose-50 flex items-center justify-center gap-2 text-[11px] font-black cursor-pointer transition-colors">
+                                                                        <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.4"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" /></svg>
+                                                                        Eliminar configuración
+                                                                    </button>
+                                                                )
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* CONTENIDO DEL HORARIO */}
+                                <div className={`w-full flex flex-col gap-4 ${isEditPage && editPanelView !== 'schedule' ? 'hidden' : ''}`}>
+                                    {selectedSeccion && (() => {
+                                        const seccion = secciones.find(sec => `SEC_${sec.id_seccion}` === selectedSeccion);
+                                        if (!seccion) return null;
+                                        const grado = grados.find(g => g.id_grado === seccion.id_grado);
+                                        const sede = sedes.find(s => s.id_sede === seccion.id_sede);
+                                        const turnoIds = [...new Set(seccionTurnos.filter(st => st.id_seccion === seccion.id_seccion).map(st => st.id_turno))];
+                                        const turnoNombres = turnoIds.map(id => turnos.find(t => t.id_turno === id)?.nombre).filter(Boolean).join(' / ');
+                                        return (
+                                            <div className="px-1 pb-1 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                                                <div>
+                                                    <h2 className="text-[28px] font-black text-slate-800 tracking-tight leading-tight">
+                                                        {grado ? `${grado.numero}° grado` : 'Grado'} · Sección {seccion.nombre}
+                                                    </h2>
+                                                    <div className="flex flex-wrap items-center gap-2 mt-2 text-[13px] font-bold">
+                                                        <span className="text-brand-primary">Sede {sede?.nombre_sede || 'sin sede'}</span>
+                                                        <span className="text-slate-300">•</span>
+                                                        <span className="text-slate-500">Turno {turnoNombres || 'sin asignar'}</span>
+                                                    </div>
+                                                </div>
+
+                                                {isEditPage && (
+                                                    <div className="flex items-center gap-2 shrink-0">
+                                                        {!isEditMode ? (
+                                                            <button
+                                                                onClick={toggleEditMode}
+                                                                title="Activar el cambio de horarios (Arrastrar y Soltar)"
+                                                                className="h-[42px] px-3.5 flex items-center gap-2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl hover:bg-indigo-100 font-black text-[12px] transition-all cursor-pointer"
+                                                            >
+                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                                                Activar Edición
+                                                            </button>
+                                                        ) : (
+                                                            <>
+                                                                <button
+                                                                    onClick={handleCancelEdit}
+                                                                    title="Cancelar los cambios y restaurar"
+                                                                    className="h-[42px] px-3.5 flex items-center gap-2 bg-slate-50 text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-100 font-black text-[12px] transition-all cursor-pointer"
+                                                                >
+                                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
+                                                                    Cancelar
+                                                                </button>
+                                                                <button
+                                                                    onClick={handleSaveEdits}
+                                                                    disabled={isSavingEdits}
+                                                                    title="Guardar el nuevo horario editado"
+                                                                    className={`h-[42px] px-3.5 flex items-center gap-2 bg-[var(--color-brand-primary)] text-white border border-transparent rounded-xl hover:brightness-90 font-black text-[12px] transition-all cursor-pointer shadow-md ${isSavingEdits ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                                >
+                                                                    {isSavingEdits ? (
+                                                                        <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                                                                     ) : (
-                                                                        <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center mx-auto">
-                                                                            <span className="text-[11px] font-black text-slate-600">{bNum}</span>
-                                                                        </div>
+                                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
                                                                     )}
-                                                                </td>
-                                                                {gridDias.map((dia) => {
-                                                                    // Chequear Bloques Reservados Especiales
-                                                                    const reservaOriginal = reservacionesSeccion.find(r =>
-                                                                        r.id_dia === dia.id_dia
-                                                                        && r.slot_inicio <= bNum
-                                                                        && (r.slot_inicio + r.horas - 1) >= bNum
-                                                                    );
+                                                                    {isSavingEdits ? 'Guardando...' : 'Guardar'}
+                                                                </button>
+                                                            </>
+                                                        )}
 
-                                                                    let renderReserva = null;
-                                                                    if (reservaOriginal) {
-                                                                        const startBlock = reservaOriginal.slot_inicio;
-                                                                        const endBlock = reservaOriginal.slot_inicio + reservaOriginal.horas - 1;
-                                                                        const isStart = bNum === startBlock;
-                                                                        const isAfterRecreo = isEditPage && bNum > startBlock && mappedBlocks.some(b => b.type === 'recreo' && b.despuesDeBloque === (bNum - 1));
+                                                        <div className="w-px h-6 bg-slate-200 mx-1"></div>
 
-                                                                        if (isStart || isAfterRecreo) {
-                                                                            let currentSpan = 0;
-                                                                            for (let r = bNum; r <= endBlock; r++) {
-                                                                                currentSpan++;
-                                                                                if (isEditPage && r < endBlock && mappedBlocks.some(b => b.type === 'recreo' && b.despuesDeBloque === r)) {
-                                                                                    break;
-                                                                                }
-                                                                            }
-                                                                            renderReserva = { a: reservaOriginal, span: currentSpan };
-                                                                        } else {
-                                                                            return null; // Ocupado por span superior
-                                                                        }
-                                                                    }
+                                                        <button
+                                                            onClick={handleDownloadExcel}
+                                                            title="Descargar el horario completo en Excel"
+                                                            className="h-[42px] px-3.5 flex items-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl hover:bg-emerald-100 font-black text-[12px] transition-all cursor-pointer"
+                                                        >
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                                            Descargar Excel
+                                                        </button>
+                                                        <button
+                                                            onClick={handleDownloadPDF}
+                                                            disabled={isDownloadingPdf}
+                                                            title="Descargar el horario completo en PDF"
+                                                            className={`h-[42px] px-3.5 flex items-center gap-2 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl hover:bg-rose-100 font-black text-[12px] transition-all cursor-pointer ${isDownloadingPdf ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                        >
+                                                            <svg className={`w-4 h-4 ${isDownloadingPdf ? 'animate-bounce' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                                            {isDownloadingPdf ? 'Preparando PDF...' : 'Descargar PDF'}
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
 
-                                                                    if (renderReserva) {
-                                                                        const span = renderReserva.span;
-                                                                        const reservaActiva = renderReserva.a;
-                                                                        return (
-                                                                            <td key={dia.id_dia} rowSpan={span} className="py-1 px-1" style={{ verticalAlign: 'middle' }}>
-                                                                                <div className={`rounded-2xl p-3 flex flex-col items-center justify-center text-center shadow-sm border-2 overflow-hidden relative`}
-                                                                                    style={{ backgroundColor: '#fffbeb', borderColor: '#f59e0b', height: `calc(${span} * 100px - 8px)` }}>
-
-                                                                                    <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'repeating-linear-gradient(45deg, #f59e0b 25%, transparent 25%, transparent 75%, #f59e0b 75%, #f59e0b), repeating-linear-gradient(45deg, #f59e0b 25%, transparent 25%, transparent 75%, #f59e0b 75%, #f59e0b)', backgroundPosition: '0 0, 10px 10px', backgroundSize: '20px 20px' }}></div>
-
-                                                                                    <div className="relative z-10 flex flex-col items-center">
-                                                                                        <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-500 flex items-center justify-center mb-2 shadow-sm border border-amber-200">
-                                                                                            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                                                                                        </div>
-                                                                                        {span > 1 && (
-                                                                                            <span className="inline-block mb-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border border-amber-500 text-amber-600 bg-amber-50/80">
-                                                                                                {span} horas
-                                                                                            </span>
-                                                                                        )}
-                                                                                        <p className="text-[14px] font-black leading-tight text-amber-700">
-                                                                                            {reservaActiva.nombre}
-                                                                                        </p>
-                                                                                    </div>
+                                    {/* Tabla de Horario */}
+                                    {selectedSeccion ? (
+                                        <div className="flex flex-col gap-4 w-full">
+                                            <div id="horario-table-container" className="bg-white rounded-[24px] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-x-auto p-6 w-full">
+                                                <table className="w-full border-collapse min-w-[600px] table-fixed">
+                                                    <thead>
+                                                        <tr>
+                                                            <th className="w-16 pb-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Blq</th>
+                                                            {gridDias.map((dia) => (
+                                                                <th key={dia.id_dia} className="pb-3 px-1">
+                                                                    <div className="rounded-xl py-2.5 px-3 text-center" style={{ backgroundColor: DIA_COLOR.bg }}>
+                                                                        <p className="text-[9px] font-black uppercase tracking-widest text-white/70">{dia.nombre_dia.slice(0, 3).toUpperCase()}</p>
+                                                                        <p className="text-[14px] font-black text-white">{dia.nombre_dia}</p>
+                                                                    </div>
+                                                                </th>
+                                                            ))}
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {mappedBlocks.map((bloque, idx) => {
+                                                            if (bloque.type === 'recreo') {
+                                                                if (!isEditPage) return null;
+                                                                return (
+                                                                    <tr key={`recreo-${idx}`} style={{ height: '65px' }} className="bg-slate-50">
+                                                                        <td className="py-2 pr-3 text-center align-middle" style={{ width: '70px' }}>
+                                                                            <div className="flex flex-col items-center justify-center bg-amber-50 border border-amber-200 shadow-sm rounded-xl py-2 px-1">
+                                                                                <span className="text-[13px] font-black text-amber-800 leading-none mb-1">{bloque.inicio}</span>
+                                                                                <div className="w-4 h-px bg-amber-300 my-0.5"></div>
+                                                                                <span className="text-[11px] font-bold text-amber-600/80 leading-none mt-1">{bloque.fin}</span>
+                                                                            </div>
+                                                                        </td>
+                                                                        <td colSpan={gridDias.length} className="px-1 py-1 h-[65px]">
+                                                                            <div className="w-full h-full min-h-[50px] flex items-center justify-center gap-4 bg-gradient-to-r from-amber-50/50 via-amber-100/50 to-amber-50/50 py-3 rounded-[16px] border border-amber-200/50 shadow-sm relative overflow-hidden">
+                                                                                <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'repeating-linear-gradient(45deg, #f59e0b 25%, transparent 25%, transparent 75%, #f59e0b 75%, #f59e0b)', backgroundSize: '10px 10px' }}></div>
+                                                                                <div className="h-px bg-amber-300/60 flex-1 ml-8 relative z-10"></div>
+                                                                                <div className="flex items-center gap-3 relative z-10">
+                                                                                    <svg className="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                                                                    <span className="text-[13px] font-black text-amber-700 tracking-[0.4em] uppercase mt-0.5">R E C R E O</span>
                                                                                 </div>
-                                                                            </td>
+                                                                                <div className="h-px bg-amber-300/60 flex-1 mr-8 relative z-10"></div>
+                                                                            </div>
+                                                                        </td>
+                                                                    </tr>
+                                                                );
+                                                            }
+
+                                                            const bNum = bloque.numero;
+                                                            return (
+                                                                <tr key={`clase-${bNum}`} style={{ height: '100px' }}>
+                                                                    {/* Número de bloque o Hora */}
+                                                                    <td className="py-2 pr-3 text-center align-middle" style={{ width: '70px' }}>
+                                                                        {(isEditPage && bloque.inicio) ? (
+                                                                            <div className="flex flex-col items-center justify-center bg-white border border-slate-100 shadow-sm rounded-xl py-2 px-1">
+                                                                                <span className="text-[13px] font-black text-slate-700 leading-none mb-1">{bloque.inicio}</span>
+                                                                                <div className="w-4 h-px bg-slate-200 my-0.5"></div>
+                                                                                <span className="text-[11px] font-bold text-slate-400 leading-none mt-1">{bloque.fin}</span>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center mx-auto">
+                                                                                <span className="text-[11px] font-black text-slate-600">{bNum}</span>
+                                                                            </div>
+                                                                        )}
+                                                                    </td>
+                                                                    {gridDias.map((dia) => {
+                                                                        // Chequear Bloques Reservados Especiales
+                                                                        const reservaOriginal = reservacionesSeccion.find(r =>
+                                                                            r.id_dia === dia.id_dia
+                                                                            && r.slot_inicio <= bNum
+                                                                            && (r.slot_inicio + r.horas - 1) >= bNum
                                                                         );
-                                                                    }
 
-                                                                    // Buscar asignación
-                                                                    const asigOriginal = filteredAsignaciones.find(x =>
-                                                                        normalize(x.dia) === normalize(dia.nombre_dia)
-                                                                        && (x.slot_inicio + 1) <= bNum
-                                                                        && (x.slot_inicio + x.horas) >= bNum
-                                                                    );
+                                                                        let renderReserva = null;
+                                                                        if (reservaOriginal) {
+                                                                            const startBlock = reservaOriginal.slot_inicio;
+                                                                            const endBlock = reservaOriginal.slot_inicio + reservaOriginal.horas - 1;
+                                                                            const isStart = bNum === startBlock;
+                                                                            const isAfterRecreo = isEditPage && bNum > startBlock && mappedBlocks.some(b => b.type === 'recreo' && b.despuesDeBloque === (bNum - 1));
 
-                                                                    let renderAsignacion = null;
-                                                                    if (asigOriginal) {
-                                                                        const startBlock = asigOriginal.slot_inicio + 1;
-                                                                        const endBlock = asigOriginal.slot_inicio + asigOriginal.horas;
-                                                                        const isStart = bNum === startBlock;
-                                                                        const isAfterRecreo = isEditPage && bNum > startBlock && mappedBlocks.some(b => b.type === 'recreo' && b.despuesDeBloque === (bNum - 1));
-
-                                                                        if (isStart || isAfterRecreo) {
-                                                                            let currentSpan = 0;
-                                                                            for (let r = bNum; r <= endBlock; r++) {
-                                                                                currentSpan++;
-                                                                                if (isEditPage && r < endBlock && mappedBlocks.some(b => b.type === 'recreo' && b.despuesDeBloque === r)) {
-                                                                                    break;
+                                                                            if (isStart || isAfterRecreo) {
+                                                                                let currentSpan = 0;
+                                                                                for (let r = bNum; r <= endBlock; r++) {
+                                                                                    currentSpan++;
+                                                                                    if (isEditPage && r < endBlock && mappedBlocks.some(b => b.type === 'recreo' && b.despuesDeBloque === r)) {
+                                                                                        break;
+                                                                                    }
                                                                                 }
+                                                                                renderReserva = { a: reservaOriginal, span: currentSpan };
+                                                                            } else {
+                                                                                return null; // Ocupado por span superior
                                                                             }
-                                                                            renderAsignacion = { a: asigOriginal, span: currentSpan };
-                                                                        } else {
-                                                                            return null; // Ocupado por span superior
                                                                         }
-                                                                    }
 
-                                                                    if (renderAsignacion) {
-                                                                        const a = renderAsignacion.a;
-                                                                        const col = getColor(a.curso_id);
-                                                                        const span = renderAsignacion.span;
-                                                                        const isDragging = isEditMode && dragData && dragData.raw === a;
+                                                                        if (renderReserva) {
+                                                                            const span = renderReserva.span;
+                                                                            const reservaActiva = renderReserva.a;
+                                                                            return (
+                                                                                <td key={dia.id_dia} rowSpan={span} className="py-1 px-1" style={{ verticalAlign: 'middle' }}>
+                                                                                    <div className={`rounded-2xl p-3 flex flex-col items-center justify-center text-center shadow-sm border-2 overflow-hidden relative`}
+                                                                                        style={{ backgroundColor: '#fffbeb', borderColor: '#f59e0b', height: `calc(${span} * 100px - 8px)` }}>
 
-                                                                        return (
-                                                                            <td key={dia.id_dia} rowSpan={span} className="py-1 px-1" style={{ verticalAlign: 'middle' }}
-                                                                                onDragOver={isEditMode ? (e) => handleDragOver(e, dia.id_dia, bNum) : undefined}
-                                                                                onDragLeave={isEditMode ? handleDragLeave : undefined}
-                                                                                onDrop={isEditMode ? (e) => handleDrop(e, dia, bNum) : undefined}
-                                                                            >
-                                                                                <div
-                                                                                    draggable={isEditMode}
-                                                                                    onDragStart={isEditMode ? (e) => handleDragStart(e, a) : undefined}
-                                                                                    onDragEnd={isEditMode ? handleDragEnd : undefined}
-                                                                                    className={`group rounded-2xl p-3 flex flex-col items-center justify-center text-center transition-all duration-200 border-2 relative z-10 
+                                                                                        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'repeating-linear-gradient(45deg, #f59e0b 25%, transparent 25%, transparent 75%, #f59e0b 75%, #f59e0b), repeating-linear-gradient(45deg, #f59e0b 25%, transparent 25%, transparent 75%, #f59e0b 75%, #f59e0b)', backgroundPosition: '0 0, 10px 10px', backgroundSize: '20px 20px' }}></div>
+
+                                                                                        <div className="relative z-10 flex flex-col items-center">
+                                                                                            <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-500 flex items-center justify-center mb-2 shadow-sm border border-amber-200">
+                                                                                                <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                                                                                            </div>
+                                                                                            {span > 1 && (
+                                                                                                <span className="inline-block mb-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border border-amber-500 text-amber-600 bg-amber-50/80">
+                                                                                                    {span} horas
+                                                                                                </span>
+                                                                                            )}
+                                                                                            <p className="text-[14px] font-black leading-tight text-amber-700">
+                                                                                                {reservaActiva.nombre}
+                                                                                            </p>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </td>
+                                                                            );
+                                                                        }
+
+                                                                        // Buscar asignación
+                                                                        const asigOriginal = filteredAsignaciones.find(x =>
+                                                                            normalize(x.dia) === normalize(dia.nombre_dia)
+                                                                            && (x.slot_inicio + 1) <= bNum
+                                                                            && (x.slot_inicio + x.horas) >= bNum
+                                                                        );
+
+                                                                        let renderAsignacion = null;
+                                                                        if (asigOriginal) {
+                                                                            const startBlock = asigOriginal.slot_inicio + 1;
+                                                                            const endBlock = asigOriginal.slot_inicio + asigOriginal.horas;
+                                                                            const isStart = bNum === startBlock;
+                                                                            const isAfterRecreo = isEditPage && bNum > startBlock && mappedBlocks.some(b => b.type === 'recreo' && b.despuesDeBloque === (bNum - 1));
+
+                                                                            if (isStart || isAfterRecreo) {
+                                                                                let currentSpan = 0;
+                                                                                for (let r = bNum; r <= endBlock; r++) {
+                                                                                    currentSpan++;
+                                                                                    if (isEditPage && r < endBlock && mappedBlocks.some(b => b.type === 'recreo' && b.despuesDeBloque === r)) {
+                                                                                        break;
+                                                                                    }
+                                                                                }
+                                                                                renderAsignacion = { a: asigOriginal, span: currentSpan };
+                                                                            } else {
+                                                                                return null; // Ocupado por span superior
+                                                                            }
+                                                                        }
+
+                                                                        if (renderAsignacion) {
+                                                                            const a = renderAsignacion.a;
+                                                                            const col = getColor(a.curso_id);
+                                                                            const span = renderAsignacion.span;
+                                                                            const isDragging = isEditMode && dragData && dragData.raw === a;
+
+                                                                            return (
+                                                                                <td key={dia.id_dia} rowSpan={span} className="py-1 px-1" style={{ verticalAlign: 'middle' }}
+                                                                                    onDragOver={isEditMode ? (e) => handleDragOver(e, dia.id_dia, bNum) : undefined}
+                                                                                    onDragLeave={isEditMode ? handleDragLeave : undefined}
+                                                                                    onDrop={isEditMode ? (e) => handleDrop(e, dia, bNum) : undefined}
+                                                                                >
+                                                                                    <div
+                                                                                        draggable={isEditMode}
+                                                                                        onDragStart={isEditMode ? (e) => handleDragStart(e, a) : undefined}
+                                                                                        onDragEnd={isEditMode ? handleDragEnd : undefined}
+                                                                                        className={`group rounded-2xl p-3 flex flex-col items-center justify-center text-center transition-all duration-200 border-2 relative z-10 
                                                                                         ${isEditMode ? 'animate-jiggle cursor-grab hover:shadow-lg hover:scale-[1.02]' : ''} 
                                                                                         ${isDragging ? 'opacity-50 scale-95 shadow-inner' : 'shadow-sm'}
                                                                                     `}
-                                                                                    style={{ backgroundColor: col.pastel, borderColor: col.solid, height: `calc(${span} * 100px - 8px)` }}>
-                                                                                    
-                                                                                    {isEditMode && (
-                                                                                        <div className="absolute top-2 right-2 opacity-60 text-slate-600 transition-opacity">
-                                                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 9h8M8 15h8" /></svg>
-                                                                                        </div>
-                                                                                    )}
+                                                                                        style={{ backgroundColor: col.pastel, borderColor: col.solid, height: `calc(${span} * 100px - 8px)` }}>
 
-                                                                                    <div>
-                                                                                        {span > 1 && (
-                                                                                            <span className="inline-block mb-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border" style={{ borderColor: col.solid, color: col.solid, backgroundColor: 'transparent' }}>
-                                                                                                {span} horas
-                                                                                            </span>
+                                                                                        {isEditMode && (
+                                                                                            <div className="absolute top-2 right-2 opacity-60 text-slate-600 transition-opacity">
+                                                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 9h8M8 15h8" /></svg>
+                                                                                            </div>
                                                                                         )}
-                                                                                        <p className="text-[18px] font-black leading-snug" style={{ color: col.text }}>
-                                                                                            {getCurso(a.curso_id)}
-                                                                                        </p>
-                                                                                        <p className="text-[11px] font-semibold mt-2" style={{ color: col.text, opacity: 0.75 }}>
-                                                                                            <span className="font-black" style={{ opacity: 1 }}>Profesor: </span>{getProfesor(a.profesor_id)}
-                                                                                        </p>
+
+                                                                                        <div>
+                                                                                            {span > 1 && (
+                                                                                                <span className="inline-block mb-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border" style={{ borderColor: col.solid, color: col.solid, backgroundColor: 'transparent' }}>
+                                                                                                    {span} horas
+                                                                                                </span>
+                                                                                            )}
+                                                                                            <p className="text-[18px] font-black leading-snug" style={{ color: col.text }}>
+                                                                                                {getCurso(a.curso_id)}
+                                                                                            </p>
+                                                                                            <p className="text-[11px] font-semibold mt-2" style={{ color: col.text, opacity: 0.75 }}>
+                                                                                                <span className="font-black" style={{ opacity: 1 }}>Profesor: </span>{getProfesor(a.profesor_id)}
+                                                                                            </p>
+                                                                                        </div>
                                                                                     </div>
-                                                                                </div>
-                                                                            </td>
-                                                                        );
-                                                                    } else {
-                                                                        const isDropHere = isEditMode && dropTarget && dropTarget.diaId === dia.id_dia && dropTarget.bloqueNum === bNum;
-                                                                        return (
-                                                                            <td key={dia.id_dia} className="py-1 px-1" style={{ verticalAlign: 'middle' }}
-                                                                                onDragOver={isEditMode ? (e) => handleDragOver(e, dia.id_dia, bNum) : undefined}
-                                                                                onDragLeave={isEditMode ? handleDragLeave : undefined}
-                                                                                onDrop={isEditMode ? (e) => handleDrop(e, dia, bNum) : undefined}
-                                                                            >
-                                                                                <div className={`rounded-xl flex items-center justify-center transition-all duration-200 ${isDropHere
+                                                                                </td>
+                                                                            );
+                                                                        } else {
+                                                                            const isDropHere = isEditMode && dropTarget && dropTarget.diaId === dia.id_dia && dropTarget.bloqueNum === bNum;
+                                                                            return (
+                                                                                <td key={dia.id_dia} className="py-1 px-1" style={{ verticalAlign: 'middle' }}
+                                                                                    onDragOver={isEditMode ? (e) => handleDragOver(e, dia.id_dia, bNum) : undefined}
+                                                                                    onDragLeave={isEditMode ? handleDragLeave : undefined}
+                                                                                    onDrop={isEditMode ? (e) => handleDrop(e, dia, bNum) : undefined}
+                                                                                >
+                                                                                    <div className={`rounded-xl flex items-center justify-center transition-all duration-200 ${isDropHere
                                                                                         ? 'bg-violet-100 border-2 border-dashed border-[var(--color-brand-primary)] scale-105 shadow-md'
                                                                                         : isEditMode
                                                                                             ? 'bg-slate-50/80 border-2 border-dashed border-slate-200 hover:border-violet-300 hover:bg-violet-50/50'
                                                                                             : 'bg-slate-50 border border-dashed border-slate-200'
-                                                                                    }`} style={{ height: 'calc(100px - 8px)' }}>
-                                                                                    {isDropHere ? (
-                                                                                        <svg className="w-5 h-5 text-[var(--color-brand-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m0 0l-4-4m4 4l4-4" /></svg>
-                                                                                    ) : (
-                                                                                        <div className="w-1 h-1 rounded-full bg-slate-300" />
-                                                                                    )}
-                                                                                </div>
-                                                                            </td>
-                                                                        );
-                                                                    }
-                                                                })}
-                                                            </tr>
-                                                        );
-                                                    })}
-                                                </tbody>
-                                            </table>
+                                                                                        }`} style={{ height: 'calc(100px - 8px)' }}>
+                                                                                        {isDropHere ? (
+                                                                                            <svg className="w-5 h-5 text-[var(--color-brand-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m0 0l-4-4m4 4l4-4" /></svg>
+                                                                                        ) : (
+                                                                                            <div className="w-1 h-1 rounded-full bg-slate-300" />
+                                                                                        )}
+                                                                                    </div>
+                                                                                </td>
+                                                                            );
+                                                                        }
+                                                                    })}
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                </table>
+                                            </div>
                                         </div>
-                                    </div>
-                                ) : (
-                                    <div className="w-full mt-8 p-12 bg-white rounded-3xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-center">
-                                        <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4">
-                                            <svg className="w-10 h-10 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                            </svg>
+                                    ) : (
+                                        <div className="w-full mt-8 p-12 bg-white rounded-3xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-center">
+                                            <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+                                                <svg className="w-10 h-10 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                                </svg>
+                                            </div>
+                                            <h3 className="text-xl font-black text-slate-700 mb-2">No hay horario disponible</h3>
+                                            <p className="text-slate-500 font-medium max-w-sm">
+                                                No se encontraron secciones para los filtros seleccionados o aún no se han asignado horarios.
+                                            </p>
                                         </div>
-                                        <h3 className="text-xl font-black text-slate-700 mb-2">No hay horario disponible</h3>
-                                        <p className="text-slate-500 font-medium max-w-sm">
-                                            No se encontraron secciones para los filtros seleccionados o aún no se han asignado horarios.
-                                        </p>
-                                    </div>
-                                )}
-                            </div>
+                                    )}
+                                </div>
                             </main>
                         </div>
                     )}
@@ -1680,6 +1681,8 @@ export default function HorariosManager({ isEditPage = false }) {
                     </div>
                 </div>
             )}
+
+            {status === 'ready' && <IAReportWidget />}
 
             <style>{`
                 @keyframes shine { 100% { left: 125%; } }

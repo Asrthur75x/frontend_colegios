@@ -8,14 +8,10 @@ const API_BASE = 'http://localhost:8000/api';
 
 const GENERATION_STEPS = [
     { id: 'init', label: 'Iniciando el motor de horarios...' },
-    { id: 'extracting', label: 'Leyendo la configuración de la base de datos...' },
-    { id: 'validating', label: 'Validando la integridad de los datos...' },
-    { id: 'preprocessing', label: 'Construyendo las estructuras académicas...' },
-    { id: 'modeling', label: 'Generando las restricciones del horario...' },
-    { id: 'solving', label: 'Buscando una solución óptima...' },
-    { id: 'metrics', label: 'Calculando las métricas del resultado...' },
-    { id: 'saving', label: 'Guardando el horario generado...' },
-    { id: 'done', label: '¡Horario generado correctamente!' }
+    { id: 'validating', label: 'Leyendo y validando datos...' },
+    { id: 'modeling', label: 'Construyendo modelo matemático...' },
+    { id: 'solving', label: 'Buscando solución óptima...' },
+    { id: 'done', label: 'Finalizando y guardando...' }
 ];
 const LOADING_MESSAGES = GENERATION_STEPS.map(step => step.label);
 const STEP_VISIBLE_TIME = 20000;
@@ -150,14 +146,20 @@ export async function startGeneracion() {
                 const progress = await progressRes.json();
                 if (progress.status === 'starting' || progress.status === 'running') {
                     const percent = Number(progress.percent) || 0;
-                    const reportedStep = progress.step || 'init';
-                    const reportedIndex = GENERATION_STEPS.findIndex(step => step.id === reportedStep);
+                    
+                    let mappedId = progress.step || 'init';
+                    if (mappedId === 'extracting') mappedId = 'validating';
+                    if (mappedId === 'preprocessing') mappedId = 'modeling';
+                    if (mappedId === 'metrics') mappedId = 'solving';
+                    if (mappedId === 'saving') mappedId = 'done';
+                    
+                    const reportedIndex = GENERATION_STEPS.findIndex(step => step.id === mappedId);
                     state.progressPercent = Math.max(0, Math.min(100, percent));
                     if (reportedIndex >= 0) {
                         await revealStepsUntil(state, reportedIndex);
                     }
-                    state.progressStep = reportedStep;
-                    state.progressMessage = progress.message || GENERATION_STEPS[state.loadingStep]?.label;
+                    state.progressStep = mappedId;
+                    state.progressMessage = GENERATION_STEPS[state.loadingStep]?.label;
                     notify();
                 } else if (progress.status === 'done') {
                     data = { status: 'success', resultado: progress.resultado };
