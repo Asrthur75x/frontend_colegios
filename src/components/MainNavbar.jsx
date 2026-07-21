@@ -7,6 +7,9 @@ export default function MainNavbar({ currentPath = '' }) {
     const [cursosCount, setCursosCount] = useState(0);
     const [planesCount, setPlanesCount] = useState(0);
     
+    // Usamos realPath en lugar de currentPath para que funcione con astro persist
+    const [realPath, setRealPath] = useState(typeof window !== 'undefined' ? window.location.pathname : currentPath);
+    
     // State for the expanded module (inline)
     const [activeDropdown, setActiveDropdown] = useState(() => {
         const path = typeof window !== 'undefined' ? window.location.pathname : currentPath;
@@ -16,6 +19,24 @@ export default function MainNavbar({ currentPath = '' }) {
         return null;
     });
     const navRef = useRef(null);
+
+    // Escuchar cambios de ruta en Astro ViewTransitions
+    useEffect(() => {
+        const handlePathChange = () => {
+            const path = window.location.pathname;
+            setRealPath(path);
+            if (path.startsWith('/areas') || path.startsWith('/cursos') || path.startsWith('/reservas') || path.startsWith('/planes')) setActiveDropdown('academico');
+            else if (path.startsWith('/profesores') || path.startsWith('/carga-academica') || path.startsWith('/tutorias')) setActiveDropdown('docentes');
+            else if (path.startsWith('/horarios')) setActiveDropdown('horarios');
+            else setActiveDropdown(null);
+        };
+        document.addEventListener('astro:page-load', handlePathChange);
+        window.addEventListener('popstate', handlePathChange);
+        return () => {
+            document.removeEventListener('astro:page-load', handlePathChange);
+            window.removeEventListener('popstate', handlePathChange);
+        };
+    }, []);
 
     useEffect(() => {
         const fetchCounts = async () => {
@@ -143,8 +164,8 @@ export default function MainNavbar({ currentPath = '' }) {
             <nav ref={navRef} className="flex items-center gap-2 transition-all duration-500 ease-out">
                 {navItems.map((item) => {
                     const isExpanded = activeDropdown === item.id;
-                    const isChildActive = item.dropdownItems?.some(child => currentPath.startsWith(child.path) || currentPath === child.path);
-                    const isMainActive = currentPath === item.path;
+                    const isChildActive = item.dropdownItems?.some(child => realPath.startsWith(child.path) || realPath === child.path);
+                    const isMainActive = realPath === item.path;
                     const isActive = isMainActive || isChildActive;
 
                     if (isExpanded && item.dropdownItems) {
@@ -166,7 +187,7 @@ export default function MainNavbar({ currentPath = '' }) {
                                         const activeChild = item.dropdownItems
                                             .slice()
                                             .sort((a, b) => b.path.length - a.path.length)
-                                            .find(child => currentPath === child.path || currentPath.startsWith(child.path + '/'));
+                                            .find(child => realPath === child.path || realPath.startsWith(child.path + '/'));
                                             
                                         return item.dropdownItems.map((child, idx) => {
                                             const isSubActive = activeChild && activeChild.path === child.path;
