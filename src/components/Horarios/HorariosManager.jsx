@@ -860,7 +860,7 @@ export default function HorariosManager({ isEditPage = false }) {
                         : 'bg-transparent border-brand-primary/30 text-slate-600 hover:bg-white/50 hover:border-brand-primary/60'}`}
                 >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 013 3L8 18l-4 1 1-4L16.5 3.5z" /></svg>
-                    Editar
+                    Configurar Tiempos
                 </button>
                 <button
                     onClick={() => setEditPanelView('schedule')}
@@ -1216,7 +1216,7 @@ export default function HorariosManager({ isEditPage = false }) {
                                                     <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
                                                 </div>
                                                 <p className="text-[13px] font-black text-slate-600">No hay configuraciones registradas</p>
-                                                <p className="text-[11px] font-semibold text-slate-400 mt-1">Usa Editar para configurar las horas de un turno.</p>
+                                                <p className="text-[11px] font-semibold text-slate-400 mt-1">Usa Configurar Tiempos para configurar las horas de un turno.</p>
                                             </div>
                                         ) : (
                                             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">

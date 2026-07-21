@@ -15,6 +15,11 @@ export default function VersionesManager() {
     const [confirmLoad, setConfirmLoad] = useState(null);
     const [toast, setToast] = useState(null);
 
+    // Filtros
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filterEstado, setFilterEstado] = useState('ALL');
+    const [filterDate, setFilterDate] = useState('');
+
     // Comparación states
     const [viewMode, setViewMode] = useState('list'); // 'list' | 'compare'
     const [catalogos, setCatalogos] = useState({ cursos: {}, secciones: {}, profesores: {} });
@@ -586,6 +591,53 @@ export default function VersionesManager() {
         .filter(([key, section]) => key.startsWith('SEC_') && String(section.id_grado) === String(compareGradoId))
         .sort((a, b) => a[1].nombre.localeCompare(b[1].nombre));
 
+    const filteredSnapshots = React.useMemo(() => {
+        return snapshots.filter(snap => {
+            if (searchTerm && !snap.nombre.toLowerCase().includes(searchTerm.toLowerCase()) && !(snap.descripcion || '').toLowerCase().includes(searchTerm.toLowerCase())) return false;
+            if (filterEstado !== 'ALL' && snap.estado !== filterEstado) return false;
+            if (filterDate) {
+                const snapDate = new Date(snap.created_at).toISOString().split('T')[0];
+                if (snapDate !== filterDate) return false;
+            }
+            return true;
+        });
+    }, [snapshots, searchTerm, filterEstado, filterDate]);
+
+    const groupedFamilies = React.useMemo(() => {
+        if (!filteredSnapshots || filteredSnapshots.length === 0) return [];
+        const sortedAsc = [...filteredSnapshots].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        const families = [];
+        let currentFamily = null;
+        
+        sortedAsc.forEach(snap => {
+            if (!snap.es_editada) {
+                currentFamily = { parent: snap, children: [] };
+                families.push(currentFamily);
+            } else {
+                if (currentFamily) {
+                    currentFamily.children.unshift(snap);
+                } else {
+                    currentFamily = { parent: snap, children: [], isDummy: true };
+                    families.push(currentFamily);
+                }
+            }
+        });
+        
+        families.sort((a, b) => {
+            const dateA = new Date(a.parent.created_at);
+            const dateB = new Date(b.parent.created_at);
+            return dateB - dateA;
+        });
+        
+        const activeIdx = families.findIndex(f => (f.parent && f.parent.is_active) || f.children.some(c => c.is_active));
+        if (activeIdx > 0) {
+            const activeFamily = families.splice(activeIdx, 1)[0];
+            families.unshift(activeFamily);
+        }
+        
+        return families;
+    }, [filteredSnapshots]);
+
     return (
         <div className="w-full animate-fade-in relative">
             {/* Toast */}
@@ -634,6 +686,37 @@ export default function VersionesManager() {
                                     <p className="text-slate-500 text-[14px] mt-0.5 font-medium">Historial de horarios generados.</p>
                                 </div>
                             </div>
+                            
+                            {/* Filtros */}
+                            <div className="px-2 flex flex-col sm:flex-row gap-3 mb-2">
+                                <div className="flex-1 relative">
+                                    <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                                    <input 
+                                        type="text" 
+                                        placeholder="Buscar por nombre o descripción..." 
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[13px] font-semibold text-slate-700 outline-none focus:bg-white focus:border-[var(--color-brand-primary)] focus:ring-2 focus:ring-[var(--color-brand-primary)]/10 transition-all"
+                                    />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <input 
+                                        type="date" 
+                                        value={filterDate}
+                                        onChange={(e) => setFilterDate(e.target.value)}
+                                        className="py-2.5 px-3 bg-slate-50 border border-slate-200 rounded-xl text-[13px] font-semibold text-slate-600 outline-none focus:bg-white focus:border-[var(--color-brand-primary)] cursor-pointer transition-all"
+                                    />
+                                    <select 
+                                        value={filterEstado}
+                                        onChange={(e) => setFilterEstado(e.target.value)}
+                                        className="py-2.5 px-3 bg-slate-50 border border-slate-200 rounded-xl text-[13px] font-semibold text-slate-600 outline-none focus:bg-white focus:border-[var(--color-brand-primary)] cursor-pointer transition-all"
+                                    >
+                                        <option value="ALL">Todos los estados</option>
+                                        <option value="OPTIMAL">Óptimos</option>
+                                        <option value="FEASIBLE">Factibles</option>
+                                    </select>
+                                </div>
+                            </div>
 
                             {/* Content List */}
                             {loading ? (
@@ -643,7 +726,7 @@ export default function VersionesManager() {
                                         <p className="text-slate-400 text-sm font-medium">Cargando versiones...</p>
                                     </div>
                                 </div>
-                            ) : snapshots.length === 0 ? (
+                            ) : filteredSnapshots.length === 0 ? (
                                 <div className="flex-1 flex items-center justify-center">
                                     <div className="flex flex-col items-center gap-4 text-center max-w-sm">
                                         <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center">
@@ -656,15 +739,27 @@ export default function VersionesManager() {
                                     </div>
                                 </div>
                             ) : (
-                                <div className="flex flex-col gap-3">
-                    {snapshots.map((snap, index) => {
+                                <div className="flex flex-col gap-6">
+                    {groupedFamilies.map((family, fIndex) => {
+                        const itemsToRender = [];
+                        if (family.parent && !family.isDummy) itemsToRender.push({ ...family.parent, isParent: true });
+                        else if (family.isDummy) itemsToRender.push({ ...family.parent, isParent: true });
+                        
+                        itemsToRender.push(...family.children.map(c => ({ ...c, isChild: true })));
+
+                        return (
+                            <div key={`family-${fIndex}`} className="flex flex-col gap-3 relative">
+                                {family.children.length > 0 && !family.isDummy && (
+                                    <div className="absolute top-10 left-[27px] bottom-10 w-[2px] bg-slate-200/60 rounded-full z-0"></div>
+                                )}
+                                {itemsToRender.map((snap, sIndex) => {
                         const isActive = snap.is_active;
                         const isEditing = editingId === snap.id_snapshot;
 
                         return (
                             <div
                                 key={snap.id_snapshot}
-                                className={`group rounded-2xl border transition-all duration-200 ${isActive
+                                className={`group relative z-10 rounded-2xl border transition-all duration-200 ${snap.isChild ? 'ml-12 shadow-sm' : ''} ${isActive
                                     ? 'bg-[var(--color-brand-primary)]/5 border-[var(--color-brand-primary)]/30 shadow-[0_0_20px_rgba(47, 91, 255,0.08)]'
                                     : 'bg-white border-slate-100 hover:border-slate-200 hover:shadow-[0_4px_20px_rgb(0,0,0,0.04)]'
                                     }`}
@@ -676,9 +771,7 @@ export default function VersionesManager() {
                                             ? 'border-[var(--color-brand-primary)] bg-white shadow-[0_0_8px_rgba(47, 91, 255,0.4)]'
                                             : 'border-slate-300 bg-white'
                                             }`}></div>
-                                        {index < snapshots.length - 1 && (
-                                            <div className="w-0.5 h-8 bg-slate-200 rounded-full"></div>
-                                        )}
+                                        {/* No line here, line is on the family container now */}
                                     </div>
 
                                     {/* Content */}
@@ -760,9 +853,7 @@ export default function VersionesManager() {
                                                 <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" /></svg>
                                                 {snap.asignaciones_count} asignaciones
                                             </div>
-                                            <span className="text-slate-300 text-[11px] font-medium ml-auto">
-                                                {timeAgo(snap.created_at)}
-                                            </span>
+
                                         </div>
                                     </div>
 
@@ -815,6 +906,9 @@ export default function VersionesManager() {
                                         )}
                                     </div>
                                 </div>
+                            </div>
+                        );
+                    })}
                             </div>
                         );
                     })}
