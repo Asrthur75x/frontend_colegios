@@ -21,10 +21,34 @@ const pastelColors = [
 ];
 
 export default function DashboardManager() {
-    const [stats, setStats] = useState({ profesores: 0, cursos: 0, areas: 0, sedes: 0, grados: 0, secciones: 0, planes: 0, tutorias: 0, reservas: 0 });
-    const [areaDetails, setAreaDetails] = useState([]);
+    const [stats, setStats] = useState(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                const cached = localStorage.getItem('dashboard_stats');
+                if (cached) return JSON.parse(cached);
+            } catch (e) {}
+        }
+        return { profesores: 0, cursos: 0, areas: 0, sedes: 0, grados: 0, secciones: 0, planes: 0, tutorias: 0, reservas: 0 };
+    });
+    const [areaDetails, setAreaDetails] = useState(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                const cached = localStorage.getItem('dashboard_area_details');
+                if (cached) return JSON.parse(cached);
+            } catch (e) {}
+        }
+        return [];
+    });
     const [colegio, setColegio] = useState(null);
-    const [horarioCount, setHorarioCount] = useState(0);
+    const [horarioCount, setHorarioCount] = useState(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                const cached = localStorage.getItem('dashboard_horario_count');
+                if (cached) return JSON.parse(cached);
+            } catch(e) {}
+        }
+        return 0;
+    });
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -44,7 +68,7 @@ export default function DashboardManager() {
                 const responses = await Promise.all(endpoints.map(e => fetch(`${API}/${e.url}`).then(r => r.ok ? r.json() : [])));
                 const c = {};
                 endpoints.forEach((e, i) => c[e.key] = Array.isArray(responses[i]) ? responses[i].length : 0);
-                setStats(c);
+                
                 const areasData = responses[endpoints.findIndex(e => e.key === 'areas')];
                 const cursosData = responses[endpoints.findIndex(e => e.key === 'cursos')];
                 
@@ -52,6 +76,7 @@ export default function DashboardManager() {
                 c.cursosReales = Array.isArray(cursosData) ? cursosData.filter(c => c.nombre_curso !== 'Tutoría' && c.nombre_curso !== 'Tutoría Psicológica').length : 0;
                 
                 setStats(c);
+                if (typeof window !== 'undefined') localStorage.setItem('dashboard_stats', JSON.stringify(c));
 
                 if (Array.isArray(areasData) && Array.isArray(cursosData)) {
                     const details = areasData.map(a => {
@@ -59,12 +84,18 @@ export default function DashboardManager() {
                         return { nombre: a.nombre, count };
                     }).sort((a, b) => b.count - a.count);
                     setAreaDetails(details);
+                    if (typeof window !== 'undefined') localStorage.setItem('dashboard_area_details', JSON.stringify(details));
                 }
 
                 const colRes = await fetch(`${API}/colegio`);
                 if (colRes.ok) { const d = await colRes.json(); setColegio(Array.isArray(d) && d[0] ? d[0] : null); }
                 const hRes = await fetch(`${API}/horario-final`);
-                if (hRes.ok) { const d = await hRes.json(); setHorarioCount(Array.isArray(d) ? d.length : 0); }
+                if (hRes.ok) { 
+                    const d = await hRes.json(); 
+                    const hc = Array.isArray(d) ? d.length : 0;
+                    setHorarioCount(hc);
+                    if (typeof window !== 'undefined') localStorage.setItem('dashboard_horario_count', JSON.stringify(hc));
+                }
             } catch (e) { console.error(e); }
             setLoading(false);
         };

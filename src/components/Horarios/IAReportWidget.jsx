@@ -11,13 +11,34 @@ export default function IAReportWidget() {
     const [loadingReport, setLoadingReport] = useState(false);
     const [generating, setGenerating] = useState(false);
     const [errorMsg, setErrorMsg] = useState(null);
+    const [configIA, setConfigIA] = useState({
+        "kpis.cobertura": false,
+        "kpis.balance_docente": false,
+        "kpis.utilizacion": false,
+        "anomalias": false
+    });
 
     // Fetch active snapshot when opening
     useEffect(() => {
         if (isOpen && !snapshotId) {
             fetchActiveSnapshot();
+            fetchConfigIA();
         }
     }, [isOpen]);
+
+    const fetchConfigIA = async () => {
+        try {
+            const res = await fetch(`${API_BASE}/config-ia`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.campos_habilitados) {
+                    setConfigIA(JSON.parse(data.campos_habilitados));
+                }
+            }
+        } catch (err) {
+            console.error("Error al cargar config IA", err);
+        }
+    };
 
     const fetchActiveSnapshot = async () => {
         setLoadingSnapshot(true);
@@ -71,6 +92,13 @@ export default function IAReportWidget() {
         setGenerating(true);
         setErrorMsg(null);
         try {
+            // Guardar configuración seleccionada antes de generar
+            await fetch(`${API_BASE}/config-ia`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ campos_habilitados: JSON.stringify(configIA) })
+            });
+
             const res = await fetch(`${API_BASE}/reportes/generar/${snapshotId}`, {
                 method: 'POST'
             });
@@ -168,13 +196,42 @@ export default function IAReportWidget() {
                                         </svg>
                                     </div>
                                     <h3 className="text-lg font-bold text-slate-800 mb-2">Aún no revisado</h3>
-                                    <p className="text-slate-500 mb-8 max-w-sm mx-auto text-sm">
+                                    <p className="text-slate-500 mb-6 max-w-sm mx-auto text-sm">
                                         La Inteligencia Artificial revisará este horario para encontrar detalles a mejorar y darte sugerencias útiles.
                                     </p>
 
+                                    {/* Checkboxes de Configuración IA */}
+                                    <div className="bg-slate-50 rounded-xl p-5 max-w-md mx-auto mb-8 text-left border border-slate-100 shadow-sm">
+                                        <h4 className="text-[13px] font-black text-slate-700 uppercase tracking-wider mb-3">¿Qué debe analizar la IA?</h4>
+                                        <div className="flex flex-col gap-3">
+                                            <label className="flex items-center gap-3 cursor-pointer group">
+                                                <input type="checkbox" className="w-4 h-4 text-[var(--color-brand-primary)] rounded border-slate-300 focus:ring-[var(--color-brand-primary)] cursor-pointer" checked={configIA["kpis.cobertura"] || false} onChange={(e) => setConfigIA({...configIA, "kpis.cobertura": e.target.checked})} />
+                                                <span className="text-sm font-medium text-slate-600 group-hover:text-slate-900 transition-colors cursor-pointer">Reportar cursos faltantes o incompletos</span>
+                                            </label>
+                                            <label className="flex items-center gap-3 cursor-pointer group">
+                                                <input type="checkbox" className="w-4 h-4 text-[var(--color-brand-primary)] rounded border-slate-300 focus:ring-[var(--color-brand-primary)] cursor-pointer" checked={configIA["kpis.balance_docente"] || false} onChange={(e) => setConfigIA({...configIA, "kpis.balance_docente": e.target.checked})} />
+                                                <span className="text-sm font-medium text-slate-600 group-hover:text-slate-900 transition-colors cursor-pointer">Analizar el balance de horas de los profesores</span>
+                                            </label>
+                                            <label className="flex items-center gap-3 cursor-pointer group">
+                                                <input type="checkbox" className="w-4 h-4 text-[var(--color-brand-primary)] rounded border-slate-300 focus:ring-[var(--color-brand-primary)] cursor-pointer" checked={configIA["kpis.utilizacion"] || false} onChange={(e) => setConfigIA({...configIA, "kpis.utilizacion": e.target.checked})} />
+                                                <span className="text-sm font-medium text-slate-600 group-hover:text-slate-900 transition-colors cursor-pointer">Analizar el nivel de ocupación de las sedes</span>
+                                            </label>
+                                            <label className="flex items-center gap-3 cursor-pointer group">
+                                                <input type="checkbox" className="w-4 h-4 text-[var(--color-brand-primary)] rounded border-slate-300 focus:ring-[var(--color-brand-primary)] cursor-pointer" checked={configIA["anomalias"] || false} onChange={(e) => setConfigIA({...configIA, "anomalias": e.target.checked})} />
+                                                <span className="text-sm font-medium text-slate-600 group-hover:text-slate-900 transition-colors cursor-pointer">Resaltar errores matemáticos graves (Anomalías)</span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    {!Object.values(configIA).some(Boolean) && (
+                                        <p className="text-red-500 text-xs text-center mb-3 font-medium animate-pulse">
+                                            Debes seleccionar al menos una métrica para que la IA pueda generar el reporte.
+                                        </p>
+                                    )}
+
                                     <button
                                         onClick={handleGenerarReporte}
-                                        disabled={generating}
+                                        disabled={generating || !Object.values(configIA).some(Boolean)}
                                         className="bg-[var(--color-brand-primary)] text-white px-6 py-3 rounded-xl font-bold shadow-sm hover:shadow-md hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 mx-auto cursor-pointer"
                                     >
                                         {generating ? (

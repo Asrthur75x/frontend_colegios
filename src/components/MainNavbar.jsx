@@ -146,7 +146,7 @@ export default function MainNavbar({ currentPath = '' }) {
     return (
         <header className="fixed top-0 left-0 w-full bg-white/95 backdrop-blur-sm z-50 flex items-center justify-between px-6 h-20 transition-all duration-300">
             {/* Logo Section */}
-            <div className="flex items-center gap-2 cursor-pointer group" onClick={() => window.location.href = '/dashboard'}>
+            <a href="/dashboard" className="flex items-center gap-2 cursor-pointer group">
                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 group-hover:scale-105 transition-transform origin-left">
                     <defs>
                         <linearGradient id="grad-logo-nav" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -158,7 +158,7 @@ export default function MainNavbar({ currentPath = '' }) {
                     <path d="M2 17l10 5 10-5M2 12l10 5 10-5" stroke="url(#grad-logo-nav)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
                 <span className="font-black text-xl text-[var(--color-brand-dark)] tracking-tight">HoraVlep</span>
-            </div>
+            </a>
 
             {/* Center Navigation Icons (Inline Expand) */}
             <nav ref={navRef} className="flex items-center gap-2 transition-all duration-500 ease-out">
@@ -223,7 +223,20 @@ export default function MainNavbar({ currentPath = '' }) {
                     }
 
                     // RENDERIZADO NORMAL (BOTONES SUELTOS)
-                    return (
+                    return item.path ? (
+                        <a
+                            key={item.id}
+                            href={item.path}
+                            className={`flex items-center justify-center gap-2 px-5 py-2.5 rounded-full transition-all duration-300 font-bold text-[14px] cursor-pointer ${
+                                isActive 
+                                    ? 'bg-[var(--color-brand-dark)] text-white shadow-md'
+                                    : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'
+                            }`}
+                        >
+                            {item.icon}
+                            <span>{item.label}</span>
+                        </a>
+                    ) : (
                         <button
                             key={item.id}
                             onClick={() => handleNavClick(item)}
