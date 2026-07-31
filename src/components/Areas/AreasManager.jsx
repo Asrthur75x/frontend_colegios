@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import ModuleSidebar from '../Shared/ModuleSidebar';
+import ExcelImportPanel from '../Shared/ExcelImportPanel';
 
 const API_BASE = 'http://localhost:8000/api';
 
@@ -292,6 +293,88 @@ export default function AreasManager() {
         }
     };
 
+    // ── Importar desde Excel ──
+    const handleImportExcel = async (data) => {
+        let creados = 0;
+        let errores = 0;
+        const erroresDetalle = [];
+
+        for (const row of data) {
+            const nombreCurso = String(row.nombre_curso || '').trim();
+            const nombreArea = String(row.nombre_area || '').trim();
+            const maxHoras = parseInt(row.max_horas_dia) || 2;
+
+            if (!nombreCurso || !nombreArea) {
+                errores++;
+                erroresDetalle.push(`Fila sin nombre de curso o área`);
+                continue;
+            }
+
+            try {
+                // 1. Buscar o crear el área
+                let areaId = null;
+                const areaExistente = areas.find(a => a.nombre.toLowerCase() === nombreArea.toLowerCase());
+
+                if (areaExistente) {
+                    areaId = areaExistente.id_area;
+                } else {
+                    const resArea = await fetch(`${API_BASE}/areas`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ nombre: nombreArea, max_horas_dia: maxHoras })
+                    });
+                    if (resArea.ok) {
+                        const newArea = await resArea.json();
+                        areaId = newArea.id_area;
+                        // Actualizar lista local para evitar duplicados en el mismo batch
+                        areas.push({ id_area: areaId, nombre: nombreArea, max_horas_dia: maxHoras });
+                    } else {
+                        errores++;
+                        erroresDetalle.push(`Error creando área "${nombreArea}"`);
+                        continue;
+                    }
+                }
+
+                // 2. Crear el curso
+                const resCurso = await fetch(`${API_BASE}/cursos`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        nombre_curso: nombreCurso,
+                        id_area: areaId,
+                        requiere_espacio_unico: false
+                    })
+                });
+
+                if (resCurso.ok) {
+                    creados++;
+                } else {
+                    errores++;
+                    erroresDetalle.push(`Error creando curso "${nombreCurso}"`);
+                }
+            } catch (err) {
+                errores++;
+                erroresDetalle.push(`Error procesando "${nombreCurso}": ${err.message}`);
+            }
+        }
+
+        // Refrescar datos
+        await fetchAreas();
+        window.dispatchEvent(new Event('edusync_data_updated'));
+
+        if (errores === 0) {
+            return { success: true, message: `Se importaron ${creados} cursos exitosamente.` };
+        } else {
+            return { success: creados > 0, message: `Se importaron ${creados} cursos. ${errores} filas con errores.` };
+        }
+    };
+
+    const areasExcelColumns = [
+        { header: 'Nombre del Curso', example: 'Razonamiento Matemático', key: 'nombre_curso' },
+        { header: 'Área', example: 'Matemáticas', key: 'nombre_area' },
+        { header: 'Horas Máximas Diarias del Área', example: 2, key: 'max_horas_dia' }
+    ];
+
     return (
         <div className="w-full animate-fade-in relative">
             <div className="flex flex-col md:flex-row gap-6 min-h-[calc(100vh-144px)]">
@@ -303,8 +386,14 @@ export default function AreasManager() {
                     onAddClick={abrirModalNueva}
                     addButtonText="Añadir Nueva Área"
                     svgImage="/areas.svg"
-                    tipText="Limitar las horas sirve para que los alumnos no tengan &quot;solo matemáticas&quot; el mismo día. ¡Mantiene las clases variadas!"
-                />
+                >
+                    <ExcelImportPanel
+                        templateColumns={areasExcelColumns}
+                        templateFileName="plantilla_areas_cursos.xlsx"
+                        onImport={handleImportExcel}
+                        title="Subir varios desde Excel"
+                    />
+                </ModuleSidebar>
 
                 {/* ===== RIGHT CONTENT (3/4) ===== */}
                 <main className="md:w-3/4 flex flex-col gap-5">

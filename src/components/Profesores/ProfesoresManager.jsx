@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ModuleSidebar from '../Shared/ModuleSidebar';
+import ExcelImportPanel from '../Shared/ExcelImportPanel';
 
 const API_BASE = 'http://localhost:8000/api';
 const TOTAL_DISPONIBILIDAD_KEY = 'horavlep_profesores_disponibilidad_total';
@@ -979,6 +980,61 @@ export default function ProfesoresManager() {
     };
 
 
+    // ── Importar Profesores desde Excel ──
+    const handleImportProfesores = async (data) => {
+        let creados = 0;
+        let errores = 0;
+
+        for (const row of data) {
+            const nombre = String(row.nombre_profesor || '').trim();
+            const horasMin = parseInt(row.horas_minimas) || 0;
+
+            if (!nombre) {
+                errores++;
+                continue;
+            }
+
+            // Verificar si ya existe un profesor con el mismo nombre
+            const yaExiste = profesores.some(p => p.nombre_profesor.toLowerCase() === nombre.toLowerCase());
+            if (yaExiste) {
+                continue; // Saltar sin contar como error
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/profesores`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nombre_profesor: nombre, horas_minimas: horasMin })
+                });
+
+                if (res.ok) {
+                    const newProf = await res.json();
+                    profesores.push(newProf);
+                    creados++;
+                } else {
+                    errores++;
+                }
+            } catch (err) {
+                errores++;
+            }
+        }
+
+        await fetchDatos();
+        window.dispatchEvent(new Event('edusync_data_updated'));
+
+        if (errores === 0) {
+            return { success: true, message: `✅ Se importaron ${creados} docentes exitosamente.` };
+        } else {
+            return { success: creados > 0, message: `Se importaron ${creados} docentes. ${errores} filas con errores.` };
+        }
+    };
+
+    const profesoresExcelColumns = [
+        { header: 'Nombre Completo', example: 'Juan Carlos Pérez', key: 'nombre_profesor' },
+        { header: 'Horas Mínimas Semanales', example: 20, key: 'horas_minimas' }
+    ];
+
+
     return (
         <div className="w-full animate-fade-in relative">
             <div className="flex flex-col md:flex-row gap-6 min-h-[calc(100vh-144px)]">
@@ -988,11 +1044,14 @@ export default function ProfesoresManager() {
                     onAddClick={abrirModalNueva}
                     addButtonText="Añadir Nuevo Docente"
                     svgImage="/profe.svg"
-                    stats={[
-                        { label: 'Docentes registrados', value: profesores.length, subtext: 'Total en el directorio' },
-                        { label: 'Por completar', value: profesoresIncompletos, subtext: profesoresIncompletos === 1 ? 'Docente con datos pendientes' : 'Docentes con datos pendientes' }
-                    ]}
-                />
+                >
+                    <ExcelImportPanel
+                        templateColumns={profesoresExcelColumns}
+                        templateFileName="plantilla_docentes.xlsx"
+                        onImport={handleImportProfesores}
+                        title="Subir varios desde Excel"
+                    />
+                </ModuleSidebar>
 
                 <main className="md:w-3/4 flex flex-col gap-5 min-w-0">
 
@@ -1713,7 +1772,7 @@ export default function ProfesoresManager() {
                                             {!horasMinError && horasMinWarnings.length === 0 && formHorasMinimas && parseInt(formHorasMinimas) >= 1 && (
                                                 <p className="text-emerald-600 text-xs mt-3 flex items-center gap-1.5">
                                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                                                    El motor intentará asignarle al menos {formHorasMinimas} horas semanales.
+                                                    Se procurará asignarle al menos {formHorasMinimas} horas semanales en su horario.
                                                 </p>
                                             )}
                                         </div>
