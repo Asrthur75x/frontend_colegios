@@ -18,21 +18,24 @@ export default function GeneracionToast() {
         return unsub;
     }, []);
 
-    // Determinar si estamos en la página de horarios
+    // Determinar si estamos en la página donde se ejecuta la generación (/horarios)
     const [isOnHorarios, setIsOnHorarios] = useState(false);
     useEffect(() => {
         const checkPath = () => {
             const path = window.location.pathname;
-            setIsOnHorarios(path.startsWith('/horarios'));
+            // Solo ocultar en la página principal donde se dispara y ejecuta la generación
+            setIsOnHorarios(path === '/horarios' || path === '/horarios/');
         };
         checkPath();
 
-        // Escuchar navegaciones de Astro
+        // Escuchar navegaciones de Astro e historial
         document.addEventListener('astro:page-load', checkPath);
         document.addEventListener('astro:after-swap', checkPath);
+        window.addEventListener('popstate', checkPath);
         return () => {
             document.removeEventListener('astro:page-load', checkPath);
             document.removeEventListener('astro:after-swap', checkPath);
+            window.removeEventListener('popstate', checkPath);
         };
     }, []);
 

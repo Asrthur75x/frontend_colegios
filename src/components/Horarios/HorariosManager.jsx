@@ -128,6 +128,7 @@ export default function HorariosManager({ isEditPage = false }) {
     const [swapConfirm, setSwapConfirm] = useState(null);
     const [originalAsignaciones, setOriginalAsignaciones] = useState(null);
     const [isSavingEdits, setIsSavingEdits] = useState(false);
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
     // UI States
     const [activeView] = useState('horario'); // Estadísticas ocultas temporalmente.
@@ -528,6 +529,7 @@ export default function HorariosManager({ isEditPage = false }) {
     const toggleEditMode = () => {
         if (!isEditMode) {
             setOriginalAsignaciones([...asignaciones]);
+            setHasUnsavedChanges(false);
             setIsEditMode(true);
         } else {
             handleCancelEdit();
@@ -628,7 +630,10 @@ export default function HorariosManager({ isEditPage = false }) {
             const applyRes = await fetch(`${API_BASE}/horario-final/apply-move`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
             });
-            if (applyRes.ok) await reloadAsignaciones();
+            if (applyRes.ok) {
+                setHasUnsavedChanges(true);
+                await reloadAsignaciones();
+            }
         } catch (err) {
             console.error('Move error:', err);
             setMoveConflicts({ conflicts: ['Error de conexión con el servidor'], warnings: [] });
@@ -642,7 +647,10 @@ export default function HorariosManager({ isEditPage = false }) {
             const res = await fetch(`${API_BASE}/horario-final/apply-move`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(swapConfirm.payload)
             });
-            if (res.ok) await reloadAsignaciones();
+            if (res.ok) {
+                setHasUnsavedChanges(true);
+                await reloadAsignaciones();
+            }
         } catch (err) { console.error(err); }
         setSwapConfirm(null);
     };
@@ -653,6 +661,7 @@ export default function HorariosManager({ isEditPage = false }) {
             await fetch(`${API_BASE}/horario-final/save-edits`, { method: 'POST' });
             setOriginalAsignaciones(null);
             setIsEditMode(false);
+            setHasUnsavedChanges(false);
         } catch (err) { console.error(err); }
         setIsSavingEdits(false);
     };
@@ -661,6 +670,7 @@ export default function HorariosManager({ isEditPage = false }) {
         if (originalAsignaciones) setAsignaciones(originalAsignaciones);
         setOriginalAsignaciones(null);
         setIsEditMode(false);
+        setHasUnsavedChanges(false);
         await reloadAsignaciones();
     };
 
@@ -684,9 +694,27 @@ export default function HorariosManager({ isEditPage = false }) {
 
     const normalize = (str) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
-    const filteredAsignaciones = asignaciones.filter(a =>
+    let filteredAsignaciones = asignaciones.filter(a =>
         a.seccion_id === selectedSeccion
     );
+
+    if (isEditMode) {
+        const splitAsig = [];
+        filteredAsignaciones.forEach(a => {
+            if (a.horas > 1) {
+                for (let i = 0; i < a.horas; i++) {
+                    splitAsig.push({
+                        ...a,
+                        slot_inicio: a.slot_inicio + i,
+                        horas: 1
+                    });
+                }
+            } else {
+                splitAsig.push({ ...a });
+            }
+        });
+        filteredAsignaciones = splitAsig;
+    }
 
     const secActual = secciones.find(s => `SEC_${s.id_seccion}` === selectedSeccion);
 
@@ -1325,9 +1353,9 @@ export default function HorariosManager({ isEditPage = false }) {
                                                                 </button>
                                                                 <button
                                                                     onClick={handleSaveEdits}
-                                                                    disabled={isSavingEdits}
+                                                                    disabled={isSavingEdits || !hasUnsavedChanges}
                                                                     title="Guardar el nuevo horario editado"
-                                                                    className={`h-[42px] px-3.5 flex items-center gap-2 bg-[var(--color-brand-primary)] text-white border border-transparent rounded-xl hover:brightness-90 font-black text-[12px] transition-all cursor-pointer shadow-md ${isSavingEdits ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                                    className={`h-[42px] px-3.5 flex items-center gap-2 bg-[var(--color-brand-primary)] text-white border border-transparent rounded-xl font-black text-[12px] transition-all shadow-md ${(isSavingEdits || !hasUnsavedChanges) ? 'opacity-50 cursor-not-allowed' : 'hover:brightness-90 cursor-pointer'}`}
                                                                 >
                                                                     {isSavingEdits ? (
                                                                         <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
