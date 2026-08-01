@@ -169,15 +169,7 @@ const ExcelImportPanel = ({ templateColumns, templateFileName, onImport, title =
                 className="hidden"
             />
 
-            {/* Resultado de importación */}
-            {importResult && (
-                <div className={`text-[12px] font-semibold p-3 rounded-xl border ${importResult.success
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                    : 'bg-red-50 text-red-600 border-red-200'
-                    }`}>
-                    {importResult.message}
-                </div>
-            )}
+            {/* El resultado ahora se muestra externamente mediante toasts o alertas */}
         </div>
     );
 };

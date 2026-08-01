@@ -98,6 +98,13 @@ export default function AreasManager() {
     const [editId, setEditId] = useState(null);
     const [guardando, setGuardando] = useState(false);
     const [formErrors, setFormErrors] = useState({});
+    const [deleteError, setDeleteError] = useState(null);
+    const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
+    const showToast = (message, type = 'success') => {
+        setToast({ show: true, message, type });
+        setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 4500);
+    };
 
     // Estado para modal de eliminar
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -212,15 +219,19 @@ export default function AreasManager() {
     const confirmarEliminacion = async () => {
         if (!areaToDelete) return;
         setEliminando(true);
+        setDeleteError(null);
         try {
             const res = await fetch(`${API_BASE}/areas/${areaToDelete.id_area}`, { method: 'DELETE' });
-            if (!res.ok) throw new Error('Error al eliminar');
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                throw new Error(errorData.detail || 'No se puede eliminar porque esta área está siendo usada.');
+            }
             setAreas(areas.filter(a => a.id_area !== areaToDelete.id_area));
             window.dispatchEvent(new Event('edusync_data_updated'));
             setIsDeleteModalOpen(false);
             setAreaToDelete(null);
         } catch (err) {
-            alert(`Error: ${err.message}`);
+            setDeleteError(err.message);
         } finally {
             setEliminando(false);
         }
@@ -299,6 +310,10 @@ export default function AreasManager() {
         let errores = 0;
         const erroresDetalle = [];
 
+        // Obtener cursos para no duplicar
+        const resCursos = await fetch(`${API_BASE}/cursos`);
+        const cursosList = resCursos.ok ? await resCursos.json() : [];
+
         for (const row of data) {
             const nombreCurso = String(row.nombre_curso || '').trim();
             const nombreArea = String(row.nombre_area || '').trim();
@@ -313,7 +328,8 @@ export default function AreasManager() {
             try {
                 // 1. Buscar o crear el área
                 let areaId = null;
-                const areaExistente = areas.find(a => a.nombre.toLowerCase() === nombreArea.toLowerCase());
+                const nombreAreaNorm = nombreArea.toLowerCase().replace(/\s+/g, ' ').trim();
+                const areaExistente = areas.find(a => a.nombre.toLowerCase().replace(/\s+/g, ' ').trim() === nombreAreaNorm);
 
                 if (areaExistente) {
                     areaId = areaExistente.id_area;
@@ -326,7 +342,6 @@ export default function AreasManager() {
                     if (resArea.ok) {
                         const newArea = await resArea.json();
                         areaId = newArea.id_area;
-                        // Actualizar lista local para evitar duplicados en el mismo batch
                         areas.push({ id_area: areaId, nombre: nombreArea, max_horas_dia: maxHoras });
                     } else {
                         errores++;
@@ -335,7 +350,14 @@ export default function AreasManager() {
                     }
                 }
 
-                // 2. Crear el curso
+                // 2. Crear el curso (verificar si ya existe)
+                const nombreCursoNorm = nombreCurso.toLowerCase().replace(/\s+/g, ' ').trim();
+                const cursoExistente = cursosList.find(c => c.nombre_curso.toLowerCase().replace(/\s+/g, ' ').trim() === nombreCursoNorm);
+
+                if (cursoExistente) {
+                    continue; // Ya existe, lo saltamos
+                }
+
                 const resCurso = await fetch(`${API_BASE}/cursos`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -347,6 +369,8 @@ export default function AreasManager() {
                 });
 
                 if (resCurso.ok) {
+                    const newCurso = await resCurso.json();
+                    cursosList.push(newCurso);
                     creados++;
                 } else {
                     errores++;
@@ -363,10 +387,11 @@ export default function AreasManager() {
         window.dispatchEvent(new Event('edusync_data_updated'));
 
         if (errores === 0) {
-            return { success: true, message: `Se importaron ${creados} cursos exitosamente.` };
+            showToast(`✅ Se importaron ${creados} cursos exitosamente.`, 'success');
         } else {
-            return { success: creados > 0, message: `Se importaron ${creados} cursos. ${errores} filas con errores.` };
+            showToast(`Se importaron ${creados} cursos. ${errores} filas no se pudieron cargar.`, creados > 0 ? 'success' : 'error');
         }
+        return { success: errores === 0, message: '' };
     };
 
     const areasExcelColumns = [
@@ -377,6 +402,13 @@ export default function AreasManager() {
 
     return (
         <div className="w-full animate-fade-in relative">
+            {toast.show && (
+                <div className={`fixed top-6 left-6 z-[9999] animate-fade-in flex items-center gap-3 px-5 py-3 rounded-2xl shadow-xl border ${toast.type === 'error' ? 'bg-red-500 text-white border-red-600' : 'bg-green-500 text-white border-green-600'}`}>
+                    {toast.type === 'error' && <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>}
+                    {toast.type === 'success' && <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                    <span className="font-bold text-sm">{toast.message}</span>
+                </div>
+            )}
             <div className="flex flex-col md:flex-row gap-6 min-h-[calc(100vh-144px)]">
 
                 {/* ===== LEFT SIDEBAR (1/4) ===== */}
@@ -594,9 +626,15 @@ export default function AreasManager() {
                         </div>
 
                         <h2 className="text-[20px] font-extrabold text-slate-800 mb-2">Eliminar Área</h2>
-                        <p className="text-slate-500 text-[14px] font-medium mb-8 leading-relaxed">
+                        <p className="text-slate-500 text-[14px] font-medium mb-6 leading-relaxed">
                             Estás a punto de eliminar el área <strong className="text-slate-700">"{areaToDelete.nombre}"</strong>. ¿Estás seguro?
                         </p>
+
+                        {deleteError && (
+                            <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl text-[13px] font-medium mb-6 text-left">
+                                {deleteError}
+                            </div>
+                        )}
 
                         <div className="flex items-center gap-3 w-full">
                             <button

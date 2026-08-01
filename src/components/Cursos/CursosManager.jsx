@@ -56,7 +56,7 @@ const CursoBookCard = ({ curso, area, onEdit, onDelete, index }) => {
 
                         <div className="flex-1 flex items-center justify-center w-full">
                             <h3
-                                className="text-[17px] md:text-xl font-black leading-snug drop-shadow-md px-1"
+                                className="text-[17px] md:text-lg font-black drop-shadow-md px-1"
                                 style={{ color: c.text }}
                             >
                                 {curso.nombre_curso}

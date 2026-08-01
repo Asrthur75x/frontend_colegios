@@ -198,6 +198,12 @@ export default function ProfesoresManager() {
     const ITEMS_PER_PAGE = 9;
     const [isSelectionMode, setIsSelectionMode] = useState(false);
     const [selectedIds, setSelectedIds] = useState([]);
+    const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
+    const showToast = (message, type = 'success') => {
+        setToast({ show: true, message, type });
+        setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 4500);
+    };
 
     // Delete Modal State
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -994,8 +1000,10 @@ export default function ProfesoresManager() {
                 continue;
             }
 
-            // Verificar si ya existe un profesor con el mismo nombre
-            const yaExiste = profesores.some(p => p.nombre_profesor.toLowerCase() === nombre.toLowerCase());
+            // Verificar si ya existe un profesor con el mismo nombre (ignorando mayúsculas y espacios extra)
+            const nombreNormalizado = nombre.toLowerCase().replace(/\s+/g, ' ').trim();
+            const yaExiste = profesores.some(p => p.nombre_profesor.toLowerCase().replace(/\s+/g, ' ').trim() === nombreNormalizado);
+            
             if (yaExiste) {
                 continue; // Saltar sin contar como error
             }
@@ -1023,10 +1031,11 @@ export default function ProfesoresManager() {
         window.dispatchEvent(new Event('edusync_data_updated'));
 
         if (errores === 0) {
-            return { success: true, message: `✅ Se importaron ${creados} docentes exitosamente.` };
+            showToast(`✅ Se importaron ${creados} docentes exitosamente.`, 'success');
         } else {
-            return { success: creados > 0, message: `Se importaron ${creados} docentes. ${errores} filas con errores.` };
+            showToast(`Se importaron ${creados} docentes. ${errores} filas no se pudieron cargar.`, creados > 0 ? 'success' : 'error');
         }
+        return { success: errores === 0, message: '' };
     };
 
     const profesoresExcelColumns = [
@@ -1037,6 +1046,13 @@ export default function ProfesoresManager() {
 
     return (
         <div className="w-full animate-fade-in relative">
+            {toast.show && (
+                <div className={`fixed top-6 left-6 z-[9999] animate-fade-in flex items-center gap-3 px-5 py-3 rounded-2xl shadow-xl border ${toast.type === 'error' ? 'bg-red-500 text-white border-red-600' : 'bg-green-500 text-white border-green-600'}`}>
+                    {toast.type === 'error' && <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>}
+                    {toast.type === 'success' && <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                    <span className="font-bold text-sm">{toast.message}</span>
+                </div>
+            )}
             <div className="flex flex-col md:flex-row gap-6 min-h-[calc(100vh-144px)]">
                 <ModuleSidebar
                     title="Gestión de Docentes"
