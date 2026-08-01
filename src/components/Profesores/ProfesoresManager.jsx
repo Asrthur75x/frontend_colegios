@@ -1047,10 +1047,21 @@ export default function ProfesoresManager() {
     return (
         <div className="w-full animate-fade-in relative">
             {toast.show && (
-                <div className={`fixed top-6 left-6 z-[9999] animate-fade-in flex items-center gap-3 px-5 py-3 rounded-2xl shadow-xl border ${toast.type === 'error' ? 'bg-red-500 text-white border-red-600' : 'bg-green-500 text-white border-green-600'}`}>
-                    {toast.type === 'error' && <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>}
-                    {toast.type === 'success' && <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-                    <span className="font-bold text-sm">{toast.message}</span>
+                <div
+                    className="fixed top-24 right-8 z-[200] px-5 py-3 rounded-2xl shadow-lg border text-[14px] font-bold flex items-center gap-2.5"
+                    style={{
+                        backgroundColor: toast.type === 'error' ? '#fef2f2' : '#f0fdf4',
+                        borderColor: toast.type === 'error' ? '#fca5a5' : '#86efac',
+                        color: toast.type === 'error' ? '#dc2626' : '#16a34a',
+                        animation: 'slideInRight 0.3s ease-out'
+                    }}
+                >
+                    {toast.type === 'error' ? (
+                        <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>
+                    ) : (
+                        <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><path d="M22 4L12 14.01l-3-3" /></svg>
+                    )}
+                    {toast.message}
                 </div>
             )}
             <div className="flex flex-col md:flex-row gap-6 min-h-[calc(100vh-144px)]">
