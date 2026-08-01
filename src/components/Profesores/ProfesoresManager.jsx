@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ModuleSidebar from '../Shared/ModuleSidebar';
-import ExcelImportPanel from '../Shared/ExcelImportPanel';
 
 const API_BASE = 'http://localhost:8000/api';
 const TOTAL_DISPONIBILIDAD_KEY = 'horavlep_profesores_disponibilidad_total';
@@ -985,64 +984,19 @@ export default function ProfesoresManager() {
         }
     };
 
+    // --- Calculos para el resumen ---
+    const profesIncompletosList = profesores.filter(prof => {
+        const hasGrados = gradoProfesores.some(x => x.id_profesor === prof.id_profesor);
+        const hasCursos = profesorCursos.some(x => x.id_profesor === prof.id_profesor);
+        const hasDisponibilidad = disponibilidadTotalIds.includes(Number(prof.id_profesor))
+            || disponibilidades.some(x => Number(x.id_profesor) === Number(prof.id_profesor));
+        return !hasGrados || !hasCursos || !hasDisponibilidad;
+    });
 
-    // ── Importar Profesores desde Excel ──
-    const handleImportProfesores = async (data) => {
-        let creados = 0;
-        let errores = 0;
-
-        for (const row of data) {
-            const nombre = String(row.nombre_profesor || '').trim();
-            const horasMin = parseInt(row.horas_minimas) || 0;
-
-            if (!nombre) {
-                errores++;
-                continue;
-            }
-
-            // Verificar si ya existe un profesor con el mismo nombre (ignorando mayúsculas y espacios extra)
-            const nombreNormalizado = nombre.toLowerCase().replace(/\s+/g, ' ').trim();
-            const yaExiste = profesores.some(p => p.nombre_profesor.toLowerCase().replace(/\s+/g, ' ').trim() === nombreNormalizado);
-            
-            if (yaExiste) {
-                continue; // Saltar sin contar como error
-            }
-
-            try {
-                const res = await fetch(`${API_BASE}/profesores`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nombre_profesor: nombre, horas_minimas: horasMin })
-                });
-
-                if (res.ok) {
-                    const newProf = await res.json();
-                    profesores.push(newProf);
-                    creados++;
-                } else {
-                    errores++;
-                }
-            } catch (err) {
-                errores++;
-            }
-        }
-
-        await fetchDatos();
-        window.dispatchEvent(new Event('edusync_data_updated'));
-
-        if (errores === 0) {
-            showToast(`✅ Se importaron ${creados} docentes exitosamente.`, 'success');
-        } else {
-            showToast(`Se importaron ${creados} docentes. ${errores} filas no se pudieron cargar.`, creados > 0 ? 'success' : 'error');
-        }
-        return { success: errores === 0, message: '' };
-    };
-
-    const profesoresExcelColumns = [
-        { header: 'Nombre Completo', example: 'Juan Carlos Pérez', key: 'nombre_profesor' },
-        { header: 'Horas Mínimas Semanales', example: 20, key: 'horas_minimas' }
-    ];
-
+    const profesSinCursosList = profesores.filter(prof => !profesorCursos.some(x => x.id_profesor === prof.id_profesor));
+    
+    // Si faltan pocos (ej. 3 o menos) mostramos sus nombres. Si faltan muchos, solo el número.
+    const MAX_SHOW_NAMES = 3;
 
     return (
         <div className="w-full animate-fade-in relative">
@@ -1072,12 +1026,70 @@ export default function ProfesoresManager() {
                     addButtonText="Añadir Nuevo Docente"
                     svgImage="/profe.svg"
                 >
-                    <ExcelImportPanel
-                        templateColumns={profesoresExcelColumns}
-                        templateFileName="plantilla_docentes.xlsx"
-                        onImport={handleImportProfesores}
-                        title="Subir varios desde Excel"
-                    />
+                    {/* Resumen de Estado */}
+                    {profesores.length > 0 && (
+                        <div className="bg-white rounded-[20px] border border-slate-100 p-5 mt-2 shadow-sm flex flex-col gap-4">
+                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Estado de Completitud</h3>
+                            
+                            <div className="flex flex-col gap-2">
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${profesIncompletosList.length === 0 ? 'bg-green-50 text-green-500' : 'bg-amber-50 text-amber-500'}`}>
+                                        {profesIncompletosList.length === 0 
+                                            ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>
+                                            : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                                        }
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="flex items-center justify-between">
+                                            <p className="text-[13px] font-bold text-slate-700">Faltan Datos</p>
+                                            <span className={`text-sm font-black ${profesIncompletosList.length === 0 ? 'text-green-500' : 'text-slate-800'}`}>
+                                                {profesIncompletosList.length === 0 ? '¡Listo!' : profesIncompletosList.length}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                {profesIncompletosList.length > 0 && profesIncompletosList.length <= MAX_SHOW_NAMES && (
+                                    <div className="ml-11 mt-1 flex flex-wrap gap-1">
+                                        {profesIncompletosList.map(p => (
+                                            <span key={p.id_profesor} className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full truncate max-w-full">
+                                                {p.nombre_profesor}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="h-px w-full bg-slate-100"></div>
+
+                            <div className="flex flex-col gap-2">
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${profesSinCursosList.length === 0 ? 'bg-green-50 text-green-500' : 'bg-blue-50 text-blue-500'}`}>
+                                        {profesSinCursosList.length === 0
+                                            ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>
+                                            : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                                        }
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="flex items-center justify-between">
+                                            <p className="text-[13px] font-bold text-slate-700">Sin Cursos</p>
+                                            <span className={`text-sm font-black ${profesSinCursosList.length === 0 ? 'text-green-500' : 'text-slate-800'}`}>
+                                                {profesSinCursosList.length === 0 ? '¡Listo!' : profesSinCursosList.length}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                {profesSinCursosList.length > 0 && profesSinCursosList.length <= MAX_SHOW_NAMES && (
+                                    <div className="ml-11 mt-1 flex flex-wrap gap-1">
+                                        {profesSinCursosList.map(p => (
+                                            <span key={p.id_profesor} className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full truncate max-w-full">
+                                                {p.nombre_profesor}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </ModuleSidebar>
 
                 <main className="md:w-3/4 flex flex-col gap-5 min-w-0">

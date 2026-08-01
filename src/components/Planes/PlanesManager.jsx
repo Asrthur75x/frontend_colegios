@@ -117,6 +117,14 @@ export default function PlanesManager() {
     // Para edición individual
     const [nuevoPlan, setNuevoPlan] = useState({ id_grado: '', id_curso: '', horas_semanales: '' });
 
+    // Para eliminación individual
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [planToDelete, setPlanToDelete] = useState(null);
+    const [isGradoDeleteModalOpen, setIsGradoDeleteModalOpen] = useState(false);
+    const [gradoToDelete, setGradoToDelete] = useState(null);
+    const [eliminando, setEliminando] = useState(false);
+    const [deleteError, setDeleteError] = useState(null);
+
     const fetchDatos = async (signal) => {
         try {
             setLoading(true);
@@ -187,18 +195,28 @@ export default function PlanesManager() {
         return planesGrado.reduce((sum, p) => sum + (p.horas_semanales || 0), 0);
     };
 
-    const vaciarMallaGrado = async (id_grado) => {
-        if (window.confirm("¿Estás seguro de que quieres eliminar TODA la malla de este grado?")) {
-            try {
-                const planesDelGrado = planes.filter(p => p.id_grado === id_grado);
-                for (const plan of planesDelGrado) {
-                    await fetch(`${API_BASE}/planes/${plan.id_plan}`, { method: 'DELETE' });
-                }
-                setPlanes(planes.filter(p => p.id_grado !== id_grado));
-                window.dispatchEvent(new CustomEvent('edusync_data_updated'));
-            } catch {
-                showToast("Error al vaciar la malla");
+    const handleOpenVaciarMallaModal = (id_grado) => {
+        setGradoToDelete(id_grado);
+        setIsGradoDeleteModalOpen(true);
+    };
+
+    const confirmarVaciarMallaGrado = async () => {
+        if (!gradoToDelete) return;
+        setEliminando(true);
+        try {
+            const planesDelGrado = planes.filter(p => p.id_grado === gradoToDelete);
+            for (const plan of planesDelGrado) {
+                await fetch(`${API_BASE}/planes/${plan.id_plan}`, { method: 'DELETE' });
             }
+            setPlanes(planes.filter(p => p.id_grado !== gradoToDelete));
+            window.dispatchEvent(new CustomEvent('edusync_data_updated'));
+            setIsGradoDeleteModalOpen(false);
+            setGradoToDelete(null);
+            showToast("Malla eliminada correctamente");
+        } catch {
+            showToast("Error al vaciar la malla");
+        } finally {
+            setEliminando(false);
         }
     };
 
@@ -273,15 +291,31 @@ export default function PlanesManager() {
         setCurrentView('form');
     };
 
-    const eliminarPlan = async (id) => {
-        if (window.confirm("¿Seguro que deseas eliminar este registro del plan de estudio?")) {
-            try {
-                await fetch(`${API_BASE}/planes/${id}`, { method: 'DELETE' });
-                setPlanes(planes.filter(p => p.id_plan !== id));
-                window.dispatchEvent(new CustomEvent('edusync_data_updated'));
-            } catch {
-                showToast("Error al eliminar");
+    const eliminarPlan = (id) => {
+        const planObj = planes.find(p => p.id_plan === id);
+        setPlanToDelete(planObj);
+        setIsDeleteModalOpen(true);
+    };
+
+    const confirmarEliminacion = async () => {
+        if (!planToDelete) return;
+        setEliminando(true);
+        setDeleteError(null);
+        try {
+            const res = await fetch(`${API_BASE}/planes/${planToDelete.id_plan}`, { method: 'DELETE' });
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                throw new Error(errorData.detail || 'Error al eliminar');
             }
+            setPlanes(planes.filter(p => p.id_plan !== planToDelete.id_plan));
+            window.dispatchEvent(new CustomEvent('edusync_data_updated'));
+            setIsDeleteModalOpen(false);
+            setPlanToDelete(null);
+            showToast("Plan de estudio eliminado", "success");
+        } catch (err) {
+            setDeleteError(err.message);
+        } finally {
+            setEliminando(false);
         }
     };
 
@@ -483,7 +517,7 @@ export default function PlanesManager() {
                                                             </button>
                                                             {grado.planes.length > 0 && (
                                                                 <button
-                                                                    onClick={() => vaciarMallaGrado(grado.id_grado)}
+                                                                    onClick={() => handleOpenVaciarMallaModal(grado.id_grado)}
                                                                     className="cursor-pointer text-[11px] font-bold text-slate-500 hover:text-red-500 bg-slate-100 hover:bg-red-50 rounded-lg border border-slate-200 hover:border-red-200 transition-colors px-2 py-1 flex items-center gap-1 shadow-sm"
                                                                 >
                                                                     <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
@@ -961,8 +995,100 @@ export default function PlanesManager() {
                                 <button type="submit" disabled={guardando} className="cursor-pointer flex-1 py-3 text-white text-sm font-bold rounded-xl transition-all bg-[var(--color-brand-primary)] hover:bg-[var(--color-brand-dark)]">{guardando ? 'Guardando...' : 'Guardar Cambios'}</button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
 
-                            /* PASO 1 y 2: STEPPER */
+            {/* Modal Confirmación de Eliminar */}
+            {isDeleteModalOpen && planToDelete && (
+                <div className="fixed inset-0 z-[999] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm animate-fade-in p-4">
+                    <div
+                        className="bg-white rounded-3xl shadow-2xl w-full max-w-[340px] overflow-hidden transform animate-slide-up p-8 text-center"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Icono de advertencia */}
+                        <div className="w-14 h-14 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="#f43f5e" strokeWidth="2.5">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                        </div>
+
+                        <h2 className="text-[20px] font-extrabold text-slate-800 mb-2">Eliminar Registro</h2>
+                        <p className="text-slate-500 text-[14px] font-medium mb-6 leading-relaxed">
+                            Estás a punto de eliminar este curso del plan de estudio. ¿Estás seguro?
+                        </p>
+
+                        {deleteError && (
+                            <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl text-[13px] font-medium mb-6 text-left">
+                                {deleteError}
+                            </div>
+                        )}
+
+                        <div className="flex items-center gap-3 w-full">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setIsDeleteModalOpen(false);
+                                    setPlanToDelete(null);
+                                }}
+                                disabled={eliminando}
+                                className="cursor-pointer flex-1 py-3 text-[13px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full transition-all disabled:opacity-50"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="button"
+                                onClick={confirmarEliminacion}
+                                disabled={eliminando}
+                                className="cursor-pointer flex-1 py-3 bg-[#f43f5e] hover:bg-[#e11d48] text-white text-[13px] font-bold rounded-full shadow-[0_4px_12px_rgba(244,63,94,0.3)] hover:shadow-[0_6px_16px_rgba(244,63,94,0.4)] transition-all flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {eliminando ? 'Eliminando...' : 'Eliminar'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Confirmación de Vaciar Malla */}
+            {isGradoDeleteModalOpen && gradoToDelete && (
+                <div className="fixed inset-0 z-[999] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm animate-fade-in p-4">
+                    <div
+                        className="bg-white rounded-3xl shadow-2xl w-full max-w-[340px] overflow-hidden transform animate-slide-up p-8 text-center"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Icono de advertencia */}
+                        <div className="w-14 h-14 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="#f43f5e" strokeWidth="2.5">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                        </div>
+
+                        <h2 className="text-[20px] font-extrabold text-slate-800 mb-2">Vaciar Malla</h2>
+                        <p className="text-slate-500 text-[14px] font-medium mb-6 leading-relaxed">
+                            ¿Estás seguro de que quieres eliminar TODA la malla de este grado? Esta acción no se puede deshacer.
+                        </p>
+
+                        <div className="flex items-center gap-3 w-full">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setIsGradoDeleteModalOpen(false);
+                                    setGradoToDelete(null);
+                                }}
+                                disabled={eliminando}
+                                className="cursor-pointer flex-1 py-3 text-[13px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full transition-all disabled:opacity-50"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="button"
+                                onClick={confirmarVaciarMallaGrado}
+                                disabled={eliminando}
+                                className="cursor-pointer flex-1 py-3 bg-[#f43f5e] hover:bg-[#e11d48] text-white text-[13px] font-bold rounded-full shadow-[0_4px_12px_rgba(244,63,94,0.3)] hover:shadow-[0_6px_16px_rgba(244,63,94,0.4)] transition-all flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {eliminando ? 'Vaciando...' : 'Vaciar Malla'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

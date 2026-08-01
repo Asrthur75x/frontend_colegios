@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import ModuleSidebar from '../Shared/ModuleSidebar';
 import ExcelImportPanel from '../Shared/ExcelImportPanel';
+import * as XLSX from 'xlsx';
 
 const API_BASE = 'http://localhost:8000/api';
 
@@ -17,16 +18,17 @@ const FOLDER_COLORS = [
 ];
 
 // --- Componente Tarjeta Carpeta (Ticket Style) ---
-const AreaFolderCard = ({ area, onEdit, onDelete, index }) => {
+const AreaFolderCard = ({ area, onEdit, onDelete, index, isSelected, onToggleSelect, isSelectionMode }) => {
     // Determinar color en base al índice o ID
     const colorIdx = (index !== undefined ? index : (area.id_area || 0)) % FOLDER_COLORS.length;
     const color = FOLDER_COLORS[colorIdx];
 
     return (
         <div
-            className="relative w-full rounded-[20px] shadow-sm border border-slate-100 overflow-hidden flex flex-col bg-white hover:shadow-md hover:-translate-y-1 transition-all duration-300 group"
-            onClick={() => onEdit(area)}
+            className={`relative w-full rounded-[20px] cursor-pointer shadow-sm border overflow-hidden flex flex-col hover:shadow-md hover:-translate-y-1 transition-all duration-300 group ${isSelected ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-light)]/20 ring-4 ring-[var(--color-brand-primary)]/30' : 'border-slate-100 bg-white'}`}
+            onClick={() => isSelectionMode ? onToggleSelect(area.id_area) : onEdit(area)}
         >
+
             {/* Top part (Solid color, decorative) */}
             <div
                 className="h-8 w-full"
@@ -35,6 +37,18 @@ const AreaFolderCard = ({ area, onEdit, onDelete, index }) => {
 
             {/* Bottom part (White bg) */}
             <div className="px-6 py-5 flex flex-col relative z-0 bg-white rounded-t-[20px] -mt-4">
+
+                {/* Checkbox de selección múltiple */}
+                {isSelectionMode && (
+                    <div
+                        className="absolute top-5 right-5 z-50 cursor-pointer"
+                        onClick={(e) => { e.stopPropagation(); onToggleSelect(area.id_area); }}
+                    >
+                        <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-all border-2 shadow-sm ${isSelected ? 'bg-[var(--color-brand-primary)] border-[var(--color-brand-primary)] text-white' : 'bg-white border-slate-300 hover:border-[var(--color-brand-primary)]'}`}>
+                            {isSelected && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>}
+                        </div>
+                    </div>
+                )}
 
                 {/* Title */}
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
@@ -108,8 +122,12 @@ export default function AreasManager() {
 
     // Estado para modal de eliminar
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const [areaToDelete, setAreaToDelete] = useState(null);
+    const [itemsToDelete, setItemsToDelete] = useState([]);
     const [eliminando, setEliminando] = useState(false);
+
+    // Selección múltiple
+    const [isSelectionMode, setIsSelectionMode] = useState(false);
+    const [selectedIds, setSelectedIds] = useState([]);
 
     const [nuevaArea, setNuevaArea] = useState({
         nombre: '',
@@ -211,25 +229,45 @@ export default function AreasManager() {
 
     // ── Preparar Eliminación (Abrir Modal) ──
     const eliminarArea = (area) => {
-        setAreaToDelete(area);
+        setItemsToDelete([area.id_area]);
+        setDeleteError(null);
         setIsDeleteModalOpen(true);
+    };
+
+    const openDeleteModal = (ids) => {
+        setItemsToDelete(ids);
+        setDeleteError(null);
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleToggleSelect = (id) => {
+        setSelectedIds(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]);
     };
 
     // ── Ejecutar Eliminación (DELETE endpoint) ──
     const confirmarEliminacion = async () => {
-        if (!areaToDelete) return;
+        if (!itemsToDelete || itemsToDelete.length === 0) return;
         setEliminando(true);
         setDeleteError(null);
         try {
-            const res = await fetch(`${API_BASE}/areas/${areaToDelete.id_area}`, { method: 'DELETE' });
-            if (!res.ok) {
-                const errorData = await res.json().catch(() => ({}));
-                throw new Error(errorData.detail || 'No se puede eliminar porque esta área está siendo usada.');
+            let errorMsg = null;
+            for (let id of itemsToDelete) {
+                const res = await fetch(`${API_BASE}/areas/${id}`, { method: 'DELETE' });
+                if (!res.ok) {
+                    try {
+                        const errorData = await res.json();
+                        errorMsg = errorData.detail || errorData.message || 'No se puede eliminar porque esta área está siendo usada.';
+                    } catch (e) {
+                        errorMsg = 'No se puede eliminar porque esta área está siendo usada.';
+                    }
+                    throw new Error(errorMsg);
+                }
             }
-            setAreas(areas.filter(a => a.id_area !== areaToDelete.id_area));
+            setAreas(areas.filter(a => !itemsToDelete.includes(a.id_area)));
+            setSelectedIds(prev => prev.filter(id => !itemsToDelete.includes(id)));
             window.dispatchEvent(new Event('edusync_data_updated'));
             setIsDeleteModalOpen(false);
-            setAreaToDelete(null);
+            setItemsToDelete([]);
         } catch (err) {
             setDeleteError(err.message);
         } finally {
@@ -304,20 +342,19 @@ export default function AreasManager() {
         }
     };
 
-    // ── Importar desde Excel ──
-    const handleImportExcel = async (data) => {
+    // ── Helpers de normalización ──
+    const norm = (str) => String(str || '').toLowerCase().replace(/\s+/g, ' ').trim();
+
+    // ── Importar desde Excel (Hoja 1: Áreas y Cursos) ──
+    const importarAreasYCursos = async (data, areasLocal, cursosList) => {
         let creados = 0;
         let errores = 0;
         const erroresDetalle = [];
 
-        // Obtener cursos para no duplicar
-        const resCursos = await fetch(`${API_BASE}/cursos`);
-        const cursosList = resCursos.ok ? await resCursos.json() : [];
-
         for (const row of data) {
-            const nombreCurso = String(row.nombre_curso || '').trim();
-            const nombreArea = String(row.nombre_area || '').trim();
-            const maxHoras = parseInt(row.max_horas_dia) || 2;
+            const nombreCurso = String(row['Nombre del Curso'] || '').trim();
+            const nombreArea = String(row['Área'] || '').trim();
+            const maxHoras = parseInt(row['Horas Máximas Diarias del Área']) || 2;
 
             if (!nombreCurso || !nombreArea) {
                 errores++;
@@ -328,8 +365,7 @@ export default function AreasManager() {
             try {
                 // 1. Buscar o crear el área
                 let areaId = null;
-                const nombreAreaNorm = nombreArea.toLowerCase().replace(/\s+/g, ' ').trim();
-                const areaExistente = areas.find(a => a.nombre.toLowerCase().replace(/\s+/g, ' ').trim() === nombreAreaNorm);
+                const areaExistente = areasLocal.find(a => norm(a.nombre) === norm(nombreArea));
 
                 if (areaExistente) {
                     areaId = areaExistente.id_area;
@@ -342,7 +378,7 @@ export default function AreasManager() {
                     if (resArea.ok) {
                         const newArea = await resArea.json();
                         areaId = newArea.id_area;
-                        areas.push({ id_area: areaId, nombre: nombreArea, max_horas_dia: maxHoras });
+                        areasLocal.push({ id_area: areaId, nombre: nombreArea, max_horas_dia: maxHoras });
                     } else {
                         errores++;
                         erroresDetalle.push(`Error creando área "${nombreArea}"`);
@@ -351,8 +387,7 @@ export default function AreasManager() {
                 }
 
                 // 2. Crear el curso (verificar si ya existe)
-                const nombreCursoNorm = nombreCurso.toLowerCase().replace(/\s+/g, ' ').trim();
-                const cursoExistente = cursosList.find(c => c.nombre_curso.toLowerCase().replace(/\s+/g, ' ').trim() === nombreCursoNorm);
+                const cursoExistente = cursosList.find(c => norm(c.nombre_curso) === norm(nombreCurso));
 
                 if (cursoExistente) {
                     continue; // Ya existe, lo saltamos
@@ -382,16 +417,360 @@ export default function AreasManager() {
             }
         }
 
+        return { creados, errores, erroresDetalle };
+    };
+
+    // ── Importar Docentes (Hoja 2) ──
+    const importarDocentes = async (data, sedesList, gradosList, cursosList) => {
+        let creados = 0;
+        let errores = 0;
+        const erroresDetalle = [];
+
+        // Cargar relaciones existentes para no duplicar
+        const resProfesores = await fetch(`${API_BASE}/profesores`);
+        const profesoresExistentes = resProfesores.ok ? await resProfesores.json() : [];
+        const resPC = await fetch(`${API_BASE}/profesor-curso`);
+        const profCursosExistentes = resPC.ok ? await resPC.json() : [];
+        const resPS = await fetch(`${API_BASE}/profesor-sedes`);
+        const profSedesExistentes = resPS.ok ? await resPS.json() : [];
+        const resGP = await fetch(`${API_BASE}/grado-profesor`);
+        const gradoProfExistentes = resGP.ok ? await resGP.json() : [];
+
+        for (const row of data) {
+            const nombreProf = String(row['Nombre Completo del Docente'] || '').trim();
+            if (!nombreProf) {
+                errores++;
+                erroresDetalle.push('Fila sin nombre de docente');
+                continue;
+            }
+
+            const sedesTexto = String(row['Sedes (separar con coma)'] || '').trim();
+            const gradosTexto = String(row['Grados (separar con coma)'] || '').trim();
+            const cursosTexto = String(row['Cursos que Dicta (separar con coma)'] || '').trim();
+
+            try {
+                // ── PASO 1: Crear perfil del profesor (si no existe) ──
+                let profExistente = profesoresExistentes.find(p => norm(p.nombre_profesor) === norm(nombreProf));
+                let profId;
+
+                if (profExistente) {
+                    profId = profExistente.id_profesor;
+                } else {
+                    const resProf = await fetch(`${API_BASE}/profesores`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ nombre_profesor: nombreProf, horas_minimas: 0 })
+                    });
+                    if (!resProf.ok) {
+                        errores++;
+                        erroresDetalle.push(`Error creando docente "${nombreProf}"`);
+                        continue;
+                    }
+                    const newProf = await resProf.json();
+                    profId = newProf.id_profesor;
+                    profesoresExistentes.push(newProf);
+                }
+
+                // ── PASO 2: Vincular Sedes y Grados (Alcance Académico) ──
+                if (sedesTexto) {
+                    const sedesNombres = sedesTexto.split(',').map(s => s.trim()).filter(Boolean);
+                    for (const sedeNombre of sedesNombres) {
+                        const sedeMatch = sedesList.find(s => norm(s.nombre_sede || s.nombre) === norm(sedeNombre));
+                        if (!sedeMatch) {
+                            erroresDetalle.push(`Docente "${nombreProf}": Sede "${sedeNombre}" no encontrada en el sistema.`);
+                            continue;
+                        }
+                        // Verificar si ya tiene esta sede asignada
+                        const yaAsignada = profSedesExistentes.some(ps => ps.id_profesor === profId && ps.id_sede === sedeMatch.id_sede);
+                        if (!yaAsignada) {
+                            const res = await fetch(`${API_BASE}/profesor-sedes`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ id_profesor: profId, id_sede: sedeMatch.id_sede })
+                            });
+                            if (res.ok) {
+                                const newRel = await res.json();
+                                profSedesExistentes.push(newRel);
+                            }
+                        }
+                    }
+                }
+
+                if (gradosTexto) {
+                    const gradosNombres = gradosTexto.split(',').map(s => s.trim()).filter(Boolean);
+                    for (const gradoNombre of gradosNombres) {
+                        // Buscar por número o por nombre normalizado
+                        const gradoMatch = gradosList.find(g => {
+                            const numStr = String(g.numero);
+                            const nombreCheck = norm(gradoNombre);
+                            return numStr === nombreCheck || norm(`Grado ${g.numero}`) === nombreCheck || norm(`${g.numero}`) === nombreCheck;
+                        });
+                        if (!gradoMatch) {
+                            erroresDetalle.push(`Docente "${nombreProf}": Grado "${gradoNombre}" no encontrado en el sistema.`);
+                            continue;
+                        }
+                        const yaAsignado = gradoProfExistentes.some(gp => gp.id_profesor === profId && gp.id_grado === gradoMatch.id_grado);
+                        if (!yaAsignado) {
+                            const res = await fetch(`${API_BASE}/grado-profesor`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ id_profesor: profId, id_grado: gradoMatch.id_grado })
+                            });
+                            if (res.ok) {
+                                const newRel = await res.json();
+                                gradoProfExistentes.push(newRel);
+                            }
+                        }
+                    }
+                }
+
+                // ── PASO 3: Vincular Cursos (Carga Académica) ──
+                if (cursosTexto) {
+                    const cursosNombres = cursosTexto.split(',').map(s => s.trim()).filter(Boolean);
+                    for (const cursoNombre of cursosNombres) {
+                        const cursoMatch = cursosList.find(c => norm(c.nombre_curso) === norm(cursoNombre));
+                        if (!cursoMatch) {
+                            erroresDetalle.push(`Docente "${nombreProf}": Curso "${cursoNombre}" no encontrado. Verifica que esté en la hoja de Áreas y Cursos.`);
+                            continue;
+                        }
+                        const yaAsignado = profCursosExistentes.some(pc => pc.id_profesor === profId && pc.id_curso === cursoMatch.id_curso);
+                        if (!yaAsignado) {
+                            const res = await fetch(`${API_BASE}/profesor-curso`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ id_profesor: profId, id_curso: cursoMatch.id_curso })
+                            });
+                            if (res.ok) {
+                                const newRel = await res.json();
+                                profCursosExistentes.push(newRel);
+                            }
+                        }
+                    }
+                }
+
+                creados++;
+            } catch (err) {
+                errores++;
+                erroresDetalle.push(`Error procesando "${nombreProf}": ${err.message}`);
+            }
+        }
+
+        return { creados, errores, erroresDetalle };
+    };
+
+    // ── Generar Plantilla Personalizada (Multi-hoja con instrucciones y catálogos) ──
+    const generarPlantillaPersonalizada = async () => {
+        // Cargar datos del sistema para los catálogos
+        let sedesList = [], gradosList = [], cursosList = [];
+        try {
+            const [resSedes, resGrados, resCursos] = await Promise.all([
+                fetch(`${API_BASE}/sedes`).catch(() => ({ ok: false })),
+                fetch(`${API_BASE}/grados`).catch(() => ({ ok: false })),
+                fetch(`${API_BASE}/cursos`).catch(() => ({ ok: false })),
+            ]);
+            sedesList = resSedes.ok ? await resSedes.json() : [];
+            gradosList = resGrados.ok ? await resGrados.json() : [];
+            cursosList = resCursos.ok ? await resCursos.json() : [];
+        } catch (e) { /* silencioso */ }
+
+        const wb = XLSX.utils.book_new();
+
+        // ═══════════════════════════════════════════
+        // HOJA 1: Áreas y Cursos
+        // ═══════════════════════════════════════════
+        const hoja1Data = [
+            ['Nombre del Curso', 'Área', 'Horas Máximas Diarias del Área'],
+            ['Razonamiento Matemático', 'Matemáticas', 2],
+            ['Álgebra', 'Matemáticas', 2],
+            ['Comunicación', 'Lenguaje', 3],
+            [],
+            ['═══════════════════════════════════════════════════════════════════════════════'],
+            ['INSTRUCCIONES PARA ESTA HOJA (borra estas filas y los ejemplos antes de subir)'],
+            ['═══════════════════════════════════════════════════════════════════════════════'],
+            [],
+            ['PASO 1: Borra las filas de ejemplo de arriba (filas 2, 3 y 4).'],
+            ['PASO 2: Escribe el nombre de cada curso en la columna A.'],
+            ['PASO 3: En la columna B, escribe el nombre del área a la que pertenece.'],
+            ['        → Si el área no existe, el sistema la creará automáticamente.'],
+            ['        → Si el área ya existe, solo se asociará el curso a ella.'],
+            ['PASO 4: En la columna C, pon el máximo de horas diarias de esa área (ej. 2).'],
+            ['        → Este valor solo se usa cuando se crea un área nueva.'],
+            [],
+            ['EJEMPLO: Si pones "Álgebra" en la columna A y "Matemáticas" en B,'],
+            ['         el sistema creará el curso Álgebra dentro del área Matemáticas.'],
+        ];
+        const ws1 = XLSX.utils.aoa_to_sheet(hoja1Data);
+        ws1['!cols'] = [{ wch: 45 }, { wch: 35 }, { wch: 35 }];
+        XLSX.utils.book_append_sheet(wb, ws1, 'Áreas y Cursos');
+
+        // ═══════════════════════════════════════════
+        // HOJA 2: Docentes
+        // ═══════════════════════════════════════════
+        // Generar ejemplos dinámicos con datos reales del sistema
+        const ejemploSedes = sedesList.length > 0
+            ? sedesList.slice(0, 2).map(s => s.nombre_sede || s.nombre).join(', ')
+            : 'Sede Central, Sede Norte';
+        const ejemploGrados = gradosList.length > 0
+            ? gradosList.slice(0, 3).map(g => g.numero).join(', ')
+            : '1, 2, 3';
+        const ejemploCursos = cursosList.length > 0
+            ? cursosList.slice(0, 2).map(c => c.nombre_curso).join(', ')
+            : 'Álgebra, Comunicación';
+
+        const hoja2Data = [
+            ['Nombre Completo del Docente', 'Sedes (separar con coma)', 'Grados (separar con coma)', 'Cursos que Dicta (separar con coma)'],
+            ['Juan Pérez García', ejemploSedes, ejemploGrados, ejemploCursos],
+            [],
+            ['══════════════════════════════════════════════════════════════════════════════════════════════════════'],
+            ['⚠️  INSTRUCCIONES IMPORTANTES — Lee antes de llenar (borra estas filas y el ejemplo antes de subir)'],
+            ['══════════════════════════════════════════════════════════════════════════════════════════════════════'],
+            [],
+            ['⚠️  REGLA PRINCIPAL: Esta hoja NO crea sedes, grados ni cursos nuevos.'],
+            ['    Solo VINCULA docentes con datos que YA EXISTEN en el sistema.'],
+            ['    Ve a la pestaña "Catálogos (Referencia)" para ver los datos disponibles.'],
+            [],
+            ['PASO 1: Borra la fila de ejemplo (fila 2).'],
+            [],
+            ['PASO 2: Columna A → Nombre completo del docente.'],
+            ['        • Si el docente ya existe en el sistema, se actualizarán sus datos.'],
+            ['        • Si no existe, se creará automáticamente.'],
+            [],
+            ['PASO 3: Columna B → Sedes donde enseña el docente.'],
+            ['        • Copia los nombres EXACTOS de la pestaña "Catálogos (Referencia)" columna SEDES.'],
+            ['        • Si tiene varias sedes, sepáralas con coma.'],
+            ['        • ❌ NO inventes sedes nuevas, solo usa las que ya están registradas.'],
+            [],
+            ['PASO 4: Columna C → Grados donde enseña.'],
+            ['        • Usa SOLO los números que aparecen en la pestaña "Catálogos (Referencia)" columna GRADOS.'],
+            ['        • Si tiene varios grados, sepáralos con coma. Ej: 1, 2, 3'],
+            ['        • ❌ NO pongas grados que no existan en el sistema.'],
+            [],
+            ['PASO 5: Columna D → Cursos que dicta.'],
+            ['        • Copia los nombres EXACTOS de la pestaña "Catálogos (Referencia)" columna CURSOS.'],
+            ['        • También puedes usar cursos de la hoja "Áreas y Cursos" si vas a importar ambos.'],
+            ['        • Si dicta varios cursos, sepáralos con coma.'],
+            ['        • ❌ NO inventes cursos nuevos aquí, deben estar registrados.'],
+            [],
+            ['═══════════════════════════════════════════════════════════'],
+            ['NOTA: Este Excel solo cubre los pasos 1-3 del registro de un docente:'],
+            ['      ✅ Paso 1: Perfil (nombre)'],
+            ['      ✅ Paso 2: Alcance Académico (sedes y grados)'],
+            ['      ✅ Paso 3: Carga Académica (cursos)'],
+            ['      ❌ Paso 4: Disponibilidad → Se configura manualmente en Profesores'],
+            ['      ❌ Paso 5: Horas Mínimas → Se configura manualmente en Profesores'],
+        ];
+        const ws2 = XLSX.utils.aoa_to_sheet(hoja2Data);
+        ws2['!cols'] = [{ wch: 40 }, { wch: 35 }, { wch: 35 }, { wch: 50 }];
+        XLSX.utils.book_append_sheet(wb, ws2, 'Docentes');
+
+        // ═══════════════════════════════════════════
+        // HOJA 3: Catálogos (referencia, no tocar)
+        // ═══════════════════════════════════════════
+        const catalogoData = [
+            ['══════════════════════════════════════════════════════════════════'],
+            ['CATÁLOGOS DEL SISTEMA — Usa estos nombres exactos en las otras hojas'],
+            ['══════════════════════════════════════════════════════════════════'],
+            [],
+            ['SEDES REGISTRADAS', '', 'GRADOS REGISTRADOS', '', 'CURSOS REGISTRADOS'],
+            ['─────────────────', '', '──────────────────', '', '─────────────────'],
+        ];
+
+        const maxRows = Math.max(sedesList.length, gradosList.length, cursosList.length);
+        for (let i = 0; i < maxRows; i++) {
+            catalogoData.push([
+                sedesList[i]?.nombre_sede || sedesList[i]?.nombre || '',
+                '',
+                gradosList[i] ? `${gradosList[i].numero}` : '',
+                '',
+                cursosList[i]?.nombre_curso || '',
+            ]);
+        }
+
+        if (maxRows === 0) {
+            catalogoData.push(['(No hay datos aún)', '', '(No hay datos aún)', '', '(No hay datos aún)']);
+        }
+
+        catalogoData.push([]);
+        catalogoData.push(['NOTA: Esta hoja es solo de referencia. No la modifiques.']);
+        catalogoData.push(['Copia los nombres exactos de aquí hacia las hojas "Áreas y Cursos" y "Docentes".']);
+
+        const ws3 = XLSX.utils.aoa_to_sheet(catalogoData);
+        ws3['!cols'] = [{ wch: 30 }, { wch: 5 }, { wch: 25 }, { wch: 5 }, { wch: 35 }];
+        XLSX.utils.book_append_sheet(wb, ws3, 'Catálogos (Referencia)');
+
+        XLSX.writeFile(wb, 'plantilla_importacion.xlsx');
+    };
+
+    // ── Importar Excel Multi-Hoja (recibe el workbook completo) ──
+    const handleCustomImport = async (workbook) => {
+        let resumenAreas = { creados: 0, errores: 0, erroresDetalle: [] };
+        let resumenDocentes = { creados: 0, errores: 0, erroresDetalle: [] };
+
+        // Cargar datos frescos del sistema
+        const resCursos = await fetch(`${API_BASE}/cursos`);
+        const cursosList = resCursos.ok ? await resCursos.json() : [];
+        const areasLocal = [...areas];
+
+        // ── Procesar Hoja 1: Áreas y Cursos ──
+        const hoja1Name = workbook.SheetNames.find(n => norm(n).includes('area') || norm(n).includes('curso')) || workbook.SheetNames[0];
+        if (hoja1Name && workbook.Sheets[hoja1Name]) {
+            const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[hoja1Name], { defval: '' });
+            const validData = jsonData.filter(row => {
+                const firstVal = String(Object.values(row)[0] || '').trim();
+                return firstVal && !firstVal.startsWith('═') && !firstVal.startsWith('─') && !firstVal.startsWith('PASO') && !firstVal.startsWith('INSTRUCCIONES') && !firstVal.startsWith('EJEMPLO') && !firstVal.startsWith('NOTA');
+            });
+            if (validData.length > 0) {
+                resumenAreas = await importarAreasYCursos(validData, areasLocal, cursosList);
+            }
+        }
+
+        // ── Procesar Hoja 2: Docentes ──
+        const hoja2Name = workbook.SheetNames.find(n => norm(n).includes('docente') || norm(n).includes('profesor'));
+        if (hoja2Name && workbook.Sheets[hoja2Name]) {
+            // Cargar sedes y grados para validación
+            const [resSedes, resGrados] = await Promise.all([
+                fetch(`${API_BASE}/sedes`).catch(() => ({ ok: false })),
+                fetch(`${API_BASE}/grados`).catch(() => ({ ok: false })),
+            ]);
+            const sedesList = resSedes.ok ? await resSedes.json() : [];
+            const gradosList = resGrados.ok ? await resGrados.json() : [];
+
+            // Refrescar cursos después de crear los de la hoja 1
+            const resCursosRefresh = await fetch(`${API_BASE}/cursos`);
+            const cursosRefreshed = resCursosRefresh.ok ? await resCursosRefresh.json() : cursosList;
+
+            const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[hoja2Name], { defval: '' });
+            const validData = jsonData.filter(row => {
+                const firstVal = String(Object.values(row)[0] || '').trim();
+                return firstVal && !firstVal.startsWith('═') && !firstVal.startsWith('─') && !firstVal.startsWith('PASO') && !firstVal.startsWith('INSTRUCCIONES') && !firstVal.startsWith('NOTA');
+            });
+            if (validData.length > 0) {
+                resumenDocentes = await importarDocentes(validData, sedesList, gradosList, cursosRefreshed);
+            }
+        }
+
         // Refrescar datos
         await fetchAreas();
         window.dispatchEvent(new Event('edusync_data_updated'));
 
-        if (errores === 0) {
-            showToast(`Se importaron ${creados} cursos exitosamente.`, 'success');
-        } else {
-            showToast(`Se importaron ${creados} cursos. ${errores} filas no se pudieron cargar.`, creados > 0 ? 'success' : 'error');
+        // Mostrar resultados
+        const totalCreados = resumenAreas.creados + resumenDocentes.creados;
+        const totalErrores = resumenAreas.errores + resumenDocentes.errores;
+        const todosDetalles = [...resumenAreas.erroresDetalle, ...resumenDocentes.erroresDetalle];
+
+        let mensaje = '';
+        if (resumenAreas.creados > 0) mensaje += `${resumenAreas.creados} cursos importados. `;
+        if (resumenDocentes.creados > 0) mensaje += `${resumenDocentes.creados} docentes importados. `;
+        if (totalCreados === 0 && totalErrores === 0) mensaje = 'No se encontraron datos nuevos para importar.';
+        if (todosDetalles.length > 0) mensaje += `${todosDetalles.length} advertencia(s).`;
+
+        showToast(mensaje, totalErrores > 0 && totalCreados === 0 ? 'error' : 'success');
+
+        if (todosDetalles.length > 0) {
+            console.warn('Detalles de importación:', todosDetalles);
         }
-        return { success: errores === 0, message: '' };
+
+        return { success: totalErrores === 0, message: '' };
     };
 
     const areasExcelColumns = [
@@ -432,9 +811,11 @@ export default function AreasManager() {
                 >
                     <ExcelImportPanel
                         templateColumns={areasExcelColumns}
-                        templateFileName="plantilla_areas_cursos.xlsx"
-                        onImport={handleImportExcel}
-                        title="Subir varios desde Excel"
+                        templateFileName="plantilla_importacion_completa.xlsx"
+                        onImport={() => { }}
+                        title="Importar Áreas, Cursos y Docentes"
+                        onCustomTemplate={generarPlantillaPersonalizada}
+                        onCustomImport={handleCustomImport}
                     />
                 </ModuleSidebar>
 
@@ -468,23 +849,52 @@ export default function AreasManager() {
                                     </div>
 
                                     {/* Search Bar */}
-                                    <div className="flex items-center bg-white rounded-[16px] border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.04)] p-2 h-14 gap-3">
-                                        <div className="relative flex items-center flex-1 bg-slate-50 rounded-xl h-full px-4">
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                                    <div className="flex flex-col sm:flex-row gap-4 w-full">
+                                        <div className="flex items-center flex-1 bg-slate-50 rounded-[16px] h-14 px-4 border border-slate-200 focus-within:border-[var(--color-brand-primary)] focus-within:ring-4 focus-within:ring-[var(--color-brand-primary)]/10 transition-all">
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
                                             <input
                                                 type="text"
                                                 placeholder="Buscar área por nombre..."
                                                 value={searchTerm}
                                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                                className="flex-1 bg-transparent pl-3 outline-none text-[14px] font-medium text-slate-700 placeholder:text-slate-400 h-full"
+                                                className="flex-1 bg-transparent pl-3 pr-2 outline-none text-[14px] font-medium text-slate-700 placeholder:text-slate-400 h-full min-w-0"
                                             />
                                             {searchTerm && (
-                                                <button onClick={() => setSearchTerm('')} className="text-slate-400 hover:text-red-500 transition-colors p-1 rounded-full hover:bg-red-50 flex-shrink-0 cursor-pointer">
+                                                <button onClick={() => setSearchTerm('')} className="text-slate-400 hover:text-red-500 transition-colors p-1.5 rounded-full hover:bg-red-50 flex-shrink-0 cursor-pointer">
                                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                                                 </button>
                                             )}
                                         </div>
-                                        <span className="text-[12px] font-bold text-slate-400 px-3 flex-shrink-0 whitespace-nowrap">{filteredAreas.length} de {areas.length}</span>
+
+                                        <div className="flex items-center gap-3 justify-end flex-shrink-0">
+                                            <button
+                                                onClick={() => { setIsSelectionMode(!isSelectionMode); if (isSelectionMode) setSelectedIds([]); }}
+                                                className={`h-14 text-[12px] font-bold transition-all cursor-pointer px-5 rounded-[14px] flex items-center justify-center gap-2 border whitespace-nowrap
+                                                    ${isSelectionMode
+                                                        ? 'bg-[var(--color-brand-dark)] border-[var(--color-brand-dark)] text-white hover:bg-[var(--color-brand-primary)]'
+                                                        : 'bg-transparent hover:bg-[var(--color-brand-primary)]/5 border-slate-300 text-slate-600 hover:border-[var(--color-brand-primary)] hover:text-[var(--color-brand-primary)]'
+                                                    }`}
+                                            >
+                                                <div className={`w-4 h-4 rounded-[4px] border flex items-center justify-center transition-colors ${isSelectionMode ? 'bg-white/20 border-white/30 text-white' : 'bg-white border-slate-300'}`}>
+                                                    {isSelectionMode && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>}
+                                                </div>
+                                                {isSelectionMode ? 'Cancelar' : 'Seleccionar'}
+                                            </button>
+                                            {isSelectionMode && (
+                                                <button
+                                                    onClick={() => selectedIds.length > 0 && openDeleteModal(selectedIds)}
+                                                    disabled={selectedIds.length === 0}
+                                                    className={`h-14 text-[12px] font-bold px-5 rounded-[14px] transition-all flex items-center gap-2 border whitespace-nowrap
+                                                        ${selectedIds.length > 0
+                                                            ? 'bg-red-500 text-white border-red-500 hover:bg-red-600 cursor-pointer'
+                                                            : 'bg-red-50 text-red-300 border-red-100 opacity-60 cursor-not-allowed'
+                                                        }`}
+                                                >
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+                                                    Eliminar {selectedIds.length > 0 && `(${selectedIds.length})`}
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
 
                                     {/* Grid */}
@@ -507,7 +917,16 @@ export default function AreasManager() {
                                     ) : (
                                         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-6 gap-y-10 animate-fade-in">
                                             {filteredAreas.map((area, index) => (
-                                                <AreaFolderCard key={area.id_area} area={area} index={index} onEdit={abrirModalEdicion} onDelete={eliminarArea} />
+                                                <AreaFolderCard
+                                                    key={area.id_area}
+                                                    area={area}
+                                                    index={index}
+                                                    onEdit={abrirModalEdicion}
+                                                    onDelete={eliminarArea}
+                                                    isSelected={selectedIds.includes(area.id_area)}
+                                                    onToggleSelect={handleToggleSelect}
+                                                    isSelectionMode={isSelectionMode}
+                                                />
                                             ))}
                                         </div>
                                     )}
@@ -623,10 +1042,10 @@ export default function AreasManager() {
             </div>
 
             {/* Modal Confirmación de Eliminar */}
-            {isDeleteModalOpen && areaToDelete && (
+            {isDeleteModalOpen && itemsToDelete.length > 0 && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm animate-fade-in p-4">
                     <div
-                        className="bg-white rounded-3xl shadow-2xl w-full max-w-[340px] overflow-hidden transform animate-slide-up p-8 text-center"
+                        className="bg-white rounded-[24px] shadow-2xl w-full max-w-[340px] overflow-hidden transform animate-slide-up p-8 text-center"
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Icono de advertencia */}
@@ -636,9 +1055,14 @@ export default function AreasManager() {
                             </svg>
                         </div>
 
-                        <h2 className="text-[20px] font-extrabold text-slate-800 mb-2">Eliminar Área</h2>
+                        <h2 className="text-[20px] font-extrabold text-slate-800 mb-2">
+                            {itemsToDelete.length > 1 ? `Eliminar ${itemsToDelete.length} áreas` : 'Eliminar Área'}
+                        </h2>
                         <p className="text-slate-500 text-[14px] font-medium mb-6 leading-relaxed">
-                            Estás a punto de eliminar el área <strong className="text-slate-700">"{areaToDelete.nombre}"</strong>. ¿Estás seguro?
+                            {itemsToDelete.length > 1
+                                ? `Estás a punto de eliminar ${itemsToDelete.length} áreas. ¿Estás seguro?`
+                                : `Estás a punto de eliminar el área seleccionada. ¿Estás seguro?`
+                            }
                         </p>
 
                         {deleteError && (
@@ -652,7 +1076,7 @@ export default function AreasManager() {
                                 type="button"
                                 onClick={() => {
                                     setIsDeleteModalOpen(false);
-                                    setAreaToDelete(null);
+                                    setItemsToDelete([]);
                                 }}
                                 disabled={eliminando}
                                 className="cursor-pointer flex-1 py-3 text-[13px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full transition-all disabled:opacity-50"

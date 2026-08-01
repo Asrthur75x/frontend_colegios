@@ -4,7 +4,7 @@ import ModuleSidebar from '../Shared/ModuleSidebar';
 const API_BASE = 'http://localhost:8000/api';
 
 // --- Componente Tarjeta Libro (Book Card) ---
-const CursoBookCard = ({ curso, area, onEdit, onDelete, index }) => {
+const CursoBookCard = ({ curso, area, onEdit, onDelete, index, isSelected, onToggleSelect, isSelectionMode }) => {
     // Paleta de colores con valores hex directos (evita el bug de purge de Tailwind JIT)
     const colors = [
         { bg: '#1e293b', spine: '#0f172a', text: '#f1f5f9', bmBg: '#fbbf24' }, // Slate oscuro
@@ -23,9 +23,13 @@ const CursoBookCard = ({ curso, area, onEdit, onDelete, index }) => {
     const c = colors[index % colors.length];
 
     return (
-        <div className="w-full flex justify-center animate-fade-in" style={{ perspective: '1000px' }}>
+        <div className="w-full flex justify-center animate-fade-in relative" style={{ perspective: '1000px' }}>
+
             {/* Wrapper interno: libro + botones en fila */}
-            <div className="group relative flex items-start gap-2">
+            <div 
+                className={`group relative flex items-start gap-2 p-1 ${isSelected ? 'ring-4 ring-[var(--color-brand-primary)]/40 rounded-xl bg-[var(--color-brand-light)]/20' : ''}`}
+                onClick={() => isSelectionMode && onToggleSelect(curso.id_curso)}
+            >
 
                 {/* Contenedor del Libro */}
                 <div
@@ -35,8 +39,27 @@ const CursoBookCard = ({ curso, area, onEdit, onDelete, index }) => {
                         boxShadow: '10px 10px 15px rgba(0,0,0,0.2)',
                         transformStyle: 'preserve-3d',
                     }}
-                    onClick={() => onEdit(curso)}
+                    onClick={(e) => {
+                        if (isSelectionMode) {
+                            e.stopPropagation();
+                            onToggleSelect(curso.id_curso);
+                        } else {
+                            onEdit(curso);
+                        }
+                    }}
                 >
+                    {/* Checkbox de selección múltiple */}
+                    {isSelectionMode && (
+                        <div 
+                            className="absolute top-3 right-3 z-50 cursor-pointer"
+                            onClick={(e) => { e.stopPropagation(); onToggleSelect(curso.id_curso); }}
+                        >
+                            <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-all border-2 shadow-sm ${isSelected ? 'bg-[var(--color-brand-primary)] border-[var(--color-brand-primary)] text-white' : 'bg-white/80 border-slate-300 hover:border-[var(--color-brand-primary)] hover:bg-white'}`}>
+                                {isSelected && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Lomo del libro */}
                     <div
                         className="absolute left-0 top-0 bottom-0 w-6 rounded-l-md z-20"
@@ -134,8 +157,13 @@ export default function CursosManager() {
 
     // Modal de confirmación de eliminación
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const [cursoToDelete, setCursoToDelete] = useState(null);
+    const [itemsToDelete, setItemsToDelete] = useState([]);
     const [eliminando, setEliminando] = useState(false);
+    const [deleteError, setDeleteError] = useState(null);
+
+    // Multiple selection
+    const [isSelectionMode, setIsSelectionMode] = useState(false);
+    const [selectedIds, setSelectedIds] = useState([]);
 
     // Adaptado al SQLModel: id_curso, nombre_curso y id_area
     const [nuevoCurso, setNuevoCurso] = useState({ nombre_curso: '', id_area: '' });
@@ -253,22 +281,47 @@ export default function CursosManager() {
 
     // ── Preparar Eliminación (Abrir Modal) ──
     const eliminarCurso = (curso) => {
-        setCursoToDelete(curso);
+        setItemsToDelete([curso.id_curso]);
+        setDeleteError(null);
         setIsDeleteModalOpen(true);
+    };
+
+    const openDeleteModal = (ids) => {
+        setItemsToDelete(ids);
+        setDeleteError(null);
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleToggleSelect = (id) => {
+        setSelectedIds(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]);
     };
 
     // ── Ejecutar Eliminación (DELETE endpoint) ──
     const confirmarEliminacion = async () => {
-        if (!cursoToDelete) return;
+        if (!itemsToDelete || itemsToDelete.length === 0) return;
         setEliminando(true);
+        setDeleteError(null);
         try {
-            await fetch(`${API_BASE}/cursos/${cursoToDelete.id_curso}`, { method: 'DELETE' });
-            setCursos(cursos.filter(c => c.id_curso !== cursoToDelete.id_curso));
+            let errorMsg = null;
+            for (let id of itemsToDelete) {
+                const res = await fetch(`${API_BASE}/cursos/${id}`, { method: 'DELETE' });
+                if (!res.ok) {
+                    try {
+                        const errorData = await res.json();
+                        errorMsg = errorData.detail || errorData.message || 'No se pudo eliminar el curso debido a dependencias en el sistema (por ejemplo, está asignado a un grado o plan).';
+                    } catch (e) {
+                        errorMsg = 'No se pudo eliminar el curso debido a dependencias en el sistema.';
+                    }
+                    throw new Error(errorMsg);
+                }
+            }
+            setCursos(cursos.filter(c => !itemsToDelete.includes(c.id_curso)));
+            setSelectedIds(prev => prev.filter(id => !itemsToDelete.includes(id)));
             window.dispatchEvent(new CustomEvent('edusync_data_updated'));
             setIsDeleteModalOpen(false);
-            setCursoToDelete(null);
+            setItemsToDelete([]);
         } catch (err) {
-            alert(`Error al eliminar: ${err.message}`);
+            setDeleteError(err.message);
         } finally {
             setEliminando(false);
         }
@@ -452,25 +505,52 @@ export default function CursosManager() {
                                     </div>
 
                                     {/* Search Bar */}
-                                    <div className="flex flex-col sm:flex-row items-center bg-white rounded-[16px] border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.04)] p-2 sm:h-14 gap-3">
-                                        <div className="relative flex items-center flex-1 bg-slate-50 rounded-xl h-10 sm:h-full px-4 w-full">
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                                    <div className="flex flex-col sm:flex-row gap-4 w-full">
+                                        <div className="flex items-center flex-1 bg-slate-50 rounded-[16px] h-14 px-4 border border-slate-200 focus-within:border-[var(--color-brand-primary)] focus-within:ring-4 focus-within:ring-[var(--color-brand-primary)]/10 transition-all">
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
                                             <input
                                                 type="text"
                                                 placeholder="Buscar curso por nombre..."
                                                 value={searchTerm}
                                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                                className="flex-1 bg-transparent pl-3 outline-none text-[14px] font-medium text-slate-700 placeholder:text-slate-400 h-full w-full"
+                                                className="flex-1 bg-transparent pl-3 pr-2 outline-none text-[14px] font-medium text-slate-700 placeholder:text-slate-400 h-full min-w-0"
                                             />
                                             {searchTerm && (
-                                                <button onClick={() => setSearchTerm('')} className="text-slate-400 hover:text-red-500 transition-colors p-1 rounded-full hover:bg-red-50 flex-shrink-0 cursor-pointer">
-                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                                                <button onClick={() => setSearchTerm('')} className="text-slate-400 hover:text-red-500 transition-colors p-1.5 rounded-full hover:bg-red-50 flex-shrink-0 cursor-pointer">
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                                                 </button>
                                             )}
                                         </div>
-                                        <span className="text-[12px] font-bold text-slate-400 px-3 flex-shrink-0 whitespace-nowrap hidden sm:block">
-                                            {cursosFiltrados.length} de {totalCursos}
-                                        </span>
+
+                                        <div className="flex items-center gap-3 justify-end flex-shrink-0">
+                                            <button
+                                                onClick={() => { setIsSelectionMode(!isSelectionMode); if (isSelectionMode) setSelectedIds([]); }}
+                                                className={`h-14 text-[12px] font-bold transition-all cursor-pointer px-5 rounded-[14px] flex items-center justify-center gap-2 border whitespace-nowrap
+                                                    ${isSelectionMode
+                                                        ? 'bg-[var(--color-brand-dark)] border-[var(--color-brand-dark)] text-white hover:bg-[var(--color-brand-primary)]'
+                                                        : 'bg-transparent hover:bg-[var(--color-brand-primary)]/5 border-slate-300 text-slate-600 hover:border-[var(--color-brand-primary)] hover:text-[var(--color-brand-primary)]'
+                                                    }`}
+                                            >
+                                                <div className={`w-4 h-4 rounded-[4px] border flex items-center justify-center transition-colors ${isSelectionMode ? 'bg-white/20 border-white/30 text-white' : 'bg-white border-slate-300'}`}>
+                                                    {isSelectionMode && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>}
+                                                </div>
+                                                {isSelectionMode ? 'Cancelar' : 'Seleccionar'}
+                                            </button>
+                                            {isSelectionMode && (
+                                                <button
+                                                    onClick={() => selectedIds.length > 0 && openDeleteModal(selectedIds)}
+                                                    disabled={selectedIds.length === 0}
+                                                    className={`h-14 text-[12px] font-bold px-5 rounded-[14px] transition-all flex items-center gap-2 border whitespace-nowrap
+                                                        ${selectedIds.length > 0
+                                                            ? 'bg-red-500 text-white border-red-500 hover:bg-red-600 cursor-pointer'
+                                                            : 'bg-red-50 text-red-300 border-red-100 opacity-60 cursor-not-allowed'
+                                                        }`}
+                                                >
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+                                                    Eliminar {selectedIds.length > 0 && `(${selectedIds.length})`}
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
 
                                     {/* Area Pills Filter */}
@@ -521,6 +601,9 @@ export default function CursosManager() {
                                                         index={originalIndex !== -1 ? originalIndex : index}
                                                         onEdit={abrirModalEdicion}
                                                         onDelete={eliminarCurso}
+                                                        isSelected={selectedIds.includes(curso.id_curso)}
+                                                        onToggleSelect={handleToggleSelect}
+                                                        isSelectionMode={isSelectionMode}
                                                     />
                                                 );
                                             })}
@@ -759,7 +842,7 @@ export default function CursosManager() {
 
 
                 {/* Modal Confirmación de Eliminar */}
-                {isDeleteModalOpen && cursoToDelete && (
+                {isDeleteModalOpen && itemsToDelete.length > 0 && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm animate-fade-in p-4">
                         <div
                             className="bg-white rounded-[24px] shadow-2xl w-full max-w-[340px] overflow-hidden transform animate-slide-up p-8 text-center"
@@ -772,17 +855,29 @@ export default function CursosManager() {
                                 </svg>
                             </div>
 
-                            <h2 className="text-[20px] font-extrabold text-slate-800 mb-2">Eliminar Curso</h2>
+                            <h2 className="text-[20px] font-extrabold text-slate-800 mb-2">
+                                {itemsToDelete.length > 1 ? `Eliminar ${itemsToDelete.length} cursos` : 'Eliminar Curso'}
+                            </h2>
                             <p className="text-slate-500 text-[14px] font-medium mb-8 leading-relaxed">
-                                Estás a punto de eliminar el curso <strong className="text-slate-700">"{cursoToDelete.nombre_curso}"</strong>. ¿Estás seguro?
+                                {itemsToDelete.length > 1 
+                                    ? `Estás a punto de eliminar ${itemsToDelete.length} cursos. ¿Estás seguro?`
+                                    : `Estás a punto de eliminar el curso seleccionado. ¿Estás seguro?`
+                                }
                             </p>
+
+                            {deleteError && (
+                                <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl text-[13px] font-medium mb-6 text-left">
+                                    {deleteError}
+                                </div>
+                            )}
 
                             <div className="flex items-center gap-3 w-full">
                                 <button
                                     type="button"
                                     onClick={() => {
                                         setIsDeleteModalOpen(false);
-                                        setCursoToDelete(null);
+                                        setItemsToDelete([]);
+                                        setDeleteError(null);
                                     }}
                                     disabled={eliminando}
                                     className="cursor-pointer flex-1 py-3 text-[13px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full transition-all disabled:opacity-50"

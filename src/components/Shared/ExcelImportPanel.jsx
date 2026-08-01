@@ -10,14 +10,24 @@ import * as XLSX from 'xlsx';
  *  - templateFileName: Nombre del archivo de plantilla
  *  - onImport: Callback con los datos parseados (array de objects)
  *  - title: Título del panel (opcional)
+ *  - onCustomTemplate: (opcional) Callback para generar una plantilla personalizada (multi-hoja).
+ *                       Si se proporciona, se usa en lugar de la generación por defecto.
+ *  - onCustomImport: (opcional) Callback que recibe el workbook completo (XLSX.WorkBook).
+ *                    Si se proporciona, se usa en lugar del import por defecto.
  */
-const ExcelImportPanel = ({ templateColumns, templateFileName, onImport, title = "Importación Masiva" }) => {
+const ExcelImportPanel = ({ templateColumns, templateFileName, onImport, title = "Importación Masiva", onCustomTemplate, onCustomImport }) => {
     const fileInputRef = useRef(null);
     const [importing, setImporting] = useState(false);
     const [importResult, setImportResult] = useState(null); // { success: bool, message: string }
 
     // Generar y descargar plantilla Excel
     const handleDescargarPlantilla = () => {
+        // Si hay un generador personalizado, usarlo
+        if (onCustomTemplate) {
+            onCustomTemplate();
+            return;
+        }
+
         const headers = templateColumns.map(c => c.header);
         
         // Crear filas: Encabezados -> 2 filas vacías para datos -> Instrucciones
@@ -53,6 +63,14 @@ const ExcelImportPanel = ({ templateColumns, templateFileName, onImport, title =
         try {
             const buffer = await file.arrayBuffer();
             const workbook = XLSX.read(buffer, { type: 'array' });
+
+            // Si hay un importador personalizado (multi-hoja), usarlo
+            if (onCustomImport) {
+                const result = await onCustomImport(workbook);
+                setImportResult(result);
+                return;
+            }
+
             const sheetName = workbook.SheetNames[0];
             const sheet = workbook.Sheets[sheetName];
             const jsonData = XLSX.utils.sheet_to_json(sheet, { defval: '' });
