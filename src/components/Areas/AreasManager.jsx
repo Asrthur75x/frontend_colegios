@@ -83,10 +83,10 @@ const AreaFolderCard = ({ area, onEdit, onDelete, index, isSelected, onToggleSel
                     <div className="flex gap-2">
                         <button
                             onClick={(e) => { e.stopPropagation(); onDelete(area); }}
-                            className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-red-50 border border-red-200 text-red-600 text-[12px] font-bold rounded-full transition-colors shadow-sm cursor-pointer"
+                            className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-red-50 border border-red-600 text-red-600 text-[12px] font-bold rounded-full transition-colors shadow-sm cursor-pointer"
                         >
                             <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                            Borrar
+                            Eliminar
                         </button>
                         <button
                             onClick={(e) => { e.stopPropagation(); onEdit(area); }}
@@ -423,6 +423,7 @@ export default function AreasManager() {
     // ── Importar Docentes (Hoja 2) ──
     const importarDocentes = async (data, sedesList, gradosList, cursosList) => {
         let creados = 0;
+        let actualizados = 0;
         let errores = 0;
         const erroresDetalle = [];
 
@@ -452,6 +453,7 @@ export default function AreasManager() {
                 // ── PASO 1: Crear perfil del profesor (si no existe) ──
                 let profExistente = profesoresExistentes.find(p => norm(p.nombre_profesor) === norm(nombreProf));
                 let profId;
+                let fueCreado = false;
 
                 if (profExistente) {
                     profId = profExistente.id_profesor;
@@ -469,6 +471,7 @@ export default function AreasManager() {
                     const newProf = await resProf.json();
                     profId = newProf.id_profesor;
                     profesoresExistentes.push(newProf);
+                    fueCreado = true;
                 }
 
                 // ── PASO 2: Vincular Sedes y Grados (Alcance Académico) ──
@@ -548,17 +551,21 @@ export default function AreasManager() {
                     }
                 }
 
-                creados++;
+                if (fueCreado) {
+                    creados++;
+                } else {
+                    actualizados++;
+                }
             } catch (err) {
                 errores++;
                 erroresDetalle.push(`Error procesando "${nombreProf}": ${err.message}`);
             }
         }
 
-        return { creados, errores, erroresDetalle };
+        return { creados, actualizados, errores, erroresDetalle };
     };
 
-    // ── Generar Plantilla Personalizada (Multi-hoja con instrucciones y catálogos) ──
+    // ── Generar Plantilla Personalizada (Concisa y Combinada) ──
     const generarPlantillaPersonalizada = async () => {
         // Cargar datos del sistema para los catálogos
         let sedesList = [], gradosList = [], cursosList = [];
@@ -581,122 +588,77 @@ export default function AreasManager() {
         const hoja1Data = [
             ['Nombre del Curso', 'Área', 'Horas Máximas Diarias del Área'],
             ['Razonamiento Matemático', 'Matemáticas', 2],
-            ['Álgebra', 'Matemáticas', 2],
             ['Comunicación', 'Lenguaje', 3],
             [],
-            ['═══════════════════════════════════════════════════════════════════════════════'],
-            ['INSTRUCCIONES PARA ESTA HOJA (borra estas filas y los ejemplos antes de subir)'],
-            ['═══════════════════════════════════════════════════════════════════════════════'],
-            [],
-            ['PASO 1: Borra las filas de ejemplo de arriba (filas 2, 3 y 4).'],
-            ['PASO 2: Escribe el nombre de cada curso en la columna A.'],
-            ['PASO 3: En la columna B, escribe el nombre del área a la que pertenece.'],
-            ['        → Si el área no existe, el sistema la creará automáticamente.'],
-            ['        → Si el área ya existe, solo se asociará el curso a ella.'],
-            ['PASO 4: En la columna C, pon el máximo de horas diarias de esa área (ej. 2).'],
-            ['        → Este valor solo se usa cuando se crea un área nueva.'],
-            [],
-            ['EJEMPLO: Si pones "Álgebra" en la columna A y "Matemáticas" en B,'],
-            ['         el sistema creará el curso Álgebra dentro del área Matemáticas.'],
+            ['⚠️ INSTRUCCIONES PARA LLENAR ESTA HOJA (Borrar antes de subir):'],
+            ['1. Borra las filas de ejemplo (filas 2 y 3) antes de subir tu archivo.'],
+            ['2. En "Nombre del Curso", escribe el nombre de la materia (Ej: Álgebra).'],
+            ['3. En "Área", pon el grupo al que pertenece. Si el área ya existe, el curso se guardará automáticamente ahí.'],
+            ['4. Si el área es NUEVA, el sistema la creará. Solo en este caso, usa la 3ra columna para indicar el límite de horas diarias.']
         ];
         const ws1 = XLSX.utils.aoa_to_sheet(hoja1Data);
-        ws1['!cols'] = [{ wch: 45 }, { wch: 35 }, { wch: 35 }];
+        ws1['!cols'] = [{ wch: 35 }, { wch: 30 }, { wch: 30 }];
         XLSX.utils.book_append_sheet(wb, ws1, 'Áreas y Cursos');
 
         // ═══════════════════════════════════════════
-        // HOJA 2: Docentes
+        // HOJA 2: Docentes (con Catálogos integrados)
         // ═══════════════════════════════════════════
-        // Generar ejemplos dinámicos con datos reales del sistema
-        const ejemploSedes = sedesList.length > 0
-            ? sedesList.slice(0, 2).map(s => s.nombre_sede || s.nombre).join(', ')
-            : 'Sede Central, Sede Norte';
-        const ejemploGrados = gradosList.length > 0
-            ? gradosList.slice(0, 3).map(g => g.numero).join(', ')
-            : '1, 2, 3';
-        const ejemploCursos = cursosList.length > 0
-            ? cursosList.slice(0, 2).map(c => c.nombre_curso).join(', ')
-            : 'Álgebra, Comunicación';
+        const ejemploSedes = sedesList.length > 0 ? sedesList.slice(0, 2).map(s => s.nombre_sede || s.nombre).join(', ') : 'Sede Central, Sede Norte';
+        const ejemploGrados = gradosList.length > 0 ? gradosList.slice(0, 3).map(g => g.numero).join(', ') : '1, 2, 3';
+        const ejemploCursos = cursosList.length > 0 ? cursosList.slice(0, 2).map(c => c.nombre_curso).join(', ') : 'Álgebra, Comunicación';
 
-        const hoja2Data = [
-            ['Nombre Completo del Docente', 'Sedes (separar con coma)', 'Grados (separar con coma)', 'Cursos que Dicta (separar con coma)'],
-            ['Juan Pérez García', ejemploSedes, ejemploGrados, ejemploCursos],
-            [],
-            ['══════════════════════════════════════════════════════════════════════════════════════════════════════'],
-            ['⚠️  INSTRUCCIONES IMPORTANTES — Lee antes de llenar (borra estas filas y el ejemplo antes de subir)'],
-            ['══════════════════════════════════════════════════════════════════════════════════════════════════════'],
-            [],
-            ['⚠️  REGLA PRINCIPAL: Esta hoja NO crea sedes, grados ni cursos nuevos.'],
-            ['    Solo VINCULA docentes con datos que YA EXISTEN en el sistema.'],
-            ['    Ve a la pestaña "Catálogos (Referencia)" para ver los datos disponibles.'],
-            [],
-            ['PASO 1: Borra la fila de ejemplo (fila 2).'],
-            [],
-            ['PASO 2: Columna A → Nombre completo del docente.'],
-            ['        • Si el docente ya existe en el sistema, se actualizarán sus datos.'],
-            ['        • Si no existe, se creará automáticamente.'],
-            [],
-            ['PASO 3: Columna B → Sedes donde enseña el docente.'],
-            ['        • Copia los nombres EXACTOS de la pestaña "Catálogos (Referencia)" columna SEDES.'],
-            ['        • Si tiene varias sedes, sepáralas con coma.'],
-            ['        • ❌ NO inventes sedes nuevas, solo usa las que ya están registradas.'],
-            [],
-            ['PASO 4: Columna C → Grados donde enseña.'],
-            ['        • Usa SOLO los números que aparecen en la pestaña "Catálogos (Referencia)" columna GRADOS.'],
-            ['        • Si tiene varios grados, sepáralos con coma. Ej: 1, 2, 3'],
-            ['        • ❌ NO pongas grados que no existan en el sistema.'],
-            [],
-            ['PASO 5: Columna D → Cursos que dicta.'],
-            ['        • Copia los nombres EXACTOS de la pestaña "Catálogos (Referencia)" columna CURSOS.'],
-            ['        • También puedes usar cursos de la hoja "Áreas y Cursos" si vas a importar ambos.'],
-            ['        • Si dicta varios cursos, sepáralos con coma.'],
-            ['        • ❌ NO inventes cursos nuevos aquí, deben estar registrados.'],
-            [],
-            ['═══════════════════════════════════════════════════════════'],
-            ['NOTA: Este Excel solo cubre los pasos 1-3 del registro de un docente:'],
-            ['      ✅ Paso 1: Perfil (nombre)'],
-            ['      ✅ Paso 2: Alcance Académico (sedes y grados)'],
-            ['      ✅ Paso 3: Carga Académica (cursos)'],
-            ['      ❌ Paso 4: Disponibilidad → Se configura manualmente en Profesores'],
-            ['      ❌ Paso 5: Horas Mínimas → Se configura manualmente en Profesores'],
-        ];
-        const ws2 = XLSX.utils.aoa_to_sheet(hoja2Data);
-        ws2['!cols'] = [{ wch: 40 }, { wch: 35 }, { wch: 35 }, { wch: 50 }];
-        XLSX.utils.book_append_sheet(wb, ws2, 'Docentes');
+        const hoja2Data = [];
+        // Empezamos los catálogos en la fila 3 (índice 3), así que sumamos 3 al número de elementos
+        const maxRows = Math.max(8, sedesList.length + 4, gradosList.length + 4, cursosList.length + 4);
 
-        // ═══════════════════════════════════════════
-        // HOJA 3: Catálogos (referencia, no tocar)
-        // ═══════════════════════════════════════════
-        const catalogoData = [
-            ['══════════════════════════════════════════════════════════════════'],
-            ['CATÁLOGOS DEL SISTEMA — Usa estos nombres exactos en las otras hojas'],
-            ['══════════════════════════════════════════════════════════════════'],
-            [],
-            ['SEDES REGISTRADAS', '', 'GRADOS REGISTRADOS', '', 'CURSOS REGISTRADOS'],
-            ['─────────────────', '', '──────────────────', '', '─────────────────'],
-        ];
-
-        const maxRows = Math.max(sedesList.length, gradosList.length, cursosList.length);
         for (let i = 0; i < maxRows; i++) {
-            catalogoData.push([
-                sedesList[i]?.nombre_sede || sedesList[i]?.nombre || '',
-                '',
-                gradosList[i] ? `${gradosList[i].numero}` : '',
-                '',
-                cursosList[i]?.nombre_curso || '',
-            ]);
+            let row = [];
+
+            // Llenar columnas de Catálogos (F, G y H) alineadas a partir de la fila 3
+            if (i === 3) {
+                row[4] = '📌 SEDES EXISTENTES (No borrar)';
+                row[5] = '📌 GRADOS EXISTENTES (No borrar)';
+                row[6] = '📌 CURSOS REGISTRADOS (No borrar)';
+            } else if (i > 3) {
+                const sedeVal = sedesList[i - 4] ? (sedesList[i - 4].nombre_sede || sedesList[i - 4].nombre) : null;
+                const gradoVal = gradosList[i - 4] ? String(gradosList[i - 4].numero) : null;
+                const cursoVal = cursosList[i - 4] ? cursosList[i - 4].nombre_curso : null;
+
+                if (sedeVal) row[4] = sedeVal;
+                if (gradoVal) row[5] = gradoVal;
+                if (cursoVal) row[6] = cursoVal;
+            }
+
+            // Llenar datos principales e instrucciones (A - D)
+            if (i === 0) {
+                row[0] = 'Nombre Completo del Docente';
+                row[1] = 'Sedes (separar con coma)';
+                row[2] = 'Grados (separar con coma)';
+                row[3] = 'Cursos (separar con coma)';
+            } else if (i === 1) {
+                row[0] = 'Juan Pérez García';
+                row[1] = ejemploSedes;
+                row[2] = ejemploGrados;
+                row[3] = ejemploCursos;
+            } else if (i === 3) {
+                row[0] = '⚠️ INSTRUCCIONES PARA LLENAR ESTA HOJA (Borrar textos antes de subir):';
+            } else if (i === 4) {
+                row[0] = '1. Elimina la fila de ejemplo (fila 2) antes de importar.';
+            } else if (i === 5) {
+                row[0] = '2. En "Nombre Completo", escribe el nombre. Si el docente ya existe, solo se actualizarán sus datos (no se duplicará).';
+            } else if (i === 6) {
+                row[0] = '3. Para "Sedes" y "Grados", usa EXACTAMENTE los nombres que están en las listas de la derecha. Si son varios, usa comas.';
+            } else if (i === 7) {
+                row[0] = '4. CRÍTICO: En "Cursos", debes COPIAR LOS NOMBRES EXACTAMENTE IGUALES a como los pusiste en la hoja "Áreas y Cursos" o los de la derecha. ->';
+            }
+
+            hoja2Data.push(row);
         }
 
-        if (maxRows === 0) {
-            catalogoData.push(['(No hay datos aún)', '', '(No hay datos aún)', '', '(No hay datos aún)']);
-        }
-
-        catalogoData.push([]);
-        catalogoData.push(['NOTA: Esta hoja es solo de referencia. No la modifiques.']);
-        catalogoData.push(['Copia los nombres exactos de aquí hacia las hojas "Áreas y Cursos" y "Docentes".']);
-
-        const ws3 = XLSX.utils.aoa_to_sheet(catalogoData);
-        ws3['!cols'] = [{ wch: 30 }, { wch: 5 }, { wch: 25 }, { wch: 5 }, { wch: 35 }];
-        XLSX.utils.book_append_sheet(wb, ws3, 'Catálogos (Referencia)');
+        const ws2 = XLSX.utils.aoa_to_sheet(hoja2Data);
+        // Columnas: A(45), B(35), C(35), D(40), E(35 - Sedes), F(35 - Grados), G(45 - Cursos)
+        ws2['!cols'] = [{ wch: 45 }, { wch: 35 }, { wch: 35 }, { wch: 40 }, { wch: 35 }, { wch: 35 }, { wch: 45 }];
+        XLSX.utils.book_append_sheet(wb, ws2, 'Docentes');
 
         XLSX.writeFile(wb, 'plantilla_importacion.xlsx');
     };
@@ -704,7 +666,7 @@ export default function AreasManager() {
     // ── Importar Excel Multi-Hoja (recibe el workbook completo) ──
     const handleCustomImport = async (workbook) => {
         let resumenAreas = { creados: 0, errores: 0, erroresDetalle: [] };
-        let resumenDocentes = { creados: 0, errores: 0, erroresDetalle: [] };
+        let resumenDocentes = { creados: 0, actualizados: 0, errores: 0, erroresDetalle: [] };
 
         // Cargar datos frescos del sistema
         const resCursos = await fetch(`${API_BASE}/cursos`);
@@ -754,17 +716,24 @@ export default function AreasManager() {
         window.dispatchEvent(new Event('edusync_data_updated'));
 
         // Mostrar resultados
+        // Mostrar resultados
         const totalCreados = resumenAreas.creados + resumenDocentes.creados;
+        const totalActualizados = resumenDocentes.actualizados;
         const totalErrores = resumenAreas.errores + resumenDocentes.errores;
         const todosDetalles = [...resumenAreas.erroresDetalle, ...resumenDocentes.erroresDetalle];
 
         let mensaje = '';
         if (resumenAreas.creados > 0) mensaje += `${resumenAreas.creados} cursos importados. `;
-        if (resumenDocentes.creados > 0) mensaje += `${resumenDocentes.creados} docentes importados. `;
-        if (totalCreados === 0 && totalErrores === 0) mensaje = 'No se encontraron datos nuevos para importar.';
+        if (resumenDocentes.creados > 0) mensaje += `${resumenDocentes.creados} docentes creados. `;
+        if (resumenDocentes.actualizados > 0) mensaje += `${resumenDocentes.actualizados} docentes actualizados. `;
+
+        if (totalCreados === 0 && totalActualizados === 0 && totalErrores === 0) {
+            mensaje = 'No se encontraron datos nuevos para importar.';
+        }
+
         if (todosDetalles.length > 0) mensaje += `${todosDetalles.length} advertencia(s).`;
 
-        showToast(mensaje, totalErrores > 0 && totalCreados === 0 ? 'error' : 'success');
+        showToast(mensaje, totalErrores > 0 && totalCreados === 0 && totalActualizados === 0 ? 'error' : 'success');
 
         if (todosDetalles.length > 0) {
             console.warn('Detalles de importación:', todosDetalles);

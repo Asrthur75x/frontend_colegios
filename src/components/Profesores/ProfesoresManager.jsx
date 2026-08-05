@@ -258,30 +258,21 @@ export default function ProfesoresManager() {
     const confirmarEliminacion = async () => {
         setIsDeleting(true);
         try {
+            // Utilizamos Promise.all para enviar las peticiones de borrado en paralelo (el backend ya borra las dependencias)
+            const promesas = itemsToDelete.map(id => fetch(`${API_BASE}/profesores/${id}`, { method: 'DELETE' }));
+            const respuestas = await Promise.all(promesas);
+            
+            // Verificamos si hubo algún error en las respuestas
+            for (let res of respuestas) {
+                if (!res.ok) {
+                    console.error("Error al eliminar un profesor:", await res.text());
+                }
+            }
+
             for (let id of itemsToDelete) {
-                const disps = disponibilidades.filter(x => Number(x.id_profesor) === Number(id));
-                for (let d of disps) {
-                    await fetch(`${API_BASE}/profesor-disponibilidad/${d.id_disponibilidad}`, { method: 'DELETE' });
-                }
-                const prefs = preferencias.filter(x => Number(x.id_profesor) === Number(id));
-                for (let p of prefs) {
-                    await fetch(`${API_BASE}/profesor-preferencia/${p.id_preferencia}`, { method: 'DELETE' });
-                }
-                const gp = gradoProfesores.filter(x => x.id_profesor === id);
-                for (let g of gp) {
-                    await fetch(`${API_BASE}/grado-profesor/${g.id_grado_profesor}`, { method: 'DELETE' });
-                }
-                const pc = profesorCursos.filter(x => x.id_profesor === id);
-                for (let relacion of pc) {
-                    await fetch(`${API_BASE}/profesor-curso/${relacion.id_profesor_curso}`, { method: 'DELETE' });
-                }
-                const ps = profesorSedes.filter(x => x.id_profesor === id);
-                for (let s of ps) {
-                    await fetch(`${API_BASE}/profesor-sedes/${s.id_sede_profesor}`, { method: 'DELETE' });
-                }
-                await fetch(`${API_BASE}/profesores/${id}`, { method: 'DELETE' });
                 guardarMarcaDisponibilidadTotal(id, false);
             }
+
             setSelectedIds(prev => prev.filter(id => !itemsToDelete.includes(id)));
             setIsSelectionMode(false);
             await fetchDatos();
