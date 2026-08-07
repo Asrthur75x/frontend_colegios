@@ -504,6 +504,8 @@ export default function HorariosManager({ isEditPage = false }) {
 
     const handleGenerar = async () => {
         setErrorMsg(null);
+        // Limpiar diagnóstico previo al reintentar generación
+        import('./diagnosticoGlobal').then(m => m.clearDiagnostico());
         startGeneracion();
     };
 
@@ -956,49 +958,68 @@ export default function HorariosManager({ isEditPage = false }) {
             )}
 
             {status === 'empty' && (
-                <div className="relative flex flex-col items-center justify-center max-w-2xl w-full mx-auto mt-6 p-8 rounded-[40px] overflow-hidden group transition-all duration-500">
-                    <div className="relative z-10 flex flex-col items-center text-center animate-fade-in-up w-full">
+                <div className={`relative flex flex-col items-center justify-center w-full mx-auto overflow-hidden transition-all duration-500 max-w-2xl mt-6 p-8 rounded-[40px] group`}>
+                    <div className={`relative z-10 flex flex-col items-center w-full text-center animate-fade-in-up`}>
                         {errorMsg ? (
-                            <div className="relative mt-8 mb-10 w-full max-w-2xl mx-auto text-left">
-                                {/* Sombra plana desplazada tipo tarjeta (roja) */}
-                                <div className="absolute top-2 -left-2 w-full h-full bg-[#da524e] rounded-sm"></div>
+                            <>
+                                {/* --- Errores de validación (array) --- */}
+                                {/* 
+                                {Array.isArray(errorMsg) ? (
+                                    <div className="relative mt-8 mb-10 w-full max-w-2xl mx-auto text-left">
+                                        <div className="absolute top-2 -left-2 w-full h-full bg-[#da524e] rounded-sm"></div>
+                                        <div className="relative z-10 bg-white border border-gray-200 p-5 flex flex-col gap-2 rounded-sm shadow-md">
+                                            <h3 className="text-[#da524e] font-bold text-[18px] tracking-tight mb-1">
+                                                Error de configuración detectado
+                                            </h3>
+                                            <ul className="space-y-1.5 mb-1">
+                                                {errorMsg.map((err, i) => (
+                                                    <li key={i} className="flex items-start gap-2.5">
+                                                        <svg className="w-5 h-5 text-[#da524e] shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                        </svg>
+                                                        <span className="text-[14.5px] text-[#da524e] font-medium leading-tight mt-0.5">
+                                                            {formatFriendlyError(err, profesores)}
+                                                        </span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                            <div className="flex mt-2 border-t border-gray-100 pt-3">
+                                                <a href="/profesores" className="inline-flex items-center gap-2 px-5 py-2 bg-[#da524e] hover:bg-[#c74541] text-white font-bold text-[13px] rounded-sm transition-colors shadow-sm">
+                                                    <span>Ir a corregir Profesores</span>
+                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : ( 
+                                */}
+                                {/* --- Errores de generación (string) — con redirección al diagnóstico --- */}
+                                <div className="w-full mx-auto mt-6 mb-6 px-4 md:px-8">
+                                    <div className="p-2 text-center mb-5 mt-4">
+                                        <div className="w-16 h-16 rounded-3xl flex items-center justify-center mx-auto mb-2">
+                                            <svg className="w-8 h-8 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                            </svg>
+                                        </div>
+                                        <h3 className="text-[22px] font-black text-slate-800 mb-2 tracking-tight">No se pudieron armar los horarios</h3>
+                                        <p className="text-[15px] text-slate-500 max-w-md mx-auto leading-relaxed mb-6 font-medium">
+                                            La configuración actual tiene cruces que impiden completar el horario.
+                                            Usa esta herramienta para descubrir dónde está el problema.
+                                        </p>
 
-                                {/* Contenedor principal blanco */}
-                                <div className="relative z-10 bg-white border border-gray-200 p-5 flex flex-col gap-2 rounded-sm shadow-md">
-                                    <h3 className="text-[#da524e] font-bold text-[18px] tracking-tight mb-1">
-                                        Error de configuración detectado
-                                    </h3>
-
-                                    <ul className="space-y-1.5 mb-1">
-                                        {Array.isArray(errorMsg) ? errorMsg.map((err, i) => (
-                                            <li key={i} className="flex items-start gap-2.5">
-                                                <svg className="w-5 h-5 text-[#da524e] shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                </svg>
-                                                <span className="text-[14.5px] text-[#da524e] font-medium leading-tight mt-0.5">
-                                                    {formatFriendlyError(err, profesores)}
-                                                </span>
-                                            </li>
-                                        )) : (
-                                            <li className="flex items-start gap-2.5">
-                                                <svg className="w-5 h-5 text-[#da524e] shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                </svg>
-                                                <span className="text-[14.5px] text-[#da524e] font-medium leading-tight mt-0.5">
-                                                    {formatFriendlyError(errorMsg, profesores)}
-                                                </span>
-                                            </li>
-                                        )}
-                                    </ul>
-
-                                    <div className="flex mt-2 border-t border-gray-100 pt-3">
-                                        <a href="/profesores" className="inline-flex items-center gap-2 px-5 py-2 bg-[#da524e] hover:bg-[#c74541] text-white font-bold text-[13px] rounded-sm transition-colors shadow-sm">
-                                            <span>Ir a corregir Profesores</span>
-                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-                                        </a>
+                                        <button
+                                            onClick={() => window.location.href = '/horarios/diagnostico'}
+                                            className="inline-flex items-center gap-2.5 px-8 py-3.5 bg-[var(--color-brand-primary)] text-white font-bold text-[15px] rounded-2xl transition-all cursor-pointer hover:shadow-xl hover:-translate-y-1"
+                                        >
+                                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                            </svg>
+                                            <span>Analizar conflictos</span>
+                                        </button>
                                     </div>
                                 </div>
-                            </div>
+                                {/* )} */}
+                            </>
                         ) : (
                             <>
                                 <div className="w-40 h-40 mb-6 flex items-center justify-center drop-shadow-xl hover:scale-105 transition-transform duration-500">
@@ -1015,16 +1036,18 @@ export default function HorariosManager({ isEditPage = false }) {
                             </>
                         )}
 
-                        <button
-                            onClick={handleGenerar}
-                            className="group relative flex items-center justify-center gap-2 px-8 py-4 bg-[var(--color-brand-primary)] text-white font-black text-lg rounded-2xl hover:shadow-xl hover:-translate-y-1 transition-all overflow-hidden w-full max-w-[320px] mx-auto cursor-pointer"
-                        >
-                            <div className="absolute inset-0 w-full h-full -ml-16 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 animate-shine" />
-                            <svg className="w-6 h-6 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                            </svg>
-                            <span className="relative z-10 tracking-wide">Generar Horarios</span>
-                        </button>
+                        {!errorMsg && (
+                            <button
+                                onClick={handleGenerar}
+                                className="group relative flex items-center justify-center gap-2 px-8 py-4 bg-[var(--color-brand-primary)] text-white font-black text-lg rounded-2xl hover:shadow-xl hover:-translate-y-1 transition-all overflow-hidden w-full max-w-[320px] mx-auto cursor-pointer"
+                            >
+                                <div className="absolute inset-0 w-full h-full -ml-16 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 animate-shine" />
+                                <svg className="w-6 h-6 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                </svg>
+                                <span className="relative z-10 tracking-wide">Generar Horarios</span>
+                            </button>
+                        )}
                     </div>
                 </div>
             )}

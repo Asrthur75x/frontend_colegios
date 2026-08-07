@@ -32,7 +32,13 @@ const _defaultState = {
 function getState() {
     if (typeof window === 'undefined') return _defaultState;
     if (!window.__edusync_generacion) {
-        window.__edusync_generacion = {
+        let stored = null;
+        try {
+            const item = sessionStorage.getItem('__edusync_generacion');
+            if (item) stored = JSON.parse(item);
+        } catch (e) { console.error(e); }
+
+        window.__edusync_generacion = stored ? { ...stored, intervalId: null, listeners: new Set() } : {
             status: null,        // null | 'generating' | 'success' | 'error'
             loadingStep: 0,
             progressStep: 'init',
@@ -49,6 +55,13 @@ function getState() {
 
 function notify() {
     const state = getState();
+    try {
+        const toStore = { ...state };
+        delete toStore.listeners;
+        delete toStore.intervalId;
+        sessionStorage.setItem('__edusync_generacion', JSON.stringify(toStore));
+    } catch (e) { console.error(e); }
+
     state.listeners.forEach(fn => {
         try { fn({ ...state }); } catch (e) { console.error(e); }
     });

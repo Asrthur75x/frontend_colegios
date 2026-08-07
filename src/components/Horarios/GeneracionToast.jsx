@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { subscribe, clearResult, isGenerating, LOADING_MESSAGES } from './generacionGlobal';
+import { subscribe as subscribeDiag, clearDiagnostico, isDiagnosticando, DIAGNOSTICO_MESSAGES } from './diagnosticoGlobal';
 
 /**
  * Toast global que muestra el estado de la generación de horarios
- * cuando el usuario está en OTRA página (no en /horarios).
+ * y del diagnóstico de conflictos cuando el usuario está en OTRA página (no en /horarios).
  * Se monta desde Layout.astro para que persista durante la navegación.
  */
 export default function GeneracionToast() {
     const [genState, setGenState] = useState(null);
+    const [diagState, setDiagState] = useState(null);
     const [visible, setVisible] = useState(false);
     const [dismissed, setDismissed] = useState(false);
+    const [dismissedDiag, setDismissedDiag] = useState(false);
 
     useEffect(() => {
         const unsub = subscribe((state) => {
@@ -18,13 +21,21 @@ export default function GeneracionToast() {
         return unsub;
     }, []);
 
-    // Determinar si estamos en la página donde se ejecuta la generación (/horarios)
+    useEffect(() => {
+        const unsub = subscribeDiag((state) => {
+            setDiagState(state);
+        });
+        return unsub;
+    }, []);
+
+    // Determinar si estamos en la página donde se ejecuta la generación o en diagnóstico (/horarios, /horarios/diagnostico)
     const [isOnHorarios, setIsOnHorarios] = useState(false);
     useEffect(() => {
         const checkPath = () => {
-            const path = window.location.pathname;
-            // Solo ocultar en la página principal donde se dispara y ejecuta la generación
-            setIsOnHorarios(path === '/horarios' || path === '/horarios/');
+            if (typeof window !== 'undefined') {
+                const path = window.location.pathname;
+                setIsOnHorarios(path.startsWith('/horarios'));
+            }
         };
         checkPath();
 
@@ -39,7 +50,7 @@ export default function GeneracionToast() {
         };
     }, []);
 
-    // Mostrar/ocultar toast
+    // Mostrar/ocultar toast para generación
     useEffect(() => {
         if (!genState) return;
 
@@ -61,16 +72,21 @@ export default function GeneracionToast() {
         }
     }, [genState, isOnHorarios, dismissed]);
 
-    if (!visible || !genState || isOnHorarios) return null;
+    if (isOnHorarios) return null;
 
     const handleDismiss = () => {
         setDismissed(true);
         setVisible(false);
     };
 
+    const handleDismissDiag = () => {
+        setDismissedDiag(true);
+    };
+
     const handleGoToHorarios = () => {
         setDismissed(true);
         setVisible(false);
+        setDismissedDiag(true);
         window.location.href = '/horarios';
     };
 
@@ -91,6 +107,122 @@ export default function GeneracionToast() {
         flexDirection: 'column',
         gap: '12px'
     };
+
+    // Determinar si hay diagnóstico activo que mostrar (fuera de /horarios)
+    const showDiagToast = diagState && !dismissedDiag &&
+        (diagState.status === 'analyzing' || (diagState.status === 'done' && diagState.resultado));
+
+    // --- TOAST DE DIAGNÓSTICO ---
+    if (showDiagToast && !visible) {
+        const diagProgress = Number(diagState.percent) || 0;
+
+        if (diagState.status === 'analyzing') {
+            return (
+                <div style={containerStyle}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        {/* Spinner */}
+                        <div style={{ position: 'relative', width: '24px', height: '24px', flexShrink: 0 }}>
+                            <div style={{
+                                position: 'absolute', inset: 0,
+                                border: '3px solid #f1f5f9',
+                                borderRadius: '50%'
+                            }} />
+                            <div style={{
+                                position: 'absolute', inset: 0,
+                                border: '3px solid transparent',
+                                borderTopColor: '#1e293b',
+                                borderRightColor: '#1e293b',
+                                borderRadius: '50%',
+                                animation: 'spin 0.8s linear infinite'
+                            }} />
+                        </div>
+                        <div style={{ flex: 1 }}>
+                            <p style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: '#1e293b' }}>
+                                Analizando conflictos...
+                            </p>
+                            <p style={{ margin: '2px 0 0 0', fontSize: '11px', color: '#64748b' }}>
+                                {diagState.message || 'Procesando...'}
+                            </p>
+                        </div>
+                    </div>
+                    {/* Barra de progreso */}
+                    <div style={{
+                        height: '4px',
+                        background: '#f1f5f9',
+                        borderRadius: '2px',
+                        overflow: 'hidden',
+                        marginTop: '4px'
+                    }}>
+                        <div style={{
+                            height: '100%',
+                            width: `${diagProgress}%`,
+                            background: '#1e293b',
+                            borderRadius: '2px',
+                            transition: 'width 0.5s ease'
+                        }} />
+                    </div>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '10.5px', color: '#94a3b8', textAlign: 'center' }}>
+                        Puedes seguir navegando, te avisaremos.
+                    </p>
+                </div>
+            );
+        }
+
+        if (diagState.status === 'done') {
+            return (
+                <div style={containerStyle}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                        {/* Check icon */}
+                        <div style={{
+                            width: '24px', height: '24px', flexShrink: 0,
+                            background: '#ecfdf5', borderRadius: '50%',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: '#10b981'
+                        }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                        </div>
+                        <div style={{ flex: 1 }}>
+                            <p style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: '#1e293b' }}>
+                                Análisis completado
+                            </p>
+                            <p style={{ margin: '2px 0 0 0', fontSize: '11px', color: '#64748b' }}>
+                                Los resultados están listos para revisar.
+                            </p>
+                        </div>
+                        <button
+                            onClick={handleDismissDiag}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#cbd5e1', padding: 0 }}
+                        >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                            </svg>
+                        </button>
+                    </div>
+                    <button
+                        onClick={handleGoToHorarios}
+                        style={{
+                            padding: '8px',
+                            background: '#1e293b',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '8px',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            marginTop: '4px'
+                        }}
+                    >
+                        Ver resultados
+                    </button>
+                </div>
+            );
+        }
+    }
+
+    // --- TOAST DE GENERACIÓN (código original) ---
+    if (!visible || !genState) return null;
 
     // --- GENERANDO ---
     if (genState.status === 'generating') {
