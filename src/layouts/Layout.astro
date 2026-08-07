@@ -2,6 +2,7 @@
 import { ClientRouter } from "astro:transitions";
 import MainNavbar from "../components/MainNavbar.jsx";
 import GeneracionToast from "../components/Horarios/GeneracionToast.jsx";
+import SileoToaster from "../components/SileoToaster.jsx";
 import "../styles/global.css";
 
 const { title = "Dashboard | HoraVlep" } = Astro.props;
@@ -63,5 +64,8 @@ const bodyBg = "#f8fafc";
 		
 		<!-- Toast global de generación de horarios -->
 		<GeneracionToast client:load transition:persist />
+		
+		<!-- Sileo Dynamic Island Toasts -->
+		<SileoToaster client:load transition:persist />
 	</body>
 </html>

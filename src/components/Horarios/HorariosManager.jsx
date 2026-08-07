@@ -6,6 +6,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { subscribe, startGeneracion, clearResult, getGeneracionState, LOADING_MESSAGES } from './generacionGlobal';
+import { clearDiagnostico, startDiagnostico } from './diagnosticoGlobal.jsx';
 const API_BASE = 'http://localhost:8000/api';
 
 const fetchJsonWithTimeout = async (url, fallback, timeoutMs = 8000) => {
@@ -505,7 +506,7 @@ export default function HorariosManager({ isEditPage = false }) {
     const handleGenerar = async () => {
         setErrorMsg(null);
         // Limpiar diagnóstico previo al reintentar generación
-        import('./diagnosticoGlobal').then(m => m.clearDiagnostico());
+        clearDiagnostico();
         startGeneracion();
     };
 
@@ -1008,7 +1009,10 @@ export default function HorariosManager({ isEditPage = false }) {
                                         </p>
 
                                         <button
-                                            onClick={() => window.location.href = '/horarios/diagnostico'}
+                                            onClick={() => {
+                                                clearDiagnostico();
+                                                startDiagnostico();
+                                            }}
                                             className="inline-flex items-center gap-2.5 px-8 py-3.5 bg-[var(--color-brand-primary)] text-white font-bold text-[15px] rounded-2xl transition-all cursor-pointer hover:shadow-xl hover:-translate-y-1"
                                         >
                                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
