@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { sileo } from 'sileo';
 import ModuleSidebar from '../Shared/ModuleSidebar';
 
 const API = 'http://localhost:8000/api';
@@ -13,7 +14,6 @@ export default function VersionesManager() {
     const [editDesc, setEditDesc] = useState('');
     const [confirmDelete, setConfirmDelete] = useState(null);
     const [confirmLoad, setConfirmLoad] = useState(null);
-    const [toast, setToast] = useState(null);
 
     // Filtros
     const [searchTerm, setSearchTerm] = useState('');
@@ -108,8 +108,33 @@ export default function VersionesManager() {
     }, []);
 
     const showToast = (msg, type = 'success') => {
-        setToast({ msg, type });
-        setTimeout(() => setToast(null), 3500);
+        const baseOptions = {
+            description: msg,
+            duration: 3000,
+            position: 'top-center',
+        };
+
+        if (type === 'error') {
+            sileo.error({
+                ...baseOptions,
+                fill: '#DC2626',
+                styles: { 
+                    description: '!text-white font-bold !text-center flex-1',
+                    badge: '!bg-red-800 !text-white',
+                    button: '!bg-red-800 hover:!bg-red-900 !text-white' 
+                }
+            });
+        } else {
+            sileo.success({
+                ...baseOptions,
+                fill: '#10B981',
+                styles: { 
+                    description: '!text-white font-bold !text-center flex-1',
+                    badge: '!bg-emerald-700 !text-white',
+                    button: '!bg-emerald-700 hover:!bg-emerald-800 !text-white' 
+                }
+            });
+        }
     };
 
     const handleLoad = async (id) => {
@@ -640,25 +665,6 @@ export default function VersionesManager() {
 
     return (
         <div className="w-full animate-fade-in relative">
-            {/* Toast */}
-            {toast && (
-                <div
-                    className="fixed top-24 right-8 z-[200] px-5 py-3 rounded-2xl shadow-lg border text-[14px] font-bold flex items-center gap-2.5 animate-in"
-                    style={{
-                        backgroundColor: toast.type === 'error' ? '#fef2f2' : '#f0fdf4',
-                        borderColor: toast.type === 'error' ? '#fca5a5' : '#86efac',
-                        color: toast.type === 'error' ? '#dc2626' : '#16a34a',
-                        animation: 'slideInRight 0.3s ease-out'
-                    }}
-                >
-                    {toast.type === 'error' ? (
-                        <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>
-                    ) : (
-                        <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><path d="M22 4L12 14.01l-3-3" /></svg>
-                    )}
-                    {toast.msg}
-                </div>
-            )}
 
             <div className="flex flex-col md:flex-row gap-6 min-h-[calc(100vh-144px)]">
                 {/* ===== LEFT SIDEBAR (1/4) ===== */}
@@ -690,7 +696,7 @@ export default function VersionesManager() {
                             {/* Filtros */}
                             <div className="px-2 flex flex-col sm:flex-row gap-3 mb-2">
                                 <div className="flex-1 relative">
-                                    <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                                    <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
                                     <input 
                                         type="text" 
                                         placeholder="Buscar por nombre o descripción..." 

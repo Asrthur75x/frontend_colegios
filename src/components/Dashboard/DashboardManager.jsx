@@ -26,7 +26,7 @@ export default function DashboardManager() {
             try {
                 const cached = localStorage.getItem('dashboard_stats');
                 if (cached) return JSON.parse(cached);
-            } catch (e) {}
+            } catch (e) { }
         }
         return { profesores: 0, cursos: 0, areas: 0, sedes: 0, grados: 0, secciones: 0, planes: 0, tutorias: 0, reservas: 0 };
     });
@@ -35,7 +35,7 @@ export default function DashboardManager() {
             try {
                 const cached = localStorage.getItem('dashboard_area_details');
                 if (cached) return JSON.parse(cached);
-            } catch (e) {}
+            } catch (e) { }
         }
         return [];
     });
@@ -45,7 +45,7 @@ export default function DashboardManager() {
             try {
                 const cached = localStorage.getItem('dashboard_horario_count');
                 if (cached) return JSON.parse(cached);
-            } catch(e) {}
+            } catch (e) { }
         }
         return 0;
     });
@@ -68,13 +68,13 @@ export default function DashboardManager() {
                 const responses = await Promise.all(endpoints.map(e => fetch(`${API}/${e.url}`).then(r => r.ok ? r.json() : [])));
                 const c = {};
                 endpoints.forEach((e, i) => c[e.key] = Array.isArray(responses[i]) ? responses[i].length : 0);
-                
+
                 const areasData = responses[endpoints.findIndex(e => e.key === 'areas')];
                 const cursosData = responses[endpoints.findIndex(e => e.key === 'cursos')];
-                
+
                 c.areasReales = Array.isArray(areasData) ? areasData.filter(a => a.nombre !== 'Desarrollo Personal' && a.nombre_area !== 'Desarrollo Personal').length : 0;
                 c.cursosReales = Array.isArray(cursosData) ? cursosData.filter(c => c.nombre_curso !== 'Tutoría' && c.nombre_curso !== 'Tutoría Psicológica').length : 0;
-                
+
                 setStats(c);
                 if (typeof window !== 'undefined') localStorage.setItem('dashboard_stats', JSON.stringify(c));
 
@@ -90,8 +90,8 @@ export default function DashboardManager() {
                 const colRes = await fetch(`${API}/colegio`);
                 if (colRes.ok) { const d = await colRes.json(); setColegio(Array.isArray(d) && d[0] ? d[0] : null); }
                 const hRes = await fetch(`${API}/horario-final`);
-                if (hRes.ok) { 
-                    const d = await hRes.json(); 
+                if (hRes.ok) {
+                    const d = await hRes.json();
                     const hc = Array.isArray(d) ? d.length : 0;
                     setHorarioCount(hc);
                     if (typeof window !== 'undefined') localStorage.setItem('dashboard_horario_count', JSON.stringify(hc));
@@ -141,7 +141,7 @@ export default function DashboardManager() {
             if (n.isCompleted) maxCompletedIdx = idx;
         });
         if (maxCompletedIdx <= 0) return "";
-        
+
         let path = `M ${nodes[0].x} ${nodes[0].y}`;
         for (let i = 1; i <= maxCompletedIdx; i++) {
             const prev = nodes[i - 1];
@@ -266,7 +266,7 @@ export default function DashboardManager() {
                             <h3 className="text-slate-800 font-black mb-3 ml-2 text-[15px] tracking-tight">Accesos Rápidos</h3>
                             <div className="grid grid-cols-2 gap-4">
                                 {/* Button 1: Agregar Profesor */}
-                                <a 
+                                <a
                                     href={academicComplete ? "/profesores" : undefined}
                                     className={`rounded-3xl p-5 flex flex-col items-center justify-center gap-3 shadow-sm aspect-square group border transition-all ${academicComplete ? 'bg-[var(--color-brand-light)] hover:bg-indigo-100 text-[var(--color-brand-primary)] cursor-pointer border-indigo-100/50' : 'bg-slate-50 border-slate-100 text-slate-400 opacity-60 cursor-not-allowed'}`}
                                 >
@@ -277,8 +277,8 @@ export default function DashboardManager() {
                                 </a>
 
                                 {/* Button 2: Edición de horarios */}
-                                <a 
-                                    href={reqCompleted ? "/horarios" : undefined}
+                                <a
+                                    href={reqCompleted ? "/horarios/editar" : undefined}
                                     className={`rounded-3xl p-5 flex flex-col items-center justify-center gap-3 shadow-sm aspect-square group border transition-all ${reqCompleted ? 'bg-[var(--color-brand-light)] hover:bg-indigo-100 text-[var(--color-brand-primary)] cursor-pointer border-indigo-100/50' : 'bg-slate-50 border-slate-100 text-slate-400 opacity-60 cursor-not-allowed'}`}
                                 >
                                     <div className={`p-3 rounded-2xl transition-transform ${reqCompleted ? 'group-hover:scale-110' : ''}`}>
@@ -288,7 +288,7 @@ export default function DashboardManager() {
                                 </a>
 
                                 {/* Button 3: Historial */}
-                                <a 
+                                <a
                                     href={reqCompleted ? "/horarios/versiones" : undefined}
                                     className={`rounded-3xl p-5 flex flex-col items-center justify-center gap-3 shadow-sm aspect-square group border transition-all ${reqCompleted ? 'bg-[var(--color-brand-light)] hover:bg-indigo-100 text-[var(--color-brand-primary)] cursor-pointer border-indigo-100/50' : 'bg-slate-50 border-slate-100 text-slate-400 opacity-60 cursor-not-allowed'}`}
                                 >
@@ -366,8 +366,7 @@ export default function DashboardManager() {
                                                 </div>
                                             )}
                                             <div
-                                                className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-[15px] transition-all duration-500 shadow-xl border-4 ${
-                                                    node.isLocked
+                                                className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-[15px] transition-all duration-500 shadow-xl border-4 ${node.isLocked
                                                         ? "bg-slate-200 text-slate-400 border-slate-300 grayscale"
                                                         : node.isCompleted
                                                             ? "bg-[var(--color-brand-dark)] text-[var(--color-brand-white)] border-[var(--color-brand-white)] hover:scale-110"
@@ -383,10 +382,9 @@ export default function DashboardManager() {
                                                 )}
                                             </div>
                                             <span
-                                                className={`absolute top-full mt-2 px-3 py-1.5 rounded-xl text-[12px] font-extrabold text-center tracking-widest uppercase transition-colors whitespace-nowrap shadow-sm border border-white/50 ${
-                                                    node.isLocked ? 'bg-slate-100 text-slate-400'
-                                                    : node.isCompleted ? 'bg-white text-[var(--color-brand-dark)]/90' 
-                                                    : 'bg-white/70 text-[var(--color-brand-dark)]/60'
+                                                className={`absolute top-full mt-2 px-3 py-1.5 rounded-xl text-[12px] font-extrabold text-center tracking-widest uppercase transition-colors whitespace-nowrap shadow-sm border border-white/50 ${node.isLocked ? 'bg-slate-100 text-slate-400'
+                                                        : node.isCompleted ? 'bg-white text-[var(--color-brand-dark)]/90'
+                                                            : 'bg-white/70 text-[var(--color-brand-dark)]/60'
                                                     }`}
                                             >
                                                 {node.label}

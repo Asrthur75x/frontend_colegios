@@ -1,5 +1,6 @@
 import React from 'react';
 import { Toaster } from 'sileo';
+import 'sileo/styles.css';
 
 /**
  * Wrapper del componente Toaster de Sileo.

@@ -6,7 +6,7 @@
  * TODO el progreso y los resultados se muestran mediante notificaciones Sileo,
  * ya no hay página/pantalla separada de diagnóstico.
  */
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { sileo } from 'sileo';
 
 const API_BASE = 'http://localhost:8000/api';
@@ -23,6 +23,36 @@ const DIAGNOSTICO_STEPS = [
     { id: 'done', label: '¡Análisis completado!' },
 ];
 const DIAGNOSTICO_MESSAGES = DIAGNOSTICO_STEPS.map(step => step.label);
+
+/* ── Componente React para el Progreso ────────────────────────── */
+const DiagnosticProgress = () => {
+    const [progressState, setProgressState] = useState(getDiagnosticoState());
+
+    useEffect(() => {
+        return subscribe((newState) => {
+            setProgressState(newState);
+        });
+    }, []);
+
+    return (
+        <div className="flex flex-col gap-2 mt-1 w-full min-w-[340px] max-w-[400px]">
+            <div className="flex justify-between items-center text-[14px] leading-none mb-1">
+                <span className="text-slate-800 font-bold capitalize truncate pr-2">
+                    {progressState.message}
+                </span>
+                <span className="text-brand-primary font-bold bg-blue-50 px-2 py-1 rounded-md shrink-0">
+                    {progressState.percent}%
+                </span>
+            </div>
+            <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden shadow-inner">
+                <div
+                    className="h-full bg-brand-primary rounded-full transition-all duration-300 ease-out"
+                    style={{ width: `${progressState.percent}%` }}
+                />
+            </div>
+        </div>
+    );
+};
 
 /* ── Estado global en window ──────────────────────────────────── */
 
@@ -287,15 +317,6 @@ export function startDiagnostico() {
                 }
 
                 notify();
-                
-                // Actualizar el DOM directamente para la fluidez
-                const textEl = document.getElementById('diag-progress-text');
-                const textPercentEl = document.getElementById('diag-progress-percent');
-                const fillEl = document.getElementById('diag-progress-fill');
-                
-                if (textEl) textEl.innerText = state.message;
-                if (textPercentEl) textPercentEl.innerText = `${state.percent}%`;
-                if (fillEl) fillEl.style.width = `${state.percent}%`;
 
             } else if (progress.status === 'done') {
                 state.resultado = progress.resultado || null;
@@ -323,23 +344,9 @@ export function startDiagnostico() {
         // Usar sileo.promise para un estado de carga estable y elegante (con spinner)
         sileo.promise(diagnosisPromise, {
             loading: {
-                // Sileo oculta la description cuando el state es "loading", 
+                // Sileo oculta la description cuando el state es "loading",
                 // así que ponemos la barra de progreso dentro del title!
-                title: (
-                    <div className="flex flex-col gap-2 mt-1 w-full min-w-[220px]">
-                        <div className="flex justify-between items-center text-[13.5px] leading-none mb-1">
-                            <span id="diag-progress-text" className="text-slate-700 font-bold capitalize">Iniciando análisis...</span>
-                            <span id="diag-progress-percent" className="text-brand-primary font-bold bg-blue-50 px-2 py-0.5 rounded-md">0%</span>
-                        </div>
-                        <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden shadow-inner">
-                            <div 
-                                id="diag-progress-fill"
-                                className="h-full bg-brand-primary rounded-full transition-all duration-300 ease-out"
-                                style={{ width: '0%' }}
-                            />
-                        </div>
-                    </div>
-                ),
+                title: <DiagnosticProgress />
             },
             success: (resultado) => {
                 console.log("Análisis completado", resultado);
@@ -359,13 +366,32 @@ export function startDiagnostico() {
                 return {
                     title: 'Error en el análisis',
                     description: error.message,
+                    options: {
+                        styles: {
+                            container: '!bg-red-500 !border-red-600 !p-5',
+                            title: '!text-white !text-lg',
+                            description: '!text-white !text-base',
+                            badge: '!bg-red-600 !text-white',
+                        }
+                    }
                 };
             }
         });
         console.log("sileo.promise invocado correctamente.");
     } catch (err) {
         console.error("Error al invocar sileo.promise:", err);
-        sileo.error({ title: "Error fatal", description: String(err) });
+        sileo.error({ 
+            title: "Error fatal", 
+            description: String(err),
+            options: {
+                styles: {
+                    container: '!bg-red-500 !border-red-600 !p-5',
+                    title: '!text-white !text-lg',
+                    description: '!text-white !text-base',
+                    badge: '!bg-red-600 !text-white',
+                }
+            }
+        });
     }
 }
 

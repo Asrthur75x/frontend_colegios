@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { sileo } from 'sileo';
 import ModuleSidebar from '../Shared/ModuleSidebar';
 import ExcelImportPanel from '../Shared/ExcelImportPanel';
 import * as XLSX from 'xlsx';
@@ -113,11 +114,34 @@ export default function AreasManager() {
     const [guardando, setGuardando] = useState(false);
     const [formErrors, setFormErrors] = useState({});
     const [deleteError, setDeleteError] = useState(null);
-    const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
-
     const showToast = (message, type = 'success') => {
-        setToast({ show: true, message, type });
-        setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 4500);
+        const baseOptions = {
+            description: message,
+            duration: 3000,
+            position: 'top-center',
+        };
+
+        if (type === 'error') {
+            sileo.error({
+                ...baseOptions,
+                fill: '#DC2626',
+                styles: { 
+                    description: '!text-white font-bold !text-center flex-1',
+                    badge: '!bg-red-800 !text-white',
+                    button: '!bg-red-800 hover:!bg-red-900 !text-white' 
+                }
+            });
+        } else {
+            sileo.success({
+                ...baseOptions,
+                fill: '#10B981',
+                styles: { 
+                    description: '!text-white font-bold !text-center flex-1',
+                    badge: '!bg-emerald-700 !text-white',
+                    button: '!bg-emerald-700 hover:!bg-emerald-800 !text-white' 
+                }
+            });
+        }
     };
 
     // Estado para modal de eliminar
@@ -750,24 +774,6 @@ export default function AreasManager() {
 
     return (
         <div className="w-full animate-fade-in relative">
-            {toast.show && (
-                <div
-                    className="fixed top-24 right-8 z-[200] px-5 py-3 rounded-2xl shadow-lg border text-[14px] font-bold flex items-center gap-2.5"
-                    style={{
-                        backgroundColor: toast.type === 'error' ? '#fef2f2' : '#f0fdf4',
-                        borderColor: toast.type === 'error' ? '#fca5a5' : '#86efac',
-                        color: toast.type === 'error' ? '#dc2626' : '#16a34a',
-                        animation: 'slideInRight 0.3s ease-out'
-                    }}
-                >
-                    {toast.type === 'error' ? (
-                        <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>
-                    ) : (
-                        <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><path d="M22 4L12 14.01l-3-3" /></svg>
-                    )}
-                    {toast.message}
-                </div>
-            )}
             <div className="flex flex-col md:flex-row gap-6 min-h-[calc(100vh-144px)]">
 
                 {/* ===== LEFT SIDEBAR (1/4) ===== */}

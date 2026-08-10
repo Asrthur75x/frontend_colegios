@@ -7,15 +7,15 @@
 const API_BASE = 'http://localhost:8000/api';
 
 const GENERATION_STEPS = [
-    { id: 'init', label: 'Iniciando el motor de horarios...' },
-    { id: 'validating', label: 'Leyendo y validando datos...' },
-    { id: 'modeling', label: 'Construyendo modelo matemático...' },
-    { id: 'solving', label: 'Buscando solución óptima...' },
-    { id: 'done', label: 'Finalizando y guardando...' }
+    { id: 'init', label: 'Preparando el espacio de trabajo...' },
+    { id: 'validating', label: 'Revisando cursos, profesores y aulas...' },
+    { id: 'modeling', label: 'Armando el rompecabezas...' },
+    { id: 'solving', label: 'Buscando las mejores combinaciones...' },
+    { id: 'done', label: '¡Casi listo! Finalizando detalles...' }
 ];
 const LOADING_MESSAGES = GENERATION_STEPS.map(step => step.label);
-const STEP_VISIBLE_TIME = 20000;
-const FINAL_STEP_VISIBLE_TIME = 900;
+const STEP_VISIBLE_TIME = 600;
+const FINAL_STEP_VISIBLE_TIME = 800;
 
 const _defaultState = {
     status: null,
@@ -80,18 +80,29 @@ const waitForPaint = () => new Promise(resolve => {
     });
 });
 
-async function revealStepsUntil(state, targetIndex, visibleTime = STEP_VISIBLE_TIME) {
+async function revealStepsUntil(state, targetIndex, targetPercent, visibleTime = STEP_VISIBLE_TIME) {
     const safeTarget = Math.max(0, Math.min(GENERATION_STEPS.length - 1, targetIndex));
+    
+    // Si estamos atrasados en la secuencia de textos, avanzamos uno por uno
     while (state.loadingStep < safeTarget) {
         state.loadingStep += 1;
         const visibleStep = GENERATION_STEPS[state.loadingStep];
         state.progressStep = visibleStep.id;
         state.progressMessage = visibleStep.label;
+        
+        // Asignar un porcentaje falso progresivo mientras alcanza el objetivo real
+        // para que se vea como una secuencia suave
+        const fakePercent = Math.min(targetPercent, (state.loadingStep / (GENERATION_STEPS.length - 1)) * 100);
+        state.progressPercent = Math.max(state.progressPercent, Math.floor(fakePercent));
+        
         notify();
-        // Asegurar que React y el navegador rendericen cada elemento antes de avanzar.
         await waitForPaint();
         await wait(visibleTime);
     }
+    
+    // Al final, actualizamos al porcentaje real
+    state.progressPercent = Math.max(0, Math.min(100, targetPercent));
+    notify();
 }
 
 /** Suscribirse a cambios de estado. Devuelve función para desuscribirse. */
@@ -167,10 +178,14 @@ export async function startGeneracion() {
                     if (mappedId === 'saving') mappedId = 'done';
                     
                     const reportedIndex = GENERATION_STEPS.findIndex(step => step.id === mappedId);
-                    state.progressPercent = Math.max(0, Math.min(100, percent));
+                    
                     if (reportedIndex >= 0) {
-                        await revealStepsUntil(state, reportedIndex);
+                        await revealStepsUntil(state, reportedIndex, percent);
+                    } else {
+                        state.progressPercent = Math.max(0, Math.min(100, percent));
+                        notify();
                     }
+                    
                     state.progressStep = mappedId;
                     state.progressMessage = GENERATION_STEPS[state.loadingStep]?.label;
                     notify();
@@ -226,8 +241,8 @@ export async function startGeneracion() {
                 : 'La respuesta del servidor no contiene asignaciones.');
         }
 
-        // El motor ya terminó: cerrar los estados finales sin añadir una espera artificial.
-        await revealStepsUntil(state, LOADING_MESSAGES.length - 1, FINAL_STEP_VISIBLE_TIME);
+        // El motor ya terminó: cerrar los estados finales sin añadir una espera artificial exagerada.
+        await revealStepsUntil(state, LOADING_MESSAGES.length - 1, 100, FINAL_STEP_VISIBLE_TIME);
         state.progressStep = 'done';
         state.progressPercent = 100;
         state.progressMessage = GENERATION_STEPS[GENERATION_STEPS.length - 1].label;
