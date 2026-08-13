@@ -1040,7 +1040,7 @@ export default function SetupWizard() {
             <div className="hidden lg:block w-[30%] max-w-[350px] h-full relative border-r border-[var(--color-brand-white)]/50 z-10 shadow-[4px_0_24px_rgba(0,0,0,0.02)] overflow-hidden">
                 {/* Branding Top Left */}
                 <div className="absolute top-8 left-8 flex items-center gap-2 z-50">
-                    <span className="text-[22px] font-black tracking-wide text-[var(--color-brand-dark)] drop-shadow-sm">HoraVlep</span>
+                    <span className="text-[22px] font-black tracking-wide text-[var(--color-brand-dark)] drop-shadow-sm">Horarix</span>
                 </div>
 
                 <div className="absolute inset-0 top-24 bottom-12 pointer-events-none">
@@ -1134,7 +1134,7 @@ export default function SetupWizard() {
                         
                         {/* Header Mobile / Title */}
                         <div className="lg:hidden w-full flex flex-col items-center justify-center mb-8">
-                            <span className="text-[20px] font-black tracking-wide text-[var(--color-brand-dark)] mb-2">HoraVlep</span>
+                            <span className="text-[20px] font-black tracking-wide text-[var(--color-brand-dark)] mb-2">Horarix</span>
                             <div className="text-[11px] font-bold tracking-widest text-[var(--color-brand-primary)] uppercase">
                                 Paso {step} de {totalSteps}
                             </div>

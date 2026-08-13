@@ -72,7 +72,7 @@ export default function Login() {
                         <path d="M12 2L2 7l10 5 10-5-10-5z" fill="url(#grad-logo-login)" />
                         <path d="M2 17l10 5 10-5M2 12l10 5 10-5" stroke="url(#grad-logo-login)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
-                    <span className="text-2xl font-black tracking-wide text-[var(--color-brand-primary)]">HoraVlep</span>
+                    <span className="text-2xl font-black tracking-wide text-[var(--color-brand-primary)]">Horarix</span>
                 </div>
 
                 <div className="w-full max-w-sm mx-auto">
@@ -149,7 +149,7 @@ export default function Login() {
                 {/* Footer Copyright */}
                 <div className="absolute bottom-10 left-8 sm:left-12 lg:left-24">
                     <p className="text-[13px] text-slate-400 font-medium">
-                        © 2026 HoraVlep. Todos los derechos reservados
+                        © 2026 Horarix. Todos los derechos reservados
                     </p>
                 </div>
             </div>
@@ -171,7 +171,7 @@ export default function Login() {
 
                     <div className="relative z-10 pt-4 flex-1 flex flex-col justify-center">
                         <h1 className="text-4xl lg:text-5xl xl:text-6xl font-medium text-white leading-[1.2] mb-6">
-                            Bienvenido a <br /><span className="font-extrabold">HoraVlep</span>
+                            Bienvenido a <br /><span className="font-extrabold">Horarix</span>
                         </h1>
                         <p className="text-xl text-white/80 font-light leading-relaxed max-w-lg">
                             Organiza, distribuye y optimiza el tiempo de tu institución en segundos sin conflictos ni dolores de cabeza.

@@ -157,7 +157,7 @@ export default function MainNavbar({ currentPath = '' }) {
                     <path d="M12 2L2 7l10 5 10-5-10-5z" fill="url(#grad-logo-nav)" />
                     <path d="M2 17l10 5 10-5M2 12l10 5 10-5" stroke="url(#grad-logo-nav)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-                <span className="font-black text-xl text-[var(--color-brand-dark)] tracking-tight">HoraVlep</span>
+                <span className="font-black text-xl text-[var(--color-brand-dark)] tracking-tight">Horarix</span>
             </a>
 
             {/* Center Navigation Icons (Inline Expand) */}
