@@ -82,9 +82,10 @@ export default function GeneracionSileoListener() {
             if (genState.status === 'generating') {
                 if (!loadingToastIdRef.current) {
                     loadingToastIdRef.current = sileo.info({
+                        id: 'horarios-loading',
                         title: 'Generando horarios...',
                         description: <GeneracionProgressInner />,
-                        duration: 99999999 // keeps it open indefinitely
+                        duration: null // keeps it open indefinitely
                     });
                 }
             } else if (genState.status === 'success') {
@@ -102,9 +103,10 @@ export default function GeneracionSileoListener() {
                 setTimeout(() => {
                     if (resultToastIdRef.current) return;
                     resultToastIdRef.current = sileo.success({
+                        id: 'horarios-success',
                         title: 'Horarios generados',
                         description: 'El proceso ha finalizado correctamente.',
-                        duration: 99999999, // Un número gigante para evitar que se cierre
+                        duration: null,
                         styles: {
                             button: '!bg-[#2F5BFF] hover:!bg-blue-700 !text-white'
                         },
@@ -138,9 +140,10 @@ export default function GeneracionSileoListener() {
                 setTimeout(() => {
                     if (resultToastIdRef.current) return;
                     resultToastIdRef.current = sileo.error({
+                        id: 'horarios-error',
                         title: 'Error de generación',
                         description: errMsg,
-                        duration: 99999999, // Un número gigante
+                        duration: null,
                         styles: {
                             button: '!bg-[#2F5BFF] hover:!bg-blue-700 !text-white'
                         },
