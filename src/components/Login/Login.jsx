@@ -35,11 +35,15 @@ export default function Login() {
 
             let destino = '/setup';
             try {
-                const stRes = await fetch('http://127.0.0.1:8000/api/seccion-turno');
-                if (stRes.ok) {
-                    const stData = await stRes.json();
-                    if (stData.length > 0) {
-                        destino = '/dashboard';
+                if (localStorage.getItem('edusync_tutoria_configured')) {
+                    destino = '/dashboard';
+                } else {
+                    const stRes = await fetch('http://127.0.0.1:8000/api/seccion-turno');
+                    if (stRes.ok) {
+                        const stData = await stRes.json();
+                        if (stData.length > 0) {
+                            destino = '/dashboard';
+                        }
                     }
                 }
             } catch (_) { }

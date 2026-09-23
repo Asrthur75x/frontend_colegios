@@ -161,7 +161,7 @@ export default function DashboardManager() {
                     {/* Top Banner */}
                     <div className="relative bg-[var(--color-brand-primary)] rounded-[32px] p-10 pb-16 text-white overflow-hidden shadow-lg flex-shrink-0">
                         <div className="relative z-10 max-w-[70%]">
-                            <h1 className="text-4xl font-black mb-3">Hola, Vlep</h1>
+                            <h1 className="text-4xl font-black mb-3">Hola, {colegio ? (colegio.alias || colegio.nombre_colegio) : 'Administrador'}</h1>
                             <p className="text-[15px] text-white/85 font-medium leading-relaxed">
                                 Te damos la bienvenida al panel principal de tu colegio. Aquí tienes un vistazo general de tu configuración actual antes de generar los horarios.
                             </p>
@@ -367,10 +367,10 @@ export default function DashboardManager() {
                                             )}
                                             <div
                                                 className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-[15px] transition-all duration-500 shadow-xl border-4 ${node.isLocked
-                                                        ? "bg-slate-200 text-slate-400 border-slate-300 grayscale"
-                                                        : node.isCompleted
-                                                            ? "bg-[var(--color-brand-dark)] text-[var(--color-brand-white)] border-[var(--color-brand-white)] hover:scale-110"
-                                                            : "bg-[var(--color-brand-white)] text-[var(--color-brand-dark)] border-[var(--color-brand-white)] hover:scale-110"
+                                                    ? "bg-slate-200 text-slate-400 border-slate-300 grayscale"
+                                                    : node.isCompleted
+                                                        ? "bg-[var(--color-brand-dark)] text-[var(--color-brand-white)] border-[var(--color-brand-white)] hover:scale-110"
+                                                        : "bg-[var(--color-brand-white)] text-[var(--color-brand-dark)] border-[var(--color-brand-white)] hover:scale-110"
                                                     }`}
                                             >
                                                 {node.isLocked ? (
@@ -383,8 +383,8 @@ export default function DashboardManager() {
                                             </div>
                                             <span
                                                 className={`absolute top-full mt-2 px-3 py-1.5 rounded-xl text-[12px] font-extrabold text-center tracking-widest uppercase transition-colors whitespace-nowrap shadow-sm border border-white/50 ${node.isLocked ? 'bg-slate-100 text-slate-400'
-                                                        : node.isCompleted ? 'bg-white text-[var(--color-brand-dark)]/90'
-                                                            : 'bg-white/70 text-[var(--color-brand-dark)]/60'
+                                                    : node.isCompleted ? 'bg-white text-[var(--color-brand-dark)]/90'
+                                                        : 'bg-white/70 text-[var(--color-brand-dark)]/60'
                                                     }`}
                                             >
                                                 {node.label}

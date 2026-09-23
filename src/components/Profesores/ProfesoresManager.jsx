@@ -325,15 +325,24 @@ export default function ProfesoresManager() {
             setCursos(data[15] || []);
             setAreas(data[16] || []);
 
+            const profesoresData = data[0] || [];
+            
+            // Limpiar IDs "fantasma" si se borraron profesores o se limpió la BD
+            const idsActivos = new Set(profesoresData.map(p => Number(p.id_profesor)));
+            const guardadosRaw = getDisponibilidadTotalIds();
+            const guardadosLimpios = guardadosRaw.filter(id => idsActivos.has(id));
+            if (guardadosLimpios.length !== guardadosRaw.length) {
+                localStorage.setItem(TOTAL_DISPONIBILIDAD_KEY, JSON.stringify(guardadosLimpios));
+                setDisponibilidadTotalIds(guardadosLimpios);
+            }
+
             // En bases antiguas, "disponibilidad total" se representaba sin filas
             // en profesor_disponibilidad. Recuperamos esa marca una sola vez al cargar,
             // únicamente para docentes que ya tienen completo el resto de su registro.
             if (!legacyTotalMigratedRef.current) {
-                const profesoresData = data[0] || [];
                 const disponibilidadesData = data[3] || [];
                 const gradosProfesorData = data[10] || [];
                 const cursosProfesorData = data[13] || [];
-                const guardados = getDisponibilidadTotalIds();
                 const inferidos = profesoresData
                     .filter(prof => {
                         const id = Number(prof.id_profesor);
@@ -344,7 +353,7 @@ export default function ProfesoresManager() {
                         return !tieneBloques && tieneGrados && tieneCursos && tieneHoras;
                     })
                     .map(prof => Number(prof.id_profesor));
-                const marcasRecuperadas = [...new Set([...guardados, ...inferidos])];
+                const marcasRecuperadas = [...new Set([...guardadosLimpios, ...inferidos])];
                 setDisponibilidadTotalIds(marcasRecuperadas);
                 localStorage.setItem(TOTAL_DISPONIBILIDAD_KEY, JSON.stringify(marcasRecuperadas));
                 legacyTotalMigratedRef.current = true;
@@ -738,6 +747,8 @@ export default function ProfesoresManager() {
                 pId = newProf.id_profesor;
                 setEditId(pId);
                 setIsEditing(true);
+                // Explicitly clear any ghost state for this new ID
+                guardarMarcaDisponibilidadTotal(pId, false);
             }
             await fetchDatos();
             setActiveTab('alcance');

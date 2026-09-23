@@ -63,10 +63,7 @@ export default function GeneracionSileoListener() {
                     sileo.dismiss(resultToastIdRef.current);
                     resultToastIdRef.current = null;
                 }
-                // Call clearResult if state is stuck on success/error while on the page
-                if (genState && (genState.status === 'success' || genState.status === 'error')) {
-                    clearResult();
-                }
+                // HorariosManager se encargará de llamar a clearResult() cuando sea necesario.
                 return;
             }
 

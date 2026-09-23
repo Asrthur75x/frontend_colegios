@@ -204,9 +204,16 @@ export default function SetupWizard() {
                                         finalStep = 6;
                                     }
                                 } else if (finalStep === 4 && newWizardData.secciones) {
-                                    // Si existen secciones pero no seccion-turno, avanzamos al paso 5
-                                    newSavedSteps.push(4);
-                                    finalStep = 5;
+                                    // Check Tutoria en caso de 1 solo turno (Paso 5 es Tutoría)
+                                    const tutoriaFlag = localStorage.getItem('edusync_tutoria_configured');
+                                    if (tutoriaFlag) {
+                                        window.location.href = '/dashboard';
+                                        return;
+                                    } else {
+                                        // Si existen secciones pero no seccion-turno, avanzamos al paso 5
+                                        newSavedSteps.push(4);
+                                        finalStep = 5;
+                                    }
                                 }
                             }
 
@@ -620,11 +627,12 @@ export default function SetupWizard() {
             }
 
             if (totalSteps === 6) {
+                // Si solo hay un turno, se autoasignan todas las secciones a ese turno.
+                await autoAssignTurnoUnico();
                 setSavedSteps(prev => prev.includes(4) ? prev : [...prev, 4]);
                 setEditingSteps(prev => prev.filter(s => s !== 4));
                 setStep(5);
             } else {
-                await autoAssignTurnoUnico();
                 setSavedSteps(prev => prev.includes(4) ? prev : [...prev, 4]);
                 setEditingSteps(prev => prev.filter(s => s !== 4));
                 setStep(5);
