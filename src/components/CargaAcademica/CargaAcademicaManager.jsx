@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
-const API_BASE = 'http://localhost:8000/api';
+import { hasPermission } from '../../lib/auth/session';
+import { listCargaAcademicaData, listProfesorCursos, setCursoAsignado, cursosAsignados } from '../../services/carga-academica';
 
 const CURSO_COLORS = [
     { bg: '#1e293b', text: '#f1f5f9', light: '#f1f5f9' },
@@ -17,10 +18,10 @@ const CURSO_COLORS = [
     { bg: '#6366f1', text: '#ffffff', light: '#eef2ff' },
 ];
 
-const ProfesorCard = ({ prof, cursos, profesorCurso, onAsignar }) => {
+const ProfesorCard = ({ prof, cursos, profesorCurso, onAsignar, readOnly }) => {
     const nombre = prof?.nombre_profesor || 'Sin nombre';
-    const ids = profesorCurso.filter(pc => pc.id_profesor === prof.id_profesor).map(pc => pc.id_curso);
-    const asignados = cursos.filter(c => ids.includes(c.id_curso));
+    const ids = profesorCurso.filter(pc => pc.id_profesor === prof.id).map(pc => pc.id_curso);
+    const asignados = cursos.filter(c => ids.includes(c.id));
     return (
         <div className="bg-white rounded-[20px] border border-slate-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex flex-col overflow-hidden">
             <div className="px-6 pt-6 pb-6 flex flex-col gap-2 bg-brand-primary/5" style={{ minHeight: '175px' }}>
@@ -32,11 +33,11 @@ const ProfesorCard = ({ prof, cursos, profesorCurso, onAsignar }) => {
                     {asignados.length === 0 ? (
                         <span className="text-[11px] font-semibold text-slate-400 italic">— ninguno todavía —</span>
                     ) : asignados.map((curso) => {
-                        const idx = cursos.findIndex(x => x.id_curso === curso.id_curso);
+                        const idx = cursos.findIndex(x => x.id === curso.id);
                         const c = CURSO_COLORS[idx % CURSO_COLORS.length];
                         const nc = curso?.nombre_curso || '?';
                         return (
-                            <span key={curso.id_curso} className="inline-block px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap flex-shrink-0"
+                            <span key={curso.id} className="inline-block px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap flex-shrink-0"
                                 style={{ backgroundColor: c.bg, color: c.text }}>
                                 {nc}
                             </span>
@@ -47,7 +48,7 @@ const ProfesorCard = ({ prof, cursos, profesorCurso, onAsignar }) => {
             <div className="px-5 py-4 border-t border-slate-100">
                 <button onClick={(e) => { e.stopPropagation(); onAsignar(prof); }}
                     className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-[13px] font-bold text-white transition-all cursor-pointer shadow-sm hover:shadow-md active:scale-95 bg-brand-primary hover:bg-[var(--color-brand-primary)]">
-                    {asignados.length === 0 ? (
+                    {readOnly ? 'Ver cursos' : asignados.length === 0 ? (
                         <>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
                             Asignar Cursos
@@ -82,90 +83,117 @@ export default function CargaAcademicaManager() {
     const [guardando, setGuardando] = useState(false);
     const [modalError, setModalError] = useState(null);
 
-    const fetchDatos = async (signal) => {
-        try {
-            setLoading(true);
-            const [r1, r2, r3, r4] = await Promise.all([
-                fetch(`${API_BASE}/profesores`, { signal }).catch(() => ({ ok: false })),
-                fetch(`${API_BASE}/cursos`, { signal }).catch(() => ({ ok: false })),
-                fetch(`${API_BASE}/profesor-curso`, { signal }).catch(() => ({ ok: false })),
-                fetch(`${API_BASE}/areas`, { signal }).catch(() => ({ ok: false })),
-            ]);
-            if (r1.ok) setProfesores(await r1.json());
-            if (r2.ok) setCursos(await r2.json());
-            if (r3.ok) setProfesorCurso(await r3.json());
-            if (r4.ok) setAreas(await r4.json());
-            setError(null);
-        } catch (err) {
-            if (err.name === 'AbortError') return;
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
+    const [sessionReady, setSessionReady] = useState(false);
+    const [reload, setReload] = useState(0);
+    const [relationsReady, setRelationsReady] = useState(false);
+    const busyRef = useRef(false);
+    const canView = sessionReady && hasPermission('horarios:profesor_curso:view');
+    const canAdd = sessionReady && hasPermission('horarios:profesor_curso:add');
+    const canDelete = sessionReady && hasPermission('horarios:profesor_curso:delete');
 
+    useEffect(() => { setSessionReady(true); }, []);
     useEffect(() => {
-        const c = new AbortController();
-        fetchDatos(c.signal);
-        return () => c.abort();
-    }, []);
+        if (!sessionReady) return;
+        let active = true;
+        if (!canView) { setLoading(false); return; }
+        setLoading(true);
+        setError(null);
+        setRelationsReady(false);
+        listCargaAcademicaData().then(data => {
+            if (!active) return;
+            setProfesores(data.profesores);
+            setCursos(data.cursos);
+            setAreas(data.areas);
+            setProfesorCurso(data.relaciones);
+            setRelationsReady(true);
+        }).catch(err => {
+            if (active) setError(err.message);
+        }).finally(() => {
+            if (active) setLoading(false);
+        });
+        return () => { active = false; };
+    }, [sessionReady, canView, reload]);
+
+    const cursoIds = new Set(cursos.map(c => c.id));
+    const idsDelProfesor = id => cursosAsignados(id, profesorCurso, cursoIds);
+    const totalAsignaciones = profesores.reduce((total, p) => total + idsDelProfesor(p.id).length, 0);
+    const areasDisponibles = cursos.some(c => !areas.some(a => a.id === c.id_area))
+        ? [...areas, { id: null, nombre: 'Sin área' }] : areas;
+    const cursosDelArea = area => cursos.filter(c => area.id === null
+        ? !areas.some(a => a.id === c.id_area) : c.id_area === area.id);
 
     const filtered = profesores
         .filter(p => p.nombre_profesor?.toLowerCase().includes(searchTerm.toLowerCase()))
         .filter(p => {
             if (!filterCurso) return true;
-            return profesorCurso.some(pc => pc.id_profesor === p.id_profesor && String(pc.id_curso) === filterCurso);
+            return profesorCurso.some(pc => pc.id_profesor === p.id && String(pc.id_curso) === filterCurso);
         })
         .sort((a, b) => {
-            const ac = profesorCurso.filter(pc => pc.id_profesor === a.id_profesor).length;
-            const bc = profesorCurso.filter(pc => pc.id_profesor === b.id_profesor).length;
+            const ac = idsDelProfesor(a.id).length;
+            const bc = idsDelProfesor(b.id).length;
             return ac - bc;
         });
-    const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
-    const currentProfesores = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+    const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
+    const visiblePage = Math.min(currentPage, totalPages);
+    const currentProfesores = filtered.slice((visiblePage - 1) * ITEMS_PER_PAGE, visiblePage * ITEMS_PER_PAGE);
 
-    const cursosDelProfesor = selectedProfesor
-        ? profesorCurso.filter(pc => pc.id_profesor === selectedProfesor.id_profesor).map(pc => pc.id_curso)
-        : [];
+    const cursosDelProfesor = selectedProfesor ? idsDelProfesor(selectedProfesor.id) : [];
 
     const abrirModal = (prof) => {
-        setModalError(null);
+        if (busyRef.current) return;
+        setModalError(relationsReady ? null : 'Actualiza las asignaciones antes de continuar.');
         setSelectedProfesor(prof);
         setSelectedArea(null);
         setIsModalOpen(true);
     };
 
-    const handleAsignarToggle = async (id_curso) => {
-        if (!selectedProfesor || guardando) return;
+    const refreshRelaciones = async () => {
+        if (busyRef.current) return;
+        busyRef.current = true;
         setGuardando(true);
         try {
-            const isAsig = cursosDelProfesor.includes(id_curso);
-            
-            if (isAsig) {
-                // Eliminar (Desasignar)
-                const relacion = profesorCurso.find(pc => pc.id_profesor === selectedProfesor.id_profesor && pc.id_curso === id_curso);
-                if (relacion) {
-                    const res = await fetch(`${API_BASE}/profesor-curso/${relacion.id_profesor_curso}`, { method: 'DELETE' });
-                    if (!res.ok) throw new Error('Error al quitar el curso');
-                    setProfesorCurso(prev => prev.filter(pc => pc.id_profesor_curso !== relacion.id_profesor_curso));
-                }
-            } else {
-                // Asignar
-                const res = await fetch(`${API_BASE}/profesor-curso`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id_profesor: selectedProfesor.id_profesor, id_curso })
-                });
-                if (!res.ok) throw new Error('Error al asignar curso');
-                const nuevo = await res.json();
-                setProfesorCurso(prev => [...prev, nuevo]);
-            }
+            setProfesorCurso(await listProfesorCursos());
+            setRelationsReady(true);
+            setModalError(null);
+        } catch (err) { setModalError(err.message); }
+        finally { busyRef.current = false; setGuardando(false); }
+    };
+
+    const handleAsignarToggle = async idCurso => {
+        if (!selectedProfesor || busyRef.current || !relationsReady || !cursoIds.has(idCurso)) return;
+        const asignado = !cursosDelProfesor.includes(idCurso);
+        if (asignado ? !canAdd : !canDelete) return;
+        busyRef.current = true;
+        setGuardando(true);
+        setModalError(null);
+        let saved = false;
+        let mutationError = '';
+        try {
+            await setCursoAsignado(selectedProfesor.id, idCurso, asignado, { canAdd, canDelete });
+            saved = true;
         } catch (err) {
-            alert(err.message);
+            mutationError = err.message;
+            setModalError(mutationError);
         } finally {
+            // Even a partially failed removal may have deleted duplicate rows.
+            // Never infer a new row ID from the confirmation-only POST response.
+            try {
+                setProfesorCurso(await listProfesorCursos());
+                setRelationsReady(true);
+            } catch (err) {
+                setRelationsReady(false);
+                const detail = saved ? 'El cambio se guardó.' : mutationError;
+                setModalError(`${detail} No se pudo actualizar la lista: ${err.message}. Reintenta la carga antes de continuar.`);
+            }
+            window.dispatchEvent(new Event('edusync_data_updated'));
+            window.dispatchEvent(new Event('horarix_data_updated'));
+            busyRef.current = false;
             setGuardando(false);
         }
     };
+
+    if (!sessionReady) return <p role="status" className="py-20 text-center text-slate-500">Cargando asignaciones…</p>;
+    if (!canView) return <p role="alert">No tienes permiso para consultar la carga académica.</p>;
 
     return (
         <div className="w-full space-y-8 animate-fade-in relative pb-10">
@@ -216,17 +244,20 @@ export default function CargaAcademicaManager() {
                         <div>
                             <p className="text-[var(--color-brand-dark)] text-[12px] font-bold mb-0.5">Asignaciones</p>
                             <p className="text-[var(--color-brand-dark)]/80 text-[11px] font-medium leading-relaxed">
-                                Tienes {profesorCurso.length} especialidades asignadas actualmente.
+                                Tienes {totalAsignaciones} especialidades asignadas actualmente.
                             </p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {error && <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-2xl text-sm font-medium">{error}</div>}
+            {error && <div role="alert" className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-2xl text-sm font-medium">
+                <p>{error}</p>
+                <button type="button" onClick={() => setReload(value => value + 1)} className="mt-2 font-bold underline">Reintentar carga</button>
+            </div>}
 
             {/* Toolbar + Grid */}
-            {!loading && (
+            {!loading && !error && (
                 <div className="pt-4">
                     <div className="flex items-center justify-between mb-8 bg-white py-2 px-4 rounded-[20px] border border-slate-100 shadow-sm h-16 w-full overflow-hidden">
                         <div className="flex-shrink-0 flex items-center gap-3 w-1/4">
@@ -249,14 +280,14 @@ export default function CargaAcademicaManager() {
                         </div>
 
                         <div className="flex-shrink-0 w-1/4 flex justify-end relative">
-                            <button 
+                            <button
                                 onClick={() => setIsFilterOpen(true)}
                                 className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all border-2 h-12 cursor-pointer ${filterCurso ? 'bg-brand-primary text-white border-brand-primary shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:border-brand-primary hover:text-brand-primary'}`}
                             >
                                 {filterCurso ? (
                                     <>
                                         <div className="w-2 h-2 rounded-full bg-white animate-pulse"></div>
-                                        <span className="truncate max-w-[120px]">{cursos.find(c => String(c.id_curso) === filterCurso)?.nombre_curso || 'Curso'}</span>
+                                        <span className="truncate max-w-[120px]">{cursos.find(c => String(c.id) === filterCurso)?.nombre_curso || 'Curso'}</span>
                                     </>
                                 ) : (
                                     <>
@@ -274,7 +305,7 @@ export default function CargaAcademicaManager() {
                                 {(searchTerm || filterCurso) ? 'No se encontraron docentes con esos filtros' : 'No hay docentes registrados'}
                             </h3>
                             {(searchTerm || filterCurso) && (
-                                <button 
+                                <button
                                     onClick={() => { setSearchTerm(''); setFilterCurso(''); setCurrentPage(1); }}
                                     className="mt-6 px-6 py-2.5 bg-white border-2 border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-100 transition-colors shadow-sm cursor-pointer"
                                 >
@@ -286,22 +317,22 @@ export default function CargaAcademicaManager() {
                         <>
                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6 px-1">
                                 {currentProfesores.map(prof => (
-                                    <ProfesorCard key={prof.id_profesor} prof={prof} cursos={cursos} profesorCurso={profesorCurso} onAsignar={abrirModal} />
+                                    <ProfesorCard key={prof.id} prof={prof} cursos={cursos} profesorCurso={profesorCurso} onAsignar={abrirModal} readOnly={!canAdd && !canDelete} />
                                 ))}
                             </div>
                             {totalPages > 1 && (
                                 <div className="flex items-center justify-center gap-2 mt-12 mb-4">
-                                    <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1}
+                                    <button onClick={() => setCurrentPage(Math.max(visiblePage - 1, 1))} disabled={visiblePage === 1}
                                         className="w-10 h-10 rounded-xl flex items-center justify-center border border-slate-200 text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 hover:text-brand-primary transition-colors cursor-pointer">
                                         <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
                                     </button>
                                     {[...Array(totalPages)].map((_, i) => (
                                         <button key={i + 1} onClick={() => setCurrentPage(i + 1)}
-                                            className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold transition-all cursor-pointer ${currentPage === i + 1 ? 'bg-brand-primary text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}`}>
+                                            className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold transition-all cursor-pointer ${visiblePage === i + 1 ? 'bg-brand-primary text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}`}>
                                             {i + 1}
                                         </button>
                                     ))}
-                                    <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages}
+                                    <button onClick={() => setCurrentPage(Math.min(visiblePage + 1, totalPages))} disabled={visiblePage === totalPages}
                                         className="w-10 h-10 rounded-xl flex items-center justify-center border border-slate-200 text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 hover:text-brand-primary transition-colors cursor-pointer">
                                         <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
                                     </button>
@@ -337,12 +368,17 @@ export default function CargaAcademicaManager() {
                                     </p>
                                 </div>
                             </div>
-                            <button onClick={() => setIsModalOpen(false)}
+                            <button disabled={guardando} onClick={() => setIsModalOpen(false)}
                                 className="w-9 h-9 rounded-full bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                             </button>
                         </div>
 
+                        {modalError && <div role="alert" className="mx-6 mt-4 rounded-xl bg-red-50 p-4 text-sm text-red-700">
+                            <p>{modalError}</p>
+                            {!relationsReady && <button type="button" disabled={guardando} onClick={refreshRelaciones} className="mt-2 font-bold underline">Reintentar carga</button>}
+                        </div>}
+                        {!canAdd && !canDelete && <p className="px-6 pt-4 text-sm text-slate-500">Puedes consultar las asignaciones; no tienes permiso para modificarlas.</p>}
                         {/* Cuerpo */}
                         <div className="overflow-y-auto p-6 bg-slate-50/50" style={{ flex: '1 1 auto' }}>
                             {guardando && (
@@ -355,16 +391,16 @@ export default function CargaAcademicaManager() {
                             {!selectedArea && (
                                 <div>
                                     <p className="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-4">Paso 1 — Elige un área</p>
-                                    {areas.length === 0 ? (
+                                    {areasDisponibles.length === 0 ? (
                                         <p className="text-center py-10 text-slate-400">No hay áreas registradas.</p>
                                     ) : (
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                            {areas.map(area => {
+                                            {areasDisponibles.map(area => {
                                                 const nombreArea = area?.nombre || 'Sin nombre';
-                                                const cursosArea = cursos.filter(c => c.id_area === area.id_area);
-                                                const asig = cursosArea.filter(c => cursosDelProfesor.includes(c.id_curso)).length;
+                                                const cursosArea = cursosDelArea(area);
+                                                const asig = cursosArea.filter(c => cursosDelProfesor.includes(c.id)).length;
                                                 return (
-                                                    <button key={area.id_area} onClick={() => setSelectedArea(area)}
+                                                    <button key={area.id ?? 'sin-area'} onClick={() => setSelectedArea(area)}
                                                         className="w-full text-left rounded-2xl border-2 border-slate-100 bg-white hover:border-brand-primary hover:shadow-md transition-all p-4 cursor-pointer group">
                                                         <div className="flex items-center gap-3">
                                                             <div className="w-10 h-10 rounded-xl bg-brand-primary/10 flex items-center justify-center text-brand-primary font-black text-sm shrink-0 group-hover:bg-brand-primary group-hover:text-white transition-colors">
@@ -398,18 +434,20 @@ export default function CargaAcademicaManager() {
                                             <p className="text-[14px] font-extrabold text-slate-800 truncate">{selectedArea?.nombre || 'Sin nombre'}</p>
                                         </div>
                                     </div>
-                                    {cursos.filter(c => c.id_area === selectedArea.id_area).length === 0 ? (
+                                    {cursosDelArea(selectedArea).length === 0 ? (
                                         <p className="text-center py-10 text-slate-400">No hay cursos en esta área.</p>
                                     ) : (
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                            {cursos.filter(c => c.id_area === selectedArea.id_area).map(curso => {
-                                                const idx = cursos.findIndex(x => x.id_curso === curso.id_curso);
+                                            {cursosDelArea(selectedArea).map(curso => {
+                                                const idx = cursos.findIndex(x => x.id === curso.id);
                                                 const col = CURSO_COLORS[idx % CURSO_COLORS.length];
-                                                const isAsig = cursosDelProfesor.includes(curso.id_curso);
+                                                const isAsig = cursosDelProfesor.includes(curso.id);
                                                 const nombreCurso = curso?.nombre_curso || 'Sin nombre';
                                                 return (
-                                                    <div key={curso.id_curso} onClick={() => handleAsignarToggle(curso.id_curso)}
-                                                        className={`rounded-2xl border-2 overflow-hidden transition-all duration-200 cursor-pointer ${isAsig ? 'shadow-md hover:opacity-80' : 'border-slate-100 bg-white hover:border-slate-300 hover:shadow-md'}`}
+                                                    <button type="button" key={curso.id} aria-pressed={isAsig}
+                                                        disabled={guardando || !relationsReady || (isAsig ? !canDelete : !canAdd)}
+                                                        onClick={() => handleAsignarToggle(curso.id)}
+                                                        className={`text-left disabled:opacity-60 disabled:cursor-not-allowed rounded-2xl border-2 overflow-hidden transition-all duration-200 cursor-pointer ${isAsig ? 'shadow-md hover:opacity-80' : 'border-slate-100 bg-white hover:border-slate-300 hover:shadow-md'}`}
                                                         style={isAsig ? { border: `2px solid ${col.bg}`, boxShadow: `0 4px 16px ${col.bg}30` } : {}}>
                                                         <div className="px-4 py-2.5 flex items-center justify-between" style={{ backgroundColor: col.bg }}>
                                                             <span className="text-[10px] font-black uppercase tracking-[0.15em]" style={{ color: col.text, opacity: 0.85 }}>Asignatura</span>
@@ -421,14 +459,14 @@ export default function CargaAcademicaManager() {
                                                             </div>
                                                             <div className="flex-1 min-w-0">
                                                                 <p className="font-extrabold text-[13px] truncate leading-tight" style={{ color: isAsig ? col.bg : '#1e293b' }}>{nombreCurso}</p>
-                                                                <p className="text-[11px] font-medium mt-0.5" style={isAsig ? { color: col.bg, opacity: 0.7 } : { color: '#94a3b8' }}>{isAsig ? 'Clic para quitar' : '+ Clic para asignar'}</p>
+                                                                <p className="text-[11px] font-medium mt-0.5" style={isAsig ? { color: col.bg, opacity: 0.7 } : { color: '#94a3b8' }}>{(isAsig ? canDelete : canAdd) ? (isAsig ? 'Clic para quitar' : '+ Clic para asignar') : 'Solo consulta'}</p>
                                                             </div>
                                                             <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0"
                                                                 style={isAsig ? { borderColor: col.bg, backgroundColor: col.bg } : { borderColor: '#cbd5e1' }}>
                                                                 {isAsig && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5"><polyline points="20 6 9 17 4 12" /></svg>}
                                                             </div>
                                                         </div>
-                                                    </div>
+                                                    </button>
                                                 );
                                             })}
                                         </div>
@@ -442,7 +480,7 @@ export default function CargaAcademicaManager() {
                             <p className="text-[13px] text-slate-500 font-medium">
                                 <span className="font-black text-brand-primary">{cursosDelProfesor.length}</span> curso{cursosDelProfesor.length !== 1 ? 's' : ''} asignado{cursosDelProfesor.length !== 1 ? 's' : ''}
                             </p>
-                            <button onClick={() => setIsModalOpen(false)}
+                            <button disabled={guardando} onClick={() => setIsModalOpen(false)}
                                 className="px-6 py-2.5 bg-brand-primary hover:bg-[var(--color-brand-primary)] text-white font-bold text-sm rounded-xl transition-all cursor-pointer shadow-md">
                                 Listo
                             </button>
@@ -454,7 +492,7 @@ export default function CargaAcademicaManager() {
             {isFilterOpen && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fade-in">
                     <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl border border-slate-100 flex flex-col overflow-hidden" style={{ maxHeight: '85vh' }}>
-                        
+
                         <div className="px-6 py-5 flex justify-between items-center border-b border-slate-100 shrink-0 bg-slate-50/50">
                             <div className="flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-brand-primary/10 text-brand-primary font-black shadow-inner">
@@ -473,7 +511,7 @@ export default function CargaAcademicaManager() {
 
                         <div className="p-6 overflow-y-auto custom-scrollbar flex-1 bg-slate-50/30">
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                <button 
+                                <button
                                     onClick={() => {setFilterCurso(''); setIsFilterOpen(false); setCurrentPage(1);}}
                                     className={`w-full text-left rounded-2xl border-2 transition-all p-4 cursor-pointer flex items-center gap-3
                                         ${!filterCurso ? 'border-brand-primary bg-brand-primary/5 shadow-md' : 'border-slate-100 bg-white hover:border-brand-primary hover:shadow-md'}`}
@@ -489,11 +527,11 @@ export default function CargaAcademicaManager() {
 
                                 {cursos.map((c, idx) => {
                                     const col = CURSO_COLORS[idx % CURSO_COLORS.length];
-                                    const isSel = filterCurso === String(c.id_curso);
+                                    const isSel = filterCurso === String(c.id);
                                     return (
-                                        <button 
-                                            key={c.id_curso} 
-                                            onClick={() => {setFilterCurso(String(c.id_curso)); setIsFilterOpen(false); setCurrentPage(1);}}
+                                        <button
+                                            key={c.id}
+                                            onClick={() => {setFilterCurso(String(c.id)); setIsFilterOpen(false); setCurrentPage(1);}}
                                             className={`w-full text-left rounded-2xl border-2 transition-all p-4 cursor-pointer flex items-center gap-3
                                                 ${isSel ? 'shadow-md' : 'border-slate-100 bg-white hover:shadow-md hover:border-slate-300'}`}
                                             style={isSel ? { borderColor: col.bg, backgroundColor: col.light } : {}}

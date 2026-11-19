@@ -1,25 +1,30 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { sileo } from 'sileo';
 
-const API_BASE = 'http://localhost:8000/api';
+import { getSession, hasPermission } from '../../lib/auth/session';
+import {
+    ajustesCrud, getAjustesData, listConfigs, listSeccionTurnos,
+    getColegio, updateColegio, saveGradoDiaConfig, syncTurnoSeccion, parseWholeNumber,
+} from '../../services/ajustes';
 
 export default function AjustesManager() {
-    const [activeTab, setActiveTab] = useState(() => {
-        if (typeof window !== 'undefined') {
-            return localStorage.getItem('ajustes_active_tab') || 'institucion';
-        }
-        return 'institucion';
-    });
-
+    const [activeTab, setActiveTab] = useState('institucion');
+    const [sessionReady, setSessionReady] = useState(false);
     useEffect(() => {
-        if (typeof window !== 'undefined') {
-            localStorage.setItem('ajustes_active_tab', activeTab);
-        }
-    }, [activeTab]);
+        try {
+            const saved = localStorage.getItem('ajustes_active_tab');
+            if (['institucion', 'organizacion', 'estructura'].includes(saved)) setActiveTab(saved);
+        } catch { /* Tab persistence is optional. */ }
+        setSessionReady(true);
+    }, []);
+    useEffect(() => {
+        if (!sessionReady) return;
+        try { localStorage.setItem('ajustes_active_tab', activeTab); } catch { /* Optional. */ }
+    }, [sessionReady, activeTab]);
     const [loading, setLoading] = useState(true);
 
     // --- State: Institución ---
-    const [colegio, setColegio] = useState({ id_colegio: 1, nombre_colegio: '' });
+    const [colegio, setColegio] = useState(null);
     const [sedes, setSedes] = useState([]);
     const [turnos, setTurnos] = useState([]);
     const [newSede, setNewSede] = useState('');
@@ -44,6 +49,7 @@ export default function AjustesManager() {
 
     // --- State: Edición Visual ---
     const [isEditingColegio, setIsEditingColegio] = useState(false);
+    const [editColegioValue, setEditColegioValue] = useState('');
     const [editingSedeId, setEditingSedeId] = useState(null);
     const [editSedeValue, setEditSedeValue] = useState('');
     const [editingTurnoId, setEditingTurnoId] = useState(null);
@@ -86,368 +92,141 @@ export default function AjustesManager() {
         }
     };
 
-    const fetchData = async (showLoader = true) => {
-        if (showLoader) setLoading(true);
-        try {
-            const [
-                colRes, sedesRes, turnosRes, diasRes, gradosRes,
-                configRes, secRes, stRes
-            ] = await Promise.all([
-                fetch(`${API_BASE}/colegio`),
-                fetch(`${API_BASE}/sedes`),
-                fetch(`${API_BASE}/turnos`),
-                fetch(`${API_BASE}/dias`),
-                fetch(`${API_BASE}/grados`),
-                fetch(`${API_BASE}/grado-dia-config`),
-                fetch(`${API_BASE}/secciones`),
-                fetch(`${API_BASE}/seccion-turno`)
-            ]);
-
-            if (colRes.ok) {
-                const colData = await colRes.json();
-                if (colData.length > 0) setColegio(colData[0]);
-            }
-            if (sedesRes.ok) setSedes(await sedesRes.json());
-            if (turnosRes.ok) setTurnos(await turnosRes.json());
-
-            if (diasRes.ok) {
-                const dData = await diasRes.json();
-                setDias(dData.sort((a, b) => a.orden - b.orden));
-            }
-
-            if (gradosRes.ok) {
-                const gData = await gradosRes.json();
-                setGrados(gData.sort((a, b) => a.numero - b.numero));
-            }
-
-            if (configRes.ok) setGradoDiaConfig(await configRes.json());
-            if (secRes.ok) setSecciones(await secRes.json());
-            if (stRes.ok) setSeccionTurnos(await stRes.json());
-
-        } catch (err) {
-            console.error(err);
-            showToast("Error al cargar los datos.", "error");
-        }
-        setLoading(false);
-    };
+    const [reload, setReload] = useState(0);
+    const [loadError, setLoadError] = useState(null);
+    const [operationError, setOperationError] = useState(null);
+    const [institutionError, setInstitutionError] = useState(null);
+    const [saving, setSaving] = useState(false);
+    const [dataFresh, setDataFresh] = useState(true);
+    const [configDrafts, setConfigDrafts] = useState({});
+    const busyRef = useRef(false);
+    const session = sessionReady ? getSession() : null;
+    const can = (resource, action) => sessionReady && hasPermission(`horarios:${resource}:${action}`);
+    const canRead = resource => can(resource, 'view');
+    const resources = ['sede', 'turno', 'dia', 'grado', 'grado_dia_config', 'seccion', 'seccion_turno'];
+    const resourceLabels = { sede: 'sedes', turno: 'turnos', dia: 'días', grado: 'grados', grado_dia_config: 'bloques por día', seccion: 'secciones', seccion_turno: 'turnos por sección' };
+    const hasAnyView = resources.some(canRead);
+    const canReadColegio = sessionReady && hasPermission('platform:tenant:view');
+    const canEditColegio = canReadColegio && hasPermission('platform:tenant:edit');
+    const permissions = resource => ({ canAdd: can(resource, 'add'), canEdit: can(resource, 'edit'), canDelete: can(resource, 'delete') });
 
     useEffect(() => {
-        fetchData();
-    }, []);
+        if (!sessionReady || !hasAnyView) return;
+        let active = true;
+        setLoading(true);
+        setLoadError(null);
+        getAjustesData(canRead).then(data => {
+            if (!active) return;
+            setSedes(data.sedes);
+            setTurnos(data.turnos);
+            setDias([...data.dias].sort((a, b) => a.orden - b.orden));
+            setGrados([...data.grados].sort((a, b) => a.numero - b.numero));
+            setGradoDiaConfig(data.configs);
+            setSecciones(data.secciones);
+            setSeccionTurnos(data.seccionTurnos);
+            setDataFresh(true);
+            setOperationError(null);
+        }).catch(err => { if (active) setLoadError(err.message); })
+            .finally(() => { if (active) setLoading(false); });
+        if (canReadColegio && session?.user.tenant_id) {
+            setInstitutionError(null);
+            getColegio(session.user.tenant_id).then(data => { if (active) setColegio(data); })
+                .catch(err => { if (active) setInstitutionError(err.message); });
+        }
+        return () => { active = false; };
+    }, [sessionReady, hasAnyView, reload]);
 
-    // ===== INSTITUCIÓN =====
-    const handleUpdateColegio = async () => {
+    const refreshResource = async resource => {
+        if (resource === 'sede') setSedes(await ajustesCrud.sede.list());
+        else if (resource === 'turno') setTurnos(await ajustesCrud.turno.list());
+        else if (resource === 'grado') setGrados([...(await ajustesCrud.grado.list())].sort((a, b) => a.numero - b.numero));
+        else if (resource === 'seccion') setSecciones(await ajustesCrud.seccion.list());
+        else if (resource === 'grado_dia_config') setGradoDiaConfig(await listConfigs());
+        else if (resource === 'seccion_turno') setSeccionTurnos(await listSeccionTurnos());
+        else if (resource === 'colegio') setColegio(await getColegio(session.user.tenant_id));
+    };
+
+    const mutate = async (allowed, resource, operation, message, after = () => {}) => {
+        if (busyRef.current || !dataFresh) return;
+        if (!allowed) { setOperationError('No tienes permiso para realizar esta operación.'); return; }
+        busyRef.current = true;
+        setSaving(true);
+        setOperationError(null);
+        let committed = false;
         try {
-            await fetch(`${API_BASE}/colegio/${colegio.id_colegio}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nombre_colegio: colegio.nombre_colegio })
-            });
-            showToast("Nombre guardado correctamente.");
+            await operation();
+            committed = true;
+            after();
+            setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: null });
+            showToast(message);
         } catch (err) {
-            showToast("Error al guardar.", "error");
+            setOperationError(err.message);
+            showToast(err.message, 'error');
+        } finally {
+            try { await refreshResource(resource); }
+            catch (err) {
+                setDataFresh(false);
+                setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: null });
+                setOperationError(`${committed ? 'El cambio se guardó. ' : ''}No se pudo actualizar la lista: ${err.message}. Recarga los datos antes de continuar.`);
+            }
+            if (committed) {
+                window.dispatchEvent(new Event('edusync_data_updated'));
+                window.dispatchEvent(new Event('horarix_data_updated'));
+            }
+            busyRef.current = false;
+            setSaving(false);
         }
     };
 
-    const handleAddSede = async () => {
-        if (!newSede.trim()) return;
-        try {
-            const res = await fetch(`${API_BASE}/sedes`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nombre_sede: newSede, id_colegio: colegio.id_colegio })
-            });
-            if (res.ok) {
-                setNewSede('');
-                fetchData(false);
-                showToast("Sede añadida.");
-            }
-        } catch (err) { showToast("Error al añadir sede.", "error"); }
+    const text = value => {
+        const clean = value.trim();
+        if (!clean || clean.length > 256) throw new Error('Ingresa un nombre de entre 1 y 256 caracteres.');
+        return clean;
+    };
+    const requestDelete = (resource, id, label) => {
+        if (!can(resource, 'delete') || busyRef.current) return;
+        setOperationError(null);
+        setConfirmDialog({ isOpen: true, title: `Eliminar ${label}`, message: `¿Deseas eliminar este registro de ${label}?`,
+            onConfirm: () => mutate(can(resource, 'delete'), resource, () => ajustesCrud[resource].delete(id), 'Registro eliminado.') });
     };
 
-    const handleUpdateSede = async (id) => {
-        if (!editSedeValue.trim()) return;
-        try {
-            const res = await fetch(`${API_BASE}/sedes/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nombre_sede: editSedeValue })
-            });
-            if (res.ok) {
-                setEditingSedeId(null);
-                fetchData(false);
-                showToast("Sede actualizada.");
-            } else {
-                showToast("Error al actualizar sede.", "error");
-            }
-        } catch (err) { showToast("Error al actualizar sede.", "error"); }
+    const handleUpdateColegio = () => mutate(canEditColegio && colegio, 'colegio',
+        () => updateColegio(session.user.tenant_id, text(editColegioValue)), 'Nombre guardado.', () => setIsEditingColegio(false));
+    const handleAddSede = () => mutate(can('sede', 'add') && canRead('sede'), 'sede',
+        () => ajustesCrud.sede.create({ nombre_sede: text(newSede) }), 'Sede añadida.', () => setNewSede(''));
+    const handleUpdateSede = id => mutate(can('sede', 'edit') && canRead('sede'), 'sede',
+        () => ajustesCrud.sede.update(id, { nombre_sede: text(editSedeValue) }), 'Sede actualizada.', () => setEditingSedeId(null));
+    const handleDeleteSede = id => requestDelete('sede', id, 'sede');
+    const handleAddTurno = () => mutate(can('turno', 'add') && canRead('turno'), 'turno',
+        () => ajustesCrud.turno.create({ nombre: text(newTurno) }), 'Turno añadido.', () => setNewTurno(''));
+    const handleUpdateTurno = id => mutate(can('turno', 'edit') && canRead('turno'), 'turno',
+        () => ajustesCrud.turno.update(id, { nombre: text(editTurnoValue) }), 'Turno actualizado.', () => setEditingTurnoId(null));
+    const handleDeleteTurno = id => requestDelete('turno', id, 'turno');
+    const handleAddGrado = () => mutate(can('grado', 'add') && canRead('grado'), 'grado',
+        () => ajustesCrud.grado.create({ numero: parseWholeNumber(newGrado, 1) }), 'Grado añadido.', () => setNewGrado(''));
+    const handleUpdateGrado = id => mutate(can('grado', 'edit') && canRead('grado'), 'grado',
+        () => ajustesCrud.grado.update(id, { numero: parseWholeNumber(editGradoValue, 1) }), 'Grado actualizado.', () => setEditingGradoId(null));
+    const handleDeleteGrado = id => requestDelete('grado', id, 'grado');
+    const handleUpdateGradoDiaConfig = (idGrado, idDia, value) => {
+        const existing = gradoDiaConfig.find(c => c.id_grado === idGrado && c.id_dia === idDia);
+        if (String(existing?.bloques_dia ?? 0) === String(value)) return;
+        return mutate(canRead('grado_dia_config'), 'grado_dia_config',
+            () => saveGradoDiaConfig(idGrado, idDia, value, permissions('grado_dia_config')), 'Bloques actualizados.',
+            () => setConfigDrafts(prev => { const next = { ...prev }; delete next[`${idGrado}:${idDia}`]; return next; }));
     };
-
-    const handleDeleteSede = (id) => {
-        setConfirmDialog({
-            isOpen: true,
-            title: 'Eliminar Sede',
-            message: '¿Estás seguro de que deseas eliminar esta sede? Esta acción no se puede deshacer.',
-            onConfirm: async () => {
-                try {
-                    const res = await fetch(`${API_BASE}/sedes/${id}`, { method: 'DELETE' });
-                    if (res.ok) {
-                        fetchData(false);
-                        showToast("Sede eliminada.");
-                    } else {
-                        showToast("Acción denegada: Este registro ya se encuentra en uso.", "error");
-                    }
-                } catch (err) { showToast("Error al eliminar sede.", "error"); }
-            }
-        });
-    };
-
-    const handleAddTurno = async () => {
-        if (!newTurno.trim()) return;
-        try {
-            const res = await fetch(`${API_BASE}/turnos`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nombre: newTurno })
-            });
-            if (res.ok) {
-                setNewTurno('');
-                fetchData(false);
-                showToast("Turno añadido.");
-            }
-        } catch (err) { showToast("Error al añadir turno.", "error"); }
-    };
-
-    const handleUpdateTurno = async (id) => {
-        if (!editTurnoValue.trim()) return;
-        try {
-            const res = await fetch(`${API_BASE}/turnos/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nombre: editTurnoValue })
-            });
-            if (res.ok) {
-                setEditingTurnoId(null);
-                fetchData(false);
-                showToast("Turno actualizado.");
-            } else {
-                showToast("Error al actualizar turno.", "error");
-            }
-        } catch (err) { showToast("Error al actualizar turno.", "error"); }
-    };
-
-    const handleDeleteTurno = (id) => {
-        setConfirmDialog({
-            isOpen: true,
-            title: 'Eliminar Turno',
-            message: '¿Estás seguro de que deseas eliminar este turno? Esta acción no se puede deshacer.',
-            onConfirm: async () => {
-                try {
-                    const res = await fetch(`${API_BASE}/turnos/${id}`, { method: 'DELETE' });
-                    if (res.ok) {
-                        fetchData(false);
-                        showToast("Turno eliminado.");
-                    } else {
-                        showToast("Acción denegada: Este registro ya se encuentra en uso.", "error");
-                    }
-                } catch (err) { showToast("Error al eliminar turno.", "error"); }
-            }
-        });
-    };
-
-    // ===== ORGANIZACIÓN =====
-    const handleAddGrado = async () => {
-        const num = parseInt(newGrado);
-        if (isNaN(num)) return;
-        try {
-            const res = await fetch(`${API_BASE}/grados`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ numero: num })
-            });
-            if (res.ok) {
-                setNewGrado('');
-                fetchData(false);
-                showToast("Grado añadido.");
-            }
-        } catch (err) { showToast("Error al añadir grado.", "error"); }
-    };
-
-    const handleUpdateGrado = async (id) => {
-        const num = parseInt(editGradoValue);
-        if (isNaN(num)) return;
-        try {
-            const res = await fetch(`${API_BASE}/grados/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ numero: num })
-            });
-            if (res.ok) {
-                setEditingGradoId(null);
-                fetchData(false);
-                showToast("Grado actualizado.");
-            } else {
-                showToast("Error al actualizar grado.", "error");
-            }
-        } catch (err) { showToast("Error al actualizar grado.", "error"); }
-    };
-
-    const handleDeleteGrado = (id) => {
-        setConfirmDialog({
-            isOpen: true,
-            title: 'Eliminar Grado',
-            message: '¿Estás seguro de que deseas eliminar este grado? Esta acción no se puede deshacer.',
-            onConfirm: async () => {
-                try {
-                    const res = await fetch(`${API_BASE}/grados/${id}`, { method: 'DELETE' });
-                    if (res.ok) {
-                        fetchData(false);
-                        showToast("Grado eliminado.");
-                    } else {
-                        showToast("Acción denegada: Este registro ya se encuentra en uso.", "error");
-                    }
-                } catch (err) { showToast("Error al eliminar grado.", "error"); }
-            }
-        });
-    };
-
-    const handleUpdateGradoDiaConfig = async (id_grado, id_dia, bloques_dia) => {
-        const existing = gradoDiaConfig.find(c => c.id_grado === id_grado && c.id_dia === id_dia);
-        try {
-            if (existing) {
-                if (bloques_dia === 0) {
-                    await fetch(`${API_BASE}/grado-dia-config/${existing.id_config}`, { method: 'DELETE' });
-                } else {
-                    await fetch(`${API_BASE}/grado-dia-config/${existing.id_config}`, { method: 'DELETE' });
-                    await fetch(`${API_BASE}/grado-dia-config`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id_grado, id_dia, bloques_dia })
-                    });
-                }
-            } else {
-                if (bloques_dia > 0) {
-                    await fetch(`${API_BASE}/grado-dia-config`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id_grado, id_dia, bloques_dia })
-                    });
-                }
-            }
-            fetchData(false);
-        } catch (err) { showToast("Error al guardar configuración.", "error"); }
-    };
-
-    // ===== ESTRUCTURA =====
-    const handleAddSeccion = async () => {
-        if (!newSeccionNombre.trim() || !newSeccionGrado || !newSeccionSede) return;
-        try {
-            const res = await fetch(`${API_BASE}/secciones`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    nombre: newSeccionNombre,
-                    id_grado: parseInt(newSeccionGrado),
-                    id_sede: parseInt(newSeccionSede)
-                })
-            });
-            if (res.ok) {
-                setNewSeccionNombre('');
-                fetchData(false);
-                showToast("Sección añadida.");
-            }
-        } catch (err) { showToast("Error al añadir sección.", "error"); }
-    };
-
-    const handleUpdateSeccion = async (id) => {
-        if (!editSeccionNombre.trim() || !editSeccionGrado || !editSeccionSede) return;
-        try {
-            const res = await fetch(`${API_BASE}/secciones/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    nombre: editSeccionNombre,
-                    id_grado: parseInt(editSeccionGrado),
-                    id_sede: parseInt(editSeccionSede)
-                })
-            });
-            if (res.ok) {
-                setEditingSeccionId(null);
-                fetchData(false);
-                showToast("Sección actualizada.");
-            } else {
-                showToast("Error al actualizar sección.", "error");
-            }
-        } catch (err) { showToast("Error al actualizar sección.", "error"); }
-    };
-
-    const handleDeleteSeccion = (id) => {
-        setConfirmDialog({
-            isOpen: true,
-            title: 'Eliminar Sección',
-            message: '¿Estás seguro de que deseas eliminar esta sección? Esta acción no se puede deshacer.',
-            onConfirm: async () => {
-                try {
-                    const res = await fetch(`${API_BASE}/secciones/${id}`, { method: 'DELETE' });
-                    if (res.ok) {
-                        fetchData(false);
-                        showToast("Sección eliminada.");
-                    } else {
-                        showToast("Acción denegada: Este registro ya se encuentra en uso.", "error");
-                    }
-                } catch (err) { showToast("Error al eliminar sección.", "error"); }
-            }
-        });
-    };
-
-    const handleAssignTurno = async () => {
-        if (!selectedSeccionId || !selectedTurnoId) return;
-        try {
-            const seccionId = parseInt(selectedSeccionId);
-            const turnoId = parseInt(selectedTurnoId);
-            const gradoId = secciones.find(s => s.id_seccion === seccionId)?.id_grado;
-            const diasConfigurados = gradoDiaConfig
-                .filter(c => c.id_grado === gradoId && c.bloques_dia > 0)
-                .map(c => c.id_dia);
-            const diasHabilitados = diasConfigurados.length > 0
-                ? dias.filter(d => diasConfigurados.includes(d.id_dia))
-                : dias;
-
-            if (diasHabilitados.length === 0) {
-                showToast("El grado no tiene días habilitados.", "error");
-                return;
-            }
-
-            // Eliminar turnos existentes para esta sección
-            const existingSt = seccionTurnos.filter(st => st.id_seccion === seccionId);
-            for (let st of existingSt) {
-                const response = await fetch(`${API_BASE}/seccion-turno/${st.id_seccion_turno}`, { method: 'DELETE' });
-                if (!response.ok) throw new Error('No se pudo actualizar el turno de la sección.');
-            }
-
-            // El turno de la sección debe aplicarse a cada día habilitado de su grado.
-            for (const dia of diasHabilitados) {
-                const response = await fetch(`${API_BASE}/seccion-turno`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        id_seccion: seccionId,
-                        id_turno: turnoId,
-                        id_dia: dia.id_dia
-                    })
-                });
-                if (!response.ok) throw new Error('No se pudo asignar el turno en todos los días.');
-            }
-
-            fetchData(false);
-            showToast(`Turno asignado en ${diasHabilitados.length} días.`);
-            setSelectedSeccionId('');
-            setSelectedTurnoId('');
-        } catch (err) {
-            console.error(err);
-            showToast("Error al asignar turno.", "error");
-        }
-    };
+    const seccionBody = (nombre, grado, sede) => ({ nombre: text(nombre), id_grado: parseWholeNumber(grado, 1), id_sede: parseWholeNumber(sede, 1) });
+    const handleAddSeccion = () => mutate(can('seccion', 'add') && canRead('seccion'), 'seccion',
+        () => ajustesCrud.seccion.create(seccionBody(newSeccionNombre, newSeccionGrado, newSeccionSede)), 'Sección añadida.', () => setNewSeccionNombre(''));
+    const handleUpdateSeccion = id => mutate(can('seccion', 'edit') && canRead('seccion'), 'seccion',
+        () => ajustesCrud.seccion.update(id, seccionBody(editSeccionNombre, editSeccionGrado, editSeccionSede)), 'Sección actualizada.', () => setEditingSeccionId(null));
+    const handleDeleteSeccion = id => requestDelete('seccion', id, 'sección');
+    const handleAssignTurno = () => mutate(canRead('seccion_turno') && canRead('grado_dia_config') && canRead('dia'), 'seccion_turno', async () => {
+        const seccionId = parseWholeNumber(selectedSeccionId, 1);
+        const turnoId = parseWholeNumber(selectedTurnoId, 1);
+        const gradoId = secciones.find(s => s.id === seccionId)?.id_grado;
+        const enabled = dias.filter(d => gradoDiaConfig.some(c => c.id_grado === gradoId && c.id_dia === d.id && c.bloques_dia > 0)).map(d => d.id);
+        await syncTurnoSeccion(seccionId, turnoId, enabled, permissions('seccion_turno'));
+    }, 'Turno asignado en los días configurados.', () => { setSelectedSeccionId(''); setSelectedTurnoId(''); });
 
     // ===== HELPERS VISUALES =====
     const EditIcon = () => (
@@ -469,15 +248,24 @@ export default function AjustesManager() {
         { id: 'estructura', label: 'Estructura', icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10' }
     ];
 
-    if (loading) return (
+    if (!sessionReady || (hasAnyView && loading)) return (
         <div className="flex flex-col items-center justify-center py-20 gap-4">
             <div className="w-10 h-10 border-4 border-slate-200 border-t-[var(--color-brand-primary)] rounded-full animate-spin"></div>
-            <p className="text-sm font-bold text-slate-400">Cargando ajustes...</p>
+
         </div>
     );
 
-    return (
-        <div className="w-full flex gap-8 h-[calc(100vh-18rem)]">
+    if (!hasAnyView) return <p role="alert">No tienes permiso para consultar los ajustes.</p>;
+    if (loadError) return <div role="alert" className="rounded-2xl bg-red-50 p-6 text-red-700">
+        <p>{loadError}</p><button onClick={() => setReload(value => value + 1)} className="mt-2 font-bold underline">Reintentar carga</button>
+    </div>;
+    return (<>
+        {operationError && <div role="alert" className="mb-4 rounded-2xl bg-red-50 p-4 text-red-700">
+            <p>{operationError}</p>
+            {!dataFresh && <button disabled={saving} onClick={() => setReload(value => value + 1)} className="mt-2 font-bold underline">Recargar datos</button>}
+        </div>}
+        {resources.some(r => !canRead(r)) && <p className="mb-4 text-sm text-slate-500">Algunos datos no están disponibles con los permisos de tu sesión: {resources.filter(r => !canRead(r)).map(r => resourceLabels[r]).join(', ')}.</p>}
+        <fieldset disabled={saving || !dataFresh} className="w-full min-w-0 flex gap-8 h-[calc(100vh-18rem)]">
             {/* Sidebar Interno */}
             <div className="w-64 flex-shrink-0 h-full flex flex-col">
                 <nav className="flex flex-col gap-2 flex-1">
@@ -503,19 +291,19 @@ export default function AjustesManager() {
                         <div className="flex flex-col gap-2.5">
                             <div className="flex items-center justify-between bg-[#DCE6FF]/60 rounded-xl px-3 py-2.5 border border-[#2F5BFF]/15">
                                 <span className="text-[11px] font-bold text-slate-500">Sedes</span>
-                                <span className="text-sm font-black text-[var(--color-brand-primary)]">{sedes.length}</span>
+                                <span className="text-sm font-black text-[var(--color-brand-primary)]">{canRead('sede') ? sedes.length : '—'}</span>
                             </div>
                             <div className="flex items-center justify-between bg-[#DCE6FF]/60 rounded-xl px-3 py-2.5 border border-[#2F5BFF]/15">
                                 <span className="text-[11px] font-bold text-slate-500">Grados</span>
-                                <span className="text-sm font-black text-[var(--color-brand-primary)]">{grados.length}</span>
+                                <span className="text-sm font-black text-[var(--color-brand-primary)]">{canRead('grado') ? grados.length : '—'}</span>
                             </div>
                             <div className="flex items-center justify-between bg-[#DCE6FF]/60 rounded-xl px-3 py-2.5 border border-[#2F5BFF]/15">
                                 <span className="text-[11px] font-bold text-slate-500">Secciones</span>
-                                <span className="text-sm font-black text-[var(--color-brand-primary)]">{secciones.length}</span>
+                                <span className="text-sm font-black text-[var(--color-brand-primary)]">{canRead('seccion') ? secciones.length : '—'}</span>
                             </div>
                             <div className="flex items-center justify-between bg-[#DCE6FF]/60 rounded-xl px-3 py-2.5 border border-[#2F5BFF]/15">
                                 <span className="text-[11px] font-bold text-slate-500">Turnos</span>
-                                <span className="text-sm font-black text-[var(--color-brand-primary)]">{turnos.length}</span>
+                                <span className="text-sm font-black text-[var(--color-brand-primary)]">{canRead('turno') ? turnos.length : '—'}</span>
                             </div>
                         </div>
                     </div>
@@ -528,44 +316,20 @@ export default function AjustesManager() {
                 {/* --- PESTAÑA INSTITUCIÓN --- */}
                 {activeTab === 'institucion' && (
                     <div className="space-y-6 animate-fade-in-up">
-                        {/* Nombre del Colegio */}
                         <div className="bg-white p-6 rounded-[24px] shadow-sm border border-slate-100">
-                            <div className="flex items-center gap-3 mb-5">
-                                <div className="w-10 h-10  flex items-center justify-center flex-shrink-0">
-                                    <svg className="size-8 text-[var(--color-brand-primary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                                </div>
-                                <div>
-                                    <h3 className="text-lg font-black text-slate-800">Información Principal</h3>
-                                    <p className="text-xs text-slate-400 font-medium">Nombre oficial de la institución educativa</p>
-                                </div>
-                            </div>
-                            <div className="flex gap-4 items-end">
-                                <div className="flex-1">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Nombre de la Institución</label>
-                                    {isEditingColegio ? (
-                                        <input
-                                            type="text"
-                                            value={colegio.nombre_colegio}
-                                            onChange={e => setColegio({ ...colegio, nombre_colegio: e.target.value })}
-                                            className="w-full bg-slate-50 border border-slate-200 text-slate-700 text-sm font-bold rounded-xl px-4 py-3 outline-none focus:border-[var(--color-brand-primary)] focus:ring-2 focus:ring-[#2F5BFF]/10 transition-all"
-                                        />
-                                    ) : (
-                                        <div className="w-full bg-slate-50 border border-transparent text-slate-700 text-sm font-bold rounded-xl px-4 py-3">
-                                            {colegio.nombre_colegio || "No definido"}
-                                        </div>
-                                    )}
-                                </div>
-                                {isEditingColegio ? (
-                                    <div className="flex gap-2">
-                                        <button onClick={() => { handleUpdateColegio(); setIsEditingColegio(false); }} className="px-5 py-3 bg-[var(--color-brand-primary)] text-white font-bold text-sm rounded-xl hover:shadow-md transition-all cursor-pointer">Guardar</button>
-                                        <button onClick={() => setIsEditingColegio(false)} className="px-4 py-3 bg-slate-200 text-slate-500 font-bold text-sm rounded-xl hover:bg-slate-300 transition-all cursor-pointer">Cancelar</button>
-                                    </div>
-                                ) : (
-                                    <button onClick={() => setIsEditingColegio(true)} className="px-5 py-3 bg-[var(--color-brand-primary)] text-white font-bold text-sm rounded-xl cursor-pointer flex items-center gap-2">
-                                        <EditIcon /> Editar
-                                    </button>
-                                )}
-                            </div>
+                            <h3 className="text-lg font-black text-slate-800 mb-2">Institución educativa</h3>
+                            <p className="text-xs text-slate-500 mb-4">Colegio de la sesión: {session?.user.schema_name}</p>
+                            {institutionError && <p role="alert" className="text-sm text-red-600 mb-3">{institutionError}</p>}
+                            {colegio ? <>
+                                {isEditingColegio ? <div className="flex gap-2">
+                                    <input aria-label="Nombre oficial del colegio" maxLength={256} value={editColegioValue} onChange={e => setEditColegioValue(e.target.value)} className="flex-1 rounded-xl border p-3 text-sm" />
+                                    <button onClick={handleUpdateColegio} className="rounded-xl bg-[var(--color-brand-primary)] px-4 text-white font-bold">Guardar</button>
+                                    <button onClick={() => setIsEditingColegio(false)} className="rounded-xl bg-slate-100 px-4">Cancelar</button>
+                                </div> : <div className="flex justify-between items-center gap-4">
+                                    <p className="font-bold text-slate-700">{colegio.display_name}</p>
+                                    {canEditColegio && <button onClick={() => { setEditColegioValue(colegio.display_name); setIsEditingColegio(true); }} className="rounded-xl bg-[var(--color-brand-primary)] px-4 py-2 text-white font-bold">Editar nombre</button>}
+                                </div>}
+                            </> : <p className="text-sm text-slate-500">El nombre oficial del colegio se administra desde la cuenta de plataforma.</p>}
                         </div>
 
                         <div className="grid grid-cols-2 gap-6">
@@ -586,20 +350,20 @@ export default function AjustesManager() {
                                         onKeyDown={e => e.key === 'Enter' && handleAddSede()}
                                         className="flex-1 bg-slate-50 border border-slate-200 text-sm font-bold rounded-xl px-4 py-2.5 outline-none focus:border-[var(--color-brand-primary)] focus:ring-2 focus:ring-[#2F5BFF]/10 transition-all"
                                     />
-                                    <button onClick={handleAddSede} disabled={newSede.trim().length < 3} className={`px-4 py-2.5 font-bold text-sm rounded-xl transition-all flex items-center gap-1.5 ${newSede.trim().length >= 3 ? 'bg-[var(--color-brand-primary)] text-white cursor-pointer hover:shadow-md' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>
+                                    <button onClick={handleAddSede} disabled={!(canRead('sede') && can('sede', 'add')) || (newSede.trim().length < 3)} className={`px-4 py-2.5 font-bold text-sm rounded-xl transition-all flex items-center gap-1.5 ${newSede.trim().length >= 3 ? 'bg-[var(--color-brand-primary)] text-white cursor-pointer hover:shadow-md' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>
                                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
                                         Agregar
                                     </button>
                                 </div>
                                 <ul className="space-y-2">
                                     {sedes.map(s => (
-                                        <li key={s.id_sede} className="flex justify-between items-center bg-slate-50 px-4 py-3 rounded-xl border border-slate-100 group hover:border-slate-200 transition-colors">
-                                            {editingSedeId === s.id_sede ? (
+                                        <li key={s.id} className="flex justify-between items-center bg-slate-50 px-4 py-3 rounded-xl border border-slate-100 group hover:border-slate-200 transition-colors">
+                                            {editingSedeId === s.id ? (
                                                 <input
                                                     type="text"
                                                     value={editSedeValue}
                                                     onChange={e => setEditSedeValue(e.target.value)}
-                                                    onKeyDown={e => e.key === 'Enter' && handleUpdateSede(s.id_sede)}
+                                                    onKeyDown={e => e.key === 'Enter' && handleUpdateSede(s.id)}
                                                     className="flex-1 bg-white border border-[#2F5BFF]/15 text-sm font-bold rounded-lg px-3 py-1.5 outline-none mr-3 focus:ring-2 focus:ring-[#2F5BFF]/10"
                                                     autoFocus
                                                 />
@@ -610,17 +374,17 @@ export default function AjustesManager() {
                                                 </span>
                                             )}
                                             <div className="flex gap-1">
-                                                {editingSedeId === s.id_sede ? (
+                                                {editingSedeId === s.id ? (
                                                     <>
-                                                        <button onClick={() => handleUpdateSede(s.id_sede)} className="text-white bg-[var(--color-brand-primary)] p-1.5 rounded-lg cursor-pointer hover:shadow-sm transition-all" title="Guardar"><CheckIcon /></button>
+                                                        <button disabled={!(canRead('sede') && can('sede', 'edit'))} onClick={() => handleUpdateSede(s.id)} className="text-white bg-[var(--color-brand-primary)] p-1.5 rounded-lg cursor-pointer hover:shadow-sm transition-all" title="Guardar"><CheckIcon /></button>
                                                         <button onClick={() => setEditingSedeId(null)} className="text-slate-400 bg-slate-200 p-1.5 rounded-lg cursor-pointer hover:bg-slate-300 transition-all" title="Cancelar"><CloseIcon /></button>
                                                     </>
                                                 ) : (
                                                     <>
-                                                        <button onClick={() => { setEditingSedeId(s.id_sede); setEditSedeValue(s.nombre_sede); }} className="text-slate-400 hover:text-[var(--color-brand-primary)] p-1.5 cursor-pointer transition-all hover:bg-[#2F5BFF]/10 rounded-lg" title="Editar">
+                                                        <button disabled={!(canRead('sede') && can('sede', 'edit'))} onClick={() => { setEditingSedeId(s.id); setEditSedeValue(s.nombre_sede); }} className="text-slate-400 hover:text-[var(--color-brand-primary)] p-1.5 cursor-pointer transition-all hover:bg-[#2F5BFF]/10 rounded-lg" title="Editar">
                                                             <EditIcon />
                                                         </button>
-                                                        <button onClick={() => handleDeleteSede(s.id_sede)} className="text-slate-400 hover:text-red-500 p-1.5 cursor-pointer transition-all hover:bg-red-50 rounded-lg" title="Eliminar">
+                                                        <button disabled={!(canRead('sede') && can('sede', 'delete'))} onClick={() => handleDeleteSede(s.id)} className="text-slate-400 hover:text-red-500 p-1.5 cursor-pointer transition-all hover:bg-red-50 rounded-lg" title="Eliminar">
                                                             <DeleteIcon />
                                                         </button>
                                                     </>
@@ -651,20 +415,20 @@ export default function AjustesManager() {
                                         onKeyDown={e => e.key === 'Enter' && handleAddTurno()}
                                         className="flex-1 bg-slate-50 border border-slate-200 text-sm font-bold rounded-xl px-4 py-2.5 outline-none focus:border-[var(--color-brand-primary)] focus:ring-2 focus:ring-[#2F5BFF]/10 transition-all"
                                     />
-                                    <button onClick={handleAddTurno} disabled={newTurno.trim().length < 3} className={`px-4 py-2.5 font-bold text-sm rounded-xl transition-all flex items-center gap-1.5 ${newTurno.trim().length >= 3 ? 'bg-[var(--color-brand-primary)] text-white cursor-pointer hover:shadow-md' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>
+                                    <button onClick={handleAddTurno} disabled={!(canRead('turno') && can('turno', 'add')) || (newTurno.trim().length < 3)} className={`px-4 py-2.5 font-bold text-sm rounded-xl transition-all flex items-center gap-1.5 ${newTurno.trim().length >= 3 ? 'bg-[var(--color-brand-primary)] text-white cursor-pointer hover:shadow-md' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>
                                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
                                         Agregar
                                     </button>
                                 </div>
                                 <ul className="space-y-2">
                                     {turnos.map(t => (
-                                        <li key={t.id_turno} className="flex justify-between items-center bg-slate-50 px-4 py-3 rounded-xl border border-slate-100 group hover:border-slate-200 transition-colors">
-                                            {editingTurnoId === t.id_turno ? (
+                                        <li key={t.id} className="flex justify-between items-center bg-slate-50 px-4 py-3 rounded-xl border border-slate-100 group hover:border-slate-200 transition-colors">
+                                            {editingTurnoId === t.id ? (
                                                 <input
                                                     type="text"
                                                     value={editTurnoValue}
                                                     onChange={e => setEditTurnoValue(e.target.value)}
-                                                    onKeyDown={e => e.key === 'Enter' && handleUpdateTurno(t.id_turno)}
+                                                    onKeyDown={e => e.key === 'Enter' && handleUpdateTurno(t.id)}
                                                     className="flex-1 bg-white border border-[#2F5BFF]/15 text-sm font-bold rounded-lg px-3 py-1.5 outline-none mr-3 focus:ring-2 focus:ring-[#2F5BFF]/10"
                                                     autoFocus
                                                 />
@@ -675,17 +439,17 @@ export default function AjustesManager() {
                                                 </span>
                                             )}
                                             <div className="flex gap-1">
-                                                {editingTurnoId === t.id_turno ? (
+                                                {editingTurnoId === t.id ? (
                                                     <>
-                                                        <button onClick={() => handleUpdateTurno(t.id_turno)} className="text-white bg-[var(--color-brand-primary)] p-1.5 rounded-lg cursor-pointer hover:shadow-sm transition-all" title="Guardar"><CheckIcon /></button>
+                                                        <button disabled={!(canRead('turno') && can('turno', 'edit'))} onClick={() => handleUpdateTurno(t.id)} className="text-white bg-[var(--color-brand-primary)] p-1.5 rounded-lg cursor-pointer hover:shadow-sm transition-all" title="Guardar"><CheckIcon /></button>
                                                         <button onClick={() => setEditingTurnoId(null)} className="text-slate-400 bg-slate-200 p-1.5 rounded-lg cursor-pointer hover:bg-slate-300 transition-all" title="Cancelar"><CloseIcon /></button>
                                                     </>
                                                 ) : (
                                                     <>
-                                                        <button onClick={() => { setEditingTurnoId(t.id_turno); setEditTurnoValue(t.nombre); }} className="text-slate-400 hover:text-[var(--color-brand-primary)] p-1.5 cursor-pointer transition-all hover:bg-[#2F5BFF]/10 rounded-lg" title="Editar">
+                                                        <button disabled={!(canRead('turno') && can('turno', 'edit'))} onClick={() => { setEditingTurnoId(t.id); setEditTurnoValue(t.nombre); }} className="text-slate-400 hover:text-[var(--color-brand-primary)] p-1.5 cursor-pointer transition-all hover:bg-[#2F5BFF]/10 rounded-lg" title="Editar">
                                                             <EditIcon />
                                                         </button>
-                                                        <button onClick={() => handleDeleteTurno(t.id_turno)} className="text-slate-400 hover:text-red-500 p-1.5 cursor-pointer transition-all hover:bg-red-50 rounded-lg" title="Eliminar">
+                                                        <button disabled={!(canRead('turno') && can('turno', 'delete'))} onClick={() => handleDeleteTurno(t.id)} className="text-slate-400 hover:text-red-500 p-1.5 cursor-pointer transition-all hover:bg-red-50 rounded-lg" title="Eliminar">
                                                             <DeleteIcon />
                                                         </button>
                                                     </>
@@ -723,7 +487,7 @@ export default function AjustesManager() {
                                     onKeyDown={e => e.key === 'Enter' && handleAddGrado()}
                                     className="flex-1 bg-slate-50 border border-slate-200 text-sm font-bold rounded-xl px-4 py-2.5 outline-none focus:border-[var(--color-brand-primary)] focus:ring-2 focus:ring-[#2F5BFF]/10 transition-all"
                                 />
-                                <button onClick={handleAddGrado} disabled={!newGrado.trim()} className={`px-5 py-2.5 font-bold text-sm rounded-xl transition-all flex items-center gap-1.5 ${newGrado.trim() ? 'bg-[var(--color-brand-primary)] text-white cursor-pointer hover:shadow-md' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>
+                                <button onClick={handleAddGrado} disabled={!(canRead('grado') && can('grado', 'add')) || (!newGrado.trim())} className={`px-5 py-2.5 font-bold text-sm rounded-xl transition-all flex items-center gap-1.5 ${newGrado.trim() ? 'bg-[var(--color-brand-primary)] text-white cursor-pointer hover:shadow-md' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>
                                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
                                     Añadir Grado
                                 </button>
@@ -735,7 +499,7 @@ export default function AjustesManager() {
                                         <tr>
                                             <th className="pb-3 text-left text-[11px] font-black text-slate-400 uppercase tracking-widest pl-2">Grado</th>
                                             {dias.map(d => (
-                                                <th key={d.id_dia} className="pb-3 text-center text-[11px] font-black text-slate-400 uppercase tracking-widest">
+                                                <th key={d.id} className="pb-3 text-center text-[11px] font-black text-slate-400 uppercase tracking-widest">
                                                     {d.nombre_dia.slice(0, 3)}
                                                 </th>
                                             ))}
@@ -746,43 +510,46 @@ export default function AjustesManager() {
                                     <tbody>
                                         {grados.map(g => {
                                             const totalBloques = dias.reduce((sum, d) => {
-                                                const conf = gradoDiaConfig.find(c => c.id_grado === g.id_grado && c.id_dia === d.id_dia);
+                                                const conf = gradoDiaConfig.find(c => c.id_grado === g.id && c.id_dia === d.id);
                                                 return sum + (conf ? conf.bloques_dia : 0);
                                             }, 0);
                                             return (
-                                                <tr key={g.id_grado} className="border-t border-slate-100 group hover:bg-slate-50/50 transition-colors">
+                                                <tr key={g.id} className="border-t border-slate-100 group hover:bg-slate-50/50 transition-colors">
                                                     <td className="py-4 pl-2">
-                                                        {editingGradoId === g.id_grado ? (
+                                                        {editingGradoId === g.id ? (
                                                             <div className="flex items-center gap-1.5">
                                                                 <input
                                                                     type="number"
                                                                     value={editGradoValue}
                                                                     onChange={e => setEditGradoValue(e.target.value)}
-                                                                    onKeyDown={e => e.key === 'Enter' && handleUpdateGrado(g.id_grado)}
+                                                                    onKeyDown={e => e.key === 'Enter' && handleUpdateGrado(g.id)}
                                                                     className="w-16 text-center bg-white border border-[#2F5BFF]/15 rounded-lg py-1.5 text-sm font-black outline-none focus:ring-2 focus:ring-[#2F5BFF]/10"
                                                                     autoFocus
                                                                 />
-                                                                <button onClick={() => handleUpdateGrado(g.id_grado)} className="text-white bg-[var(--color-brand-primary)] p-1 rounded-lg cursor-pointer" title="Guardar"><CheckIcon /></button>
+                                                                <button disabled={!(canRead('grado') && can('grado', 'edit'))} onClick={() => handleUpdateGrado(g.id)} className="text-white bg-[var(--color-brand-primary)] p-1 rounded-lg cursor-pointer" title="Guardar"><CheckIcon /></button>
                                                                 <button onClick={() => setEditingGradoId(null)} className="text-slate-400 bg-slate-200 p-1 rounded-lg cursor-pointer" title="Cancelar"><CloseIcon /></button>
                                                             </div>
                                                         ) : (
                                                             <div className="flex items-center gap-2">
                                                                 <span className="font-black text-slate-800 text-lg">{g.numero}°</span>
-                                                                <button onClick={() => { setEditingGradoId(g.id_grado); setEditGradoValue(String(g.numero)); }} className="text-slate-400 hover:text-[var(--color-brand-primary)] p-1 cursor-pointer transition-all hover:bg-[#2F5BFF]/10 rounded-lg" title="Editar grado">
+                                                                <button disabled={!(canRead('grado') && can('grado', 'edit'))} onClick={() => { setEditingGradoId(g.id); setEditGradoValue(String(g.numero)); }} className="text-slate-400 hover:text-[var(--color-brand-primary)] p-1 cursor-pointer transition-all hover:bg-[#2F5BFF]/10 rounded-lg" title="Editar grado">
                                                                     <EditIcon />
                                                                 </button>
                                                             </div>
                                                         )}
                                                     </td>
                                                     {dias.map(d => {
-                                                        const conf = gradoDiaConfig.find(c => c.id_grado === g.id_grado && c.id_dia === d.id_dia);
-                                                        const bloques = conf ? conf.bloques_dia : 0;
+                                                        const conf = gradoDiaConfig.find(c => c.id_grado === g.id && c.id_dia === d.id);
+                                                        const bloques = conf?.bloques_dia ?? 0;
                                                         return (
-                                                            <td key={d.id_dia} className="py-4 px-2 text-center">
+                                                            <td key={d.id} className="py-4 px-2 text-center">
                                                                 <input
                                                                     type="number" min="0" max="15"
-                                                                    value={bloques}
-                                                                    onChange={(e) => handleUpdateGradoDiaConfig(g.id_grado, d.id_dia, parseInt(e.target.value) || 0)}
+                                                                    value={configDrafts[`${g.id}:${d.id}`] ?? bloques}
+                                                                    disabled={!canRead('grado_dia_config') || !['add', 'edit', 'delete'].some(action => can('grado_dia_config', action))}
+                                                                    onChange={e => setConfigDrafts(prev => ({ ...prev, [`${g.id}:${d.id}`]: e.target.value }))}
+                                                                    onBlur={e => handleUpdateGradoDiaConfig(g.id, d.id, e.target.value)}
+                                                                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } }}
                                                                     className={`w-16 text-center border rounded-lg py-1.5 text-sm font-bold outline-none mx-auto transition-all ${bloques > 0 ? 'bg-[var(--color-brand-light)] border-[#2F5BFF]/15 text-[var(--color-brand-dark)] focus:border-[var(--color-brand-primary)] focus:ring-2 focus:ring-[#2F5BFF]/10' : 'bg-slate-50 border-slate-200 text-slate-400 focus:border-[var(--color-brand-primary)] focus:ring-2 focus:ring-[#2F5BFF]/10'}`}
                                                                 />
                                                             </td>
@@ -794,7 +561,7 @@ export default function AjustesManager() {
                                                         </span>
                                                     </td>
                                                     <td className="py-4 text-right pr-2">
-                                                        <button onClick={() => handleDeleteGrado(g.id_grado)} className="text-slate-400 hover:text-red-500 font-bold text-sm p-1.5 cursor-pointer transition-all hover:bg-red-50 rounded-lg" title="Eliminar grado">
+                                                        <button disabled={!(canRead('grado') && can('grado', 'delete'))} onClick={() => handleDeleteGrado(g.id)} className="text-slate-400 hover:text-red-500 font-bold text-sm p-1.5 cursor-pointer transition-all hover:bg-red-50 rounded-lg" title="Eliminar grado">
                                                             <DeleteIcon />
                                                         </button>
                                                     </td>
@@ -833,14 +600,14 @@ export default function AjustesManager() {
                                         <label className="text-[11px] font-bold text-slate-500 mb-1.5 block">Grado</label>
                                         <select value={newSeccionGrado} onChange={e => setNewSeccionGrado(e.target.value)} className="w-full bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-xl px-4 py-2.5 outline-none focus:border-[var(--color-brand-primary)] cursor-pointer transition-all">
                                             <option value="">Seleccionar...</option>
-                                            {grados.map(g => <option key={g.id_grado} value={g.id_grado}>{g.numero}° Grado</option>)}
+                                            {grados.map(g => <option key={g.id} value={g.id}>{g.numero}° Grado</option>)}
                                         </select>
                                     </div>
                                     <div className="flex-1 min-w-[150px]">
                                         <label className="text-[11px] font-bold text-slate-500 mb-1.5 block">Sede</label>
                                         <select value={newSeccionSede} onChange={e => setNewSeccionSede(e.target.value)} className="w-full bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-xl px-4 py-2.5 outline-none focus:border-[var(--color-brand-primary)] cursor-pointer transition-all">
                                             <option value="">Seleccionar...</option>
-                                            {sedes.map(s => <option key={s.id_sede} value={s.id_sede}>{s.nombre_sede}</option>)}
+                                            {sedes.map(s => <option key={s.id} value={s.id}>{s.nombre_sede}</option>)}
                                         </select>
                                     </div>
                                     <div className="flex-1 min-w-[120px]">
@@ -851,7 +618,7 @@ export default function AjustesManager() {
                                             className="w-full bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-xl px-4 py-2.5 outline-none focus:border-[var(--color-brand-primary)] focus:ring-2 focus:ring-[#2F5BFF]/10 transition-all"
                                         />
                                     </div>
-                                    <button onClick={handleAddSeccion} disabled={!newSeccionNombre.trim() || !newSeccionGrado || !newSeccionSede} className={`px-5 py-2.5 font-bold text-sm rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap ${newSeccionNombre.trim() && newSeccionGrado && newSeccionSede ? 'bg-[var(--color-brand-primary)] text-white cursor-pointer hover:shadow-md' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>
+                                    <button onClick={handleAddSeccion} disabled={!(canRead('seccion') && can('seccion', 'add')) || (!newSeccionNombre.trim() || !newSeccionGrado || !newSeccionSede)} className={`px-5 py-2.5 font-bold text-sm rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap ${newSeccionNombre.trim() && newSeccionGrado && newSeccionSede ? 'bg-[var(--color-brand-primary)] text-white cursor-pointer hover:shadow-md' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>
                                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
                                         Añadir Sección
                                     </button>
@@ -872,7 +639,7 @@ export default function AjustesManager() {
                                         <select value={selectedSeccionId} onChange={e => setSelectedSeccionId(e.target.value)} className="w-full bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-xl px-4 py-2.5 outline-none focus:border-[var(--color-brand-primary)] cursor-pointer transition-all">
                                             <option value="">-- Elige una sección --</option>
                                             {secciones.map(sec => (
-                                                <option key={sec.id_seccion} value={sec.id_seccion}>{sec.nombre} (Grado {grados.find(g => g.id_grado === sec.id_grado)?.numero}°)</option>
+                                                <option key={sec.id} value={sec.id}>{sec.nombre} (Grado {grados.find(g => g.id === sec.id_grado)?.numero}°)</option>
                                             ))}
                                         </select>
                                     </div>
@@ -881,11 +648,11 @@ export default function AjustesManager() {
                                         <select value={selectedTurnoId} onChange={e => setSelectedTurnoId(e.target.value)} className="w-full bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-xl px-4 py-2.5 outline-none focus:border-[var(--color-brand-primary)] cursor-pointer transition-all">
                                             <option value="">-- Elige un turno --</option>
                                             {turnos.map(t => (
-                                                <option key={t.id_turno} value={t.id_turno}>{t.nombre}</option>
+                                                <option key={t.id} value={t.id}>{t.nombre}</option>
                                             ))}
                                         </select>
                                     </div>
-                                    <button onClick={handleAssignTurno} disabled={!selectedSeccionId || !selectedTurnoId} className="px-5 py-2.5 bg-[var(--color-brand-light)]0 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-sm rounded-xl hover:bg-[var(--color-brand-dark)] hover:shadow-md transition-all cursor-pointer whitespace-nowrap">
+                                    <button onClick={handleAssignTurno} disabled={!(canRead('seccion_turno') && canRead('grado_dia_config') && canRead('dia') && ['add', 'edit', 'delete'].some(action => can('seccion_turno', action))) || (!selectedSeccionId || !selectedTurnoId)} className="px-5 py-2.5 bg-[var(--color-brand-light)]0 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-sm rounded-xl hover:bg-[var(--color-brand-dark)] hover:shadow-md transition-all cursor-pointer whitespace-nowrap">
                                         Asignar Turno
                                     </button>
                                 </div>
@@ -897,11 +664,11 @@ export default function AjustesManager() {
                                 <div className="flex gap-2">
                                     <select value={filtroSeccionGrado} onChange={e => setFiltroSeccionGrado(e.target.value)} className="bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl px-3 py-2 outline-none cursor-pointer">
                                         <option value="">Todos los Grados</option>
-                                        {grados.map(g => <option key={g.id_grado} value={g.id_grado}>{g.numero}° Grado</option>)}
+                                        {grados.map(g => <option key={g.id} value={g.id}>{g.numero}° Grado</option>)}
                                     </select>
                                     <select value={filtroSeccionSede} onChange={e => setFiltroSeccionSede(e.target.value)} className="bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl px-3 py-2 outline-none cursor-pointer">
                                         <option value="">Todas las Sedes</option>
-                                        {sedes.map(s => <option key={s.id_sede} value={s.id_sede}>{s.nombre_sede}</option>)}
+                                        {sedes.map(s => <option key={s.id} value={s.id}>{s.nombre_sede}</option>)}
                                     </select>
                                 </div>
                             </div>
@@ -912,14 +679,14 @@ export default function AjustesManager() {
                                     const matchSede = filtroSeccionSede ? sec.id_sede === parseInt(filtroSeccionSede) : true;
                                     return matchGrado && matchSede;
                                 }).map(sec => {
-                                    const g = grados.find(x => x.id_grado === sec.id_grado);
-                                    const s = sedes.find(x => x.id_sede === sec.id_sede);
-                                    const st = seccionTurnos.find(x => x.id_seccion === sec.id_seccion);
-                                    const turnoActual = st ? turnos.find(t => t.id_turno === st.id_turno)?.nombre : null;
-                                    const isEditing = editingSeccionId === sec.id_seccion;
+                                    const g = grados.find(x => x.id === sec.id_grado);
+                                    const s = sedes.find(x => x.id === sec.id_sede);
+                                    const turnoIds = [...new Set(seccionTurnos.filter(x => x.id_seccion === sec.id).map(x => x.id_turno))];
+                                    const turnoActual = turnoIds.map(id => turnos.find(t => t.id === id)?.nombre || 'Turno no disponible').join(' / ');
+                                    const isEditing = editingSeccionId === sec.id;
 
                                     return (
-                                        <div key={sec.id_seccion} className={`p-4 rounded-2xl border flex flex-col justify-between transition-all ${isEditing ? 'bg-white border-[#2F5BFF]/15 shadow-md ring-2 ring-[#2F5BFF]/10' : 'bg-slate-50 border-slate-100 hover:shadow-sm hover:border-slate-200'}`}>
+                                        <div key={sec.id} className={`p-4 rounded-2xl border flex flex-col justify-between transition-all ${isEditing ? 'bg-white border-[#2F5BFF]/15 shadow-md ring-2 ring-[#2F5BFF]/10' : 'bg-slate-50 border-slate-100 hover:shadow-sm hover:border-slate-200'}`}>
                                             {isEditing ? (
                                                 /* Modo edición */
                                                 <div className="flex flex-col gap-3">
@@ -936,17 +703,17 @@ export default function AjustesManager() {
                                                     <div>
                                                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Grado</label>
                                                         <select value={editSeccionGrado} onChange={e => setEditSeccionGrado(e.target.value)} className="w-full bg-slate-50 border border-slate-200 text-sm font-bold rounded-lg px-3 py-2 outline-none cursor-pointer">
-                                                            {grados.map(gr => <option key={gr.id_grado} value={gr.id_grado}>{gr.numero}° Grado</option>)}
+                                                            {grados.map(gr => <option key={gr.id} value={gr.id}>{gr.numero}° Grado</option>)}
                                                         </select>
                                                     </div>
                                                     <div>
                                                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Sede</label>
                                                         <select value={editSeccionSede} onChange={e => setEditSeccionSede(e.target.value)} className="w-full bg-slate-50 border border-slate-200 text-sm font-bold rounded-lg px-3 py-2 outline-none cursor-pointer">
-                                                            {sedes.map(se => <option key={se.id_sede} value={se.id_sede}>{se.nombre_sede}</option>)}
+                                                            {sedes.map(se => <option key={se.id} value={se.id}>{se.nombre_sede}</option>)}
                                                         </select>
                                                     </div>
                                                     <div className="flex gap-2 mt-1">
-                                                        <button onClick={() => handleUpdateSeccion(sec.id_seccion)} className="flex-1 py-2 bg-[var(--color-brand-primary)] text-white font-bold text-xs rounded-lg cursor-pointer hover:shadow-sm transition-all flex items-center justify-center gap-1.5">
+                                                        <button disabled={!(canRead('seccion') && can('seccion', 'edit'))} onClick={() => handleUpdateSeccion(sec.id)} className="flex-1 py-2 bg-[var(--color-brand-primary)] text-white font-bold text-xs rounded-lg cursor-pointer hover:shadow-sm transition-all flex items-center justify-center gap-1.5">
                                                             <CheckIcon /> Guardar
                                                         </button>
                                                         <button onClick={() => setEditingSeccionId(null)} className="flex-1 py-2 bg-slate-200 text-slate-600 font-bold text-xs rounded-lg cursor-pointer hover:bg-slate-300 transition-all">
@@ -969,9 +736,9 @@ export default function AjustesManager() {
                                                             </p>
                                                         </div>
                                                         <div className="flex gap-1">
-                                                            <button
+                                                            <button disabled={!(canRead('seccion') && can('seccion', 'edit'))}
                                                                 onClick={() => {
-                                                                    setEditingSeccionId(sec.id_seccion);
+                                                                    setEditingSeccionId(sec.id);
                                                                     setEditSeccionNombre(sec.nombre);
                                                                     setEditSeccionGrado(String(sec.id_grado));
                                                                     setEditSeccionSede(String(sec.id_sede));
@@ -981,7 +748,7 @@ export default function AjustesManager() {
                                                             >
                                                                 <EditIcon />
                                                             </button>
-                                                            <button onClick={() => handleDeleteSeccion(sec.id_seccion)} className="text-slate-400 hover:text-red-500 p-1.5 cursor-pointer hover:bg-red-50 rounded-lg transition-all" title="Eliminar sección">
+                                                            <button disabled={!(canRead('seccion') && can('seccion', 'delete'))} onClick={() => handleDeleteSeccion(sec.id)} className="text-slate-400 hover:text-red-500 p-1.5 cursor-pointer hover:bg-red-50 rounded-lg transition-all" title="Eliminar sección">
                                                                 <CloseIcon />
                                                             </button>
                                                         </div>
@@ -1015,7 +782,7 @@ export default function AjustesManager() {
                 .animate-fade-in-down { animation: fadeInDown 0.4s ease-out forwards; }
                 @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
                 @keyframes fadeInDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-                
+
                 .custom-scrollbar::-webkit-scrollbar {
                     width: 6px;
                 }
@@ -1041,13 +808,14 @@ export default function AjustesManager() {
                         </div>
                         <h3 className="text-xl font-black text-slate-800 text-center mb-2">{confirmDialog.title}</h3>
                         <p className="text-sm text-slate-500 text-center mb-6">{confirmDialog.message}</p>
+                        {operationError && <p role="alert" className="mb-4 text-sm text-red-600">{operationError}</p>}
                         <div className="flex gap-3">
                             <button onClick={() => setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: null })} className="flex-1 px-4 py-2.5 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition-all cursor-pointer">Cancelar</button>
-                            <button onClick={() => { confirmDialog.onConfirm(); setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: null }); }} className="flex-1 px-4 py-2.5 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 hover:shadow-md transition-all cursor-pointer">Sí, eliminar</button>
+                            <button onClick={() => confirmDialog.onConfirm?.()} className="flex-1 px-4 py-2.5 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 hover:shadow-md transition-all cursor-pointer">Sí, eliminar</button>
                         </div>
                     </div>
                 </div>
             )}
-        </div>
-    );
+        </fieldset>
+    </>);
 }

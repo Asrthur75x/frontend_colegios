@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { login } from '../../services/auth';
+import { listSeccionTurnos } from '../../services/setup';
 
 export default function Login() {
-    const [email, setEmail] = useState('admin@colegio.com');
-    const [password, setPassword] = useState('123456');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
@@ -19,31 +21,16 @@ export default function Login() {
         setIsLoading(true);
 
         try {
-            const response = await fetch('http://127.0.0.1:8000/api/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
-            });
-
-            if (!response.ok) {
-                const errData = await response.json();
-                throw new Error(errData.detail || 'Error de autenticación');
-            }
-
-            const data = await response.json();
-            localStorage.setItem('user', JSON.stringify(data.user));
+            await login({ email, password });
 
             let destino = '/setup';
             try {
                 if (localStorage.getItem('edusync_tutoria_configured')) {
                     destino = '/dashboard';
                 } else {
-                    const stRes = await fetch('http://127.0.0.1:8000/api/seccion-turno');
-                    if (stRes.ok) {
-                        const stData = await stRes.json();
-                        if (stData.length > 0) {
-                            destino = '/dashboard';
-                        }
+                    const seccionTurnos = await listSeccionTurnos();
+                    if (seccionTurnos.length > 0) {
+                        destino = '/dashboard';
                     }
                 }
             } catch (_) { }
@@ -51,7 +38,7 @@ export default function Login() {
             setTimeout(() => { window.location.href = destino; }, 500);
 
         } catch (err) {
-            setError(err.message);
+            setError(err instanceof Error ? err.message : 'No se pudo iniciar sesion');
             setIsLoading(false);
         }
     };

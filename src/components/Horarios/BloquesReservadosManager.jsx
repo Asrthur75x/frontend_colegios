@@ -1,7 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ModuleSidebar from '../Shared/ModuleSidebar';
 
-const API_BASE = 'http://localhost:8000/api';
+import { hasPermission } from '../../lib/auth/session';
+import {
+    listReservasData, listReservas, buildReservaPayloads, createReservas,
+    deleteReserva, validateReserva, maxBloquesReserva,
+} from '../../services/reservas';
 
 export default function BloquesReservadosManager() {
     const [status, setStatus] = useState('loading');
@@ -31,38 +35,69 @@ export default function BloquesReservadosManager() {
     });
     const [formErrors, setFormErrors] = useState({});
 
+    const [sessionReady, setSessionReady] = useState(false);
+    const [reload, setReload] = useState(0);
+    const [error, setError] = useState(null);
+    const [notice, setNotice] = useState(null);
+    const [deleteError, setDeleteError] = useState(null);
+    const [refreshError, setRefreshError] = useState(false);
+    const busyRef = useRef(false);
+    const canView = sessionReady && hasPermission('horarios:bloque_reservado:view');
+    const canAdd = sessionReady && hasPermission('horarios:bloque_reservado:add');
+    const canDelete = sessionReady && hasPermission('horarios:bloque_reservado:delete');
+
+    useEffect(() => { setSessionReady(true); }, []);
     useEffect(() => {
-        fetchInitialData();
-    }, []);
-
-    const fetchInitialData = async () => {
-        try {
-            const [rSedes, rDias, rTurnos, rGrados, rConfig, rReservas] = await Promise.all([
-                fetch(`${API_BASE}/sedes`),
-                fetch(`${API_BASE}/dias`),
-                fetch(`${API_BASE}/turnos`),
-                fetch(`${API_BASE}/grados`),
-                fetch(`${API_BASE}/grado-dia-config`),
-                fetch(`${API_BASE}/bloque-reservado`)
-            ]);
-
-            setSedes(rSedes.ok ? await rSedes.json() : []);
-            setDias(rDias.ok ? await rDias.json() : []);
-            setTurnos(rTurnos.ok ? await rTurnos.json() : []);
-            setGrados(rGrados.ok ? await rGrados.json() : []);
-            setGradoDiaConfigs(rConfig.ok ? await rConfig.json() : []);
-            setReservas(rReservas.ok ? await rReservas.json() : []);
-
+        if (!sessionReady || !canView) return;
+        let active = true;
+        setStatus('loading');
+        setError(null);
+        listReservasData().then(data => {
+            if (!active) return;
+            setSedes(data.sedes);
+            setDias([...data.dias].sort((a, b) => a.orden - b.orden));
+            setTurnos(data.turnos);
+            setGrados([...data.grados].sort((a, b) => a.numero - b.numero));
+            setGradoDiaConfigs(data.configs);
+            setReservas(data.reservas);
             setStatus('ready');
-        } catch (error) {
-            console.error("Error cargando datos:", error);
-            setStatus('error');
+        }).catch(err => {
+            if (active) { setError(err.message); setStatus('error'); }
+        });
+        return () => { active = false; };
+    }, [sessionReady, canView, reload]);
+
+    const refreshReservas = async () => {
+        try {
+            setReservas(await listReservas());
+            setRefreshError(false);
+            return true;
+        } catch (err) {
+            setRefreshError(true);
+            setNotice(prev => `${prev ? prev + ' ' : ''}No se pudo actualizar la lista: ${err.message}`);
+            return false;
         }
     };
 
+    const retryReservas = async () => {
+        if (busyRef.current) return;
+        busyRef.current = true;
+        setIsSaving(true);
+        setNotice(null);
+        try { await refreshReservas(); }
+        finally { busyRef.current = false; setIsSaving(false); }
+    };
+
+    const notifyUpdated = () => {
+        window.dispatchEvent(new Event('edusync_data_updated'));
+        window.dispatchEvent(new Event('horarix_data_updated'));
+    };
+
     const handleAbrirFormulario = () => {
+        if (!canAdd || busyRef.current) return;
+        setNotice(null);
         setFormData({
-            sedes: sedes.length === 1 ? [sedes[0].id_sede] : [],
+            sedes: sedes.length === 1 ? [sedes[0].id] : [],
             id_dia: '',
             id_turno: '',
             nombre_actividad: '',
@@ -74,6 +109,7 @@ export default function BloquesReservadosManager() {
     };
 
     const handleVolver = () => {
+        if (busyRef.current) return;
         setCurrentView('list');
     };
 
@@ -111,137 +147,64 @@ export default function BloquesReservadosManager() {
 
 
 
-    const handleSave = async (e) => {
-        if (e) e.preventDefault();
-
-        const currentSedes = sedes.length === 1 ? [sedes[0].id_sede] : formData.sedes;
-
-        let errors = {};
-        if (currentSedes.length === 0) errors.sedes = "Selecciona al menos una sede";
-        if (!formData.id_dia) errors.id_dia = "Selecciona un día";
-        if (!formData.id_turno) errors.id_turno = "Selecciona un turno";
-        if (!formData.nombre_actividad.trim()) errors.nombre_actividad = "El nombre es obligatorio";
-        if (formData.grados.length === 0) errors.grados = "Selecciona al menos un grado";
-        if (formData.opciones_slots.length === 0 || formData.opciones_slots.some(op => op.length === 0)) {
-            errors.opciones_slots = "Todas las alternativas deben tener al menos un bloque seleccionado";
-        } else {
-            let hasNonConsecutive = false;
-            for (let op of formData.opciones_slots) {
-                if (op.length > 1) {
-                    const sorted = [...op].sort((a, b) => a - b);
-                    for (let i = 1; i < sorted.length; i++) {
-                        if (sorted[i] - sorted[i - 1] !== 1) {
-                            hasNonConsecutive = true;
-                            break;
-                        }
-                    }
-                }
-            }
-            if (hasNonConsecutive) {
-                errors.opciones_slots = "Los bloques dentro de una alternativa deben ser estrictamente consecutivos";
-            } else {
-                const seen = new Set();
-                let hasDuplicates = false;
-                for (let op of formData.opciones_slots) {
-                    const strVal = [...op].sort((a, b) => a - b).join(',');
-                    if (seen.has(strVal)) {
-                        hasDuplicates = true;
-                        break;
-                    }
-                    seen.add(strVal);
-                }
-                if (hasDuplicates) {
-                    errors.opciones_slots = "No puedes crear alternativas idénticas con los mismos bloques";
-                }
-            }
-        }
-
-        if (Object.keys(errors).length > 0) {
-            setFormErrors(errors);
-            return;
-        }
-
+    const handleSave = async e => {
+        e?.preventDefault();
+        if (!canAdd || busyRef.current) return;
+        const currentForm = { ...formData, sedes: sedes.length === 1 ? [sedes[0].id] : formData.sedes };
+        const errors = validateReserva(currentForm, maxBloques);
+        if (Object.keys(errors).length) { setFormErrors(errors); return; }
         setFormErrors({});
+        setNotice(null);
+        busyRef.current = true;
         setIsSaving(true);
         try {
-            const promises = currentSedes.map(sedeId => {
-                const payload = {
-                    id_sede: parseInt(sedeId),
-                    id_dia: parseInt(formData.id_dia),
-                    id_turno: parseInt(formData.id_turno),
-                    nombre: formData.nombre_actividad.trim(),
-                    grados: formData.grados.map(g => parseInt(g)),
-                    opciones: formData.opciones_slots.map((slots, i) => ({
-                        nro_opcion: i + 1,
-                        nombre: formData.nombre_actividad.trim(),
-                        slots: slots
-                    }))
-                };
-                return fetch(`${API_BASE}/bloque-reservado-completo`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-            });
-
-            const results = await Promise.all(promises);
-            const allOk = results.every(res => res.ok);
-
-            if (allOk) {
-                await fetchInitialData();
-                setCurrentView('list');
+            const result = await createReservas(buildReservaPayloads(currentForm, maxBloques));
+            if (result.failed.length) {
+                setFormData(prev => ({ ...prev, sedes: result.failed.map(item => item.id_sede) }));
+                const failures = result.failed.map(item => `${getNombreSede(item.id_sede)}: ${item.message}`).join('; ');
+                setNotice(`${result.saved.length ? `Se guardó en ${result.saved.length} sede(s). ` : ''}No se pudo guardar en: ${failures}. Solo quedan seleccionadas las sedes pendientes.`);
             } else {
-                alert("Hubo un error al guardar uno o más bloques.");
+                setCurrentView('list');
+                setNotice('Actividad guardada correctamente.');
             }
-        } catch (error) {
-            console.error(error);
-            alert("Error de conexión");
-        } finally {
-            setIsSaving(false);
-        }
+            if (result.saved.length) notifyUpdated();
+            await refreshReservas();
+        } catch (err) { setNotice(err.message); }
+        finally { busyRef.current = false; setIsSaving(false); }
     };
 
-    const handleDelete = (r) => {
-        setBloqueToDelete(r);
+    const handleDelete = reserva => {
+        if (!canDelete || busyRef.current) return;
+        setBloqueToDelete(reserva);
+        setDeleteError(null);
         setIsDeleteModalOpen(true);
     };
 
     const confirmarEliminacion = async () => {
-        if (!bloqueToDelete) return;
+        if (!bloqueToDelete || !canDelete || busyRef.current) return;
+        busyRef.current = true;
         setEliminando(true);
+        setDeleteError(null);
+        setNotice(null);
         try {
-            const res = await fetch(`${API_BASE}/bloque-reservado/${bloqueToDelete.id_bloque_reservado}`, {
-                method: 'DELETE'
-            });
-            if (res.ok) {
-                await fetchInitialData();
-                setIsDeleteModalOpen(false);
-                setBloqueToDelete(null);
-            } else {
-                alert("Error al eliminar.");
-            }
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setEliminando(false);
-        }
+            await deleteReserva(bloqueToDelete.id);
+            setReservas(prev => prev.filter(r => r.id !== bloqueToDelete.id));
+            setIsDeleteModalOpen(false);
+            setBloqueToDelete(null);
+            setNotice('Actividad eliminada correctamente.');
+            notifyUpdated();
+            await refreshReservas();
+        } catch (err) { setDeleteError(err.message); }
+        finally { busyRef.current = false; setEliminando(false); }
     };
 
-    const getNombreSede = id => sedes.find(s => s.id_sede === id)?.nombre_sede || id;
-    const getNombreDia = id => dias.find(d => d.id_dia === id)?.nombre_dia || id;
-    const getNombreTurno = id => turnos.find(t => t.id_turno === id)?.nombre || id;
-    const getNumeroGrado = id => grados.find(g => g.id_grado === id)?.numero || id;
+    const getNombreSede = id => sedes.find(s => s.id === id)?.nombre_sede || id;
+    const getNombreDia = id => dias.find(d => d.id === id)?.nombre_dia || id;
+    const getNombreTurno = id => turnos.find(t => t.id === id)?.nombre || id;
+    const getNumeroGrado = id => grados.find(g => g.id === id)?.numero || id;
 
     // --- Dynamic Blocks Calculation ---
-    const maxBloques = React.useMemo(() => {
-        if (!formData.id_dia || formData.grados.length === 0 || gradoDiaConfigs.length === 0) return 0;
-        const configs = gradoDiaConfigs.filter(c =>
-            c.id_dia === parseInt(formData.id_dia) &&
-            formData.grados.includes(c.id_grado)
-        );
-        if (configs.length === 0) return 0;
-        return Math.max(...configs.map(c => c.bloques_dia || 0));
-    }, [formData.id_dia, formData.grados, gradoDiaConfigs]);
+    const maxBloques = maxBloquesReserva(Number(formData.id_dia), formData.grados, gradoDiaConfigs);
 
     // --- Métricas para el panel derecho ---
     const totalReservas = reservas.length;
@@ -257,7 +220,16 @@ export default function BloquesReservadosManager() {
         return acc + maxSlots;
     }, 0);
 
-    if (status === 'loading') return <div className="flex justify-center py-12"><div className="w-8 h-8 border-4 border-brand-primary/30 border-t-brand-primary rounded-full animate-spin"></div></div>;
+    if (!sessionReady || (canView && status === 'loading')) return (
+        <div role="status" aria-label="Cargando actividades reservadas" className="flex justify-center py-12">
+            <div aria-hidden="true" className="w-8 h-8 border-4 border-brand-primary/30 border-t-brand-primary rounded-full animate-spin" />
+        </div>
+    );
+    if (!canView) return <p role="alert">No tienes permiso para consultar las actividades reservadas.</p>;
+    if (status === 'error') return <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-700">
+        <p>{error}</p>
+        <button type="button" onClick={() => setReload(value => value + 1)} className="mt-2 font-bold underline">Reintentar carga</button>
+    </div>;
 
     return (
         <div className="w-full animate-fade-in relative">
@@ -269,28 +241,33 @@ export default function BloquesReservadosManager() {
                     onAddClick={handleAbrirFormulario}
                     addButtonText="Añadir Actividad"
                     svgImage="/imagen.svg"
-                    hideAddButton={reservas.length === 0 && !answeredYes}
+                    hideAddButton={!canAdd || isSaving || eliminando || currentView === 'form' || (reservas.length === 0 && !answeredYes)}
                     stats={[
                         { label: 'Total Reservas', value: totalReservas, subtext: 'bloques' },
-                        { label: 'Horas Bloqueadas', value: totalHorasBloqueadas, subtext: 'horas' }
+                        { label: 'Bloques reservados', value: totalHorasBloqueadas, subtext: 'máximo por alternativa' }
                     ]}
                 />
 
                 {/* ===== RIGHT CONTENT (3/4) ===== */}
                 <div className="md:w-3/4 flex flex-col gap-6">
+                    {notice && <div role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                        <p>{notice}</p>
+                        {refreshError && <button type="button" disabled={isSaving || eliminando} onClick={retryReservas} className="mt-2 font-bold underline">Actualizar lista</button>}
+                    </div>}
                     {currentView === 'list' ? (
                         <>
-                            {reservas.length === 0 && !answeredYes ? (
+                            {reservas.length === 0 && !answeredYes && canAdd ? (
                         <div className="bg-white rounded-[32px] border-2 border-slate-100 p-8 sm:p-10 flex flex-col items-center justify-center text-center shadow-sm relative overflow-hidden flex-1">
                             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-[var(--color-brand-light)] rounded-full blur-3xl opacity-40 z-0"></div>
-                            
+
                             <div className="relative z-10 flex flex-col items-center">
                                 <span className="bg-amber-100 text-amber-700 text-[11px] font-black uppercase px-3 py-1.5 rounded-lg tracking-widest shadow-sm border border-amber-200 mb-6">Módulo Opcional</span>
                                 <h3 className="text-3xl font-black text-slate-800 tracking-tight mb-4">¿Tienes actividades fijas?</h3>
                                 <p className="text-slate-600 text-[16px] max-w-lg mb-8 leading-relaxed font-medium">Usa esta sección si tu colegio tiene <strong>eventos estrictamente fijos</strong> en la semana (ej: formación general, educación física o talleres simultáneos).</p>
-                                
+
                                 <div className="flex flex-col sm:flex-row gap-4">
                                     <button
+                                        disabled={!canAdd}
                                         onClick={() => setAnsweredYes(true)}
                                         className="bg-[var(--color-brand-primary)] text-white hover:bg-[var(--color-brand-dark)] font-extrabold py-3.5 px-8 rounded-xl shadow-[0_4px_12px_rgba(47,91,255,0.3)] hover:shadow-[0_6px_16px_rgba(47,91,255,0.4)] hover:-translate-y-0.5 transition-all text-[15px] cursor-pointer"
                                     >
@@ -314,26 +291,27 @@ export default function BloquesReservadosManager() {
                                     </div>
                                     <h3 className="text-xl font-black text-slate-800">No hay bloques especiales</h3>
                                     <p className="text-slate-500 text-[14px] font-medium mt-3 max-w-md mx-auto">
-                                        Comienza creando tu primer bloque reservado usando el botón de la barra lateral.
+                                        {canAdd ? 'Comienza creando tu primer bloque reservado usando el botón de la barra lateral.' : 'No hay actividades reservadas registradas para este colegio.'}
                                     </p>
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-6 items-start">
                                     {reservas.map(r => (
-                                        <div key={r.id_bloque_reservado} className="bg-white rounded-[24px] border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-300 relative group overflow-hidden flex flex-col h-full">
+                                        <div key={r.id} className="bg-white rounded-[24px] border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-300 relative group overflow-hidden flex flex-col h-full">
                                             {/* Decoración superior según turno */}
                                             <div className={`h-2 w-full ${r.id_turno === 1 ? 'bg-amber-400' : 'bg-indigo-500'}`}></div>
-            
-                                            <div className="absolute top-5 right-5 flex items-center gap-2 z-10">
+
+                                            {canDelete && <div className="absolute top-5 right-5 flex items-center gap-2 z-10">
                                                 <button
+                                                    disabled={isSaving || eliminando}
                                                     onClick={() => handleDelete(r)}
                                                     className="cursor-pointer w-8 h-8 rounded-full bg-white border border-slate-100 text-red-400 flex items-center justify-center transition-all hover:bg-red-500 hover:text-white shadow-sm hover:border-red-500"
                                                     title="Eliminar Reserva"
                                                 >
                                                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                                 </button>
-                                            </div>
-            
+                                            </div>}
+
                                             <div className="p-6 flex-1 flex flex-col">
                                                 <div className="flex items-center gap-3 mb-5">
                                                     <div className="w-12 h-12 rounded-xl bg-[var(--color-brand-light)] text-[var(--color-brand-primary)] flex items-center justify-center border border-[var(--color-brand-light)] shadow-sm shrink-0">
@@ -353,10 +331,11 @@ export default function BloquesReservadosManager() {
                                                         </p>
                                                     </div>
                                                 </div>
-            
+
                                                 <div className="mb-5 flex-1">
                                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 border-b border-slate-100 pb-2">Grados Involucrados</p>
                                                     <div className="flex flex-wrap gap-2">
+                                                        {r.grados.length === 0 && <span className="text-sm text-slate-500">Todos los grados</span>}
                                                         {r.grados.map(gid => (
                                                             <span key={gid} className="px-2.5 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-[11px] font-black border border-slate-200 shadow-sm">
                                                                 {getNumeroGrado(gid)}°
@@ -364,18 +343,18 @@ export default function BloquesReservadosManager() {
                                                         ))}
                                                     </div>
                                                 </div>
-            
+
                                                 <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
                                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 border-b border-slate-200/60 pb-2">Configuración de Grupos</p>
                                                     <div className="flex flex-col gap-3">
                                                         {r.opciones.map(op => (
-                                                            <div key={op.id_bloque_opcion} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white p-2.5 rounded-lg border border-slate-200 shadow-sm">
+                                                            <div key={op.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white p-2.5 rounded-lg border border-slate-200 shadow-sm">
                                                                 <div className="flex items-center gap-2">
                                                                     <div className="w-2 h-2 rounded-full bg-brand-primary"></div>
                                                                     <span className="font-bold text-slate-700 text-[11px] uppercase tracking-wider">Alternativa {op.nro_opcion}</span>
                                                                 </div>
                                                                 <div className="flex flex-wrap gap-1.5">
-                                                                    {op.slots.sort((a, b) => a - b).map((s, i) => (
+                                                                    {op.slots.map(slot => slot.nro_bloque).filter(n => n != null).sort((a, b) => a - b).map((s, i) => (
                                                                         <span key={i} className="px-2.5 py-1 rounded-md bg-[var(--color-brand-primary)] text-white flex items-center justify-center text-[10px] font-black shadow-sm">
                                                                             B{s}
                                                                         </span>
@@ -394,7 +373,7 @@ export default function BloquesReservadosManager() {
                     )}
                     </>
                     ) : (
-                        <div className="bg-white rounded-[24px] border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.04)] p-8 animate-fade-in flex flex-col min-h-[500px]">
+                        <fieldset disabled={isSaving} aria-label="Nueva actividad reservada" className="bg-white rounded-[24px] border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.04)] p-8 animate-fade-in flex flex-col min-h-[500px]">
                             {/* Form Header */}
                             <div className="flex justify-between items-center mb-8 border-b border-slate-100 pb-6">
                                 <div className="flex items-center gap-3">
@@ -430,12 +409,12 @@ export default function BloquesReservadosManager() {
                                                 </div>
                                             ) : (
                                                 sedes.map(s => {
-                                                    const isSelected = formData.sedes.includes(s.id_sede);
+                                                    const isSelected = formData.sedes.includes(s.id);
                                                     return (
                                                         <button
-                                                            key={s.id_sede}
+                                                            key={s.id}
                                                             onClick={() => {
-                                                                toggleSede(s.id_sede);
+                                                                toggleSede(s.id);
                                                                 if (formErrors.sedes) setFormErrors({ ...formErrors, sedes: null });
                                                             }}
                                                             className={`px-3 py-2 rounded-xl font-bold text-xs transition-all flex items-center justify-between border-2 cursor-pointer ${isSelected
@@ -462,7 +441,7 @@ export default function BloquesReservadosManager() {
                                             className={`w-full bg-slate-50 border font-bold rounded-xl px-4 py-2.5 outline-none cursor-pointer ${formErrors.id_dia ? 'border-red-400 text-red-700' : 'border-slate-200 text-slate-800 focus:border-brand-primary'}`}
                                         >
                                             <option value="">Seleccionar Día</option>
-                                            {dias.map(d => <option key={d.id_dia} value={d.id_dia}>{d.nombre_dia}</option>)}
+                                            {dias.map(d => <option key={d.id} value={d.id}>{d.nombre_dia}</option>)}
                                         </select>
                                         {formErrors.id_dia && <p className="text-[11px] font-bold text-red-500 mt-2 flex items-center gap-1"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>{formErrors.id_dia}</p>}
                                     </div>
@@ -476,7 +455,7 @@ export default function BloquesReservadosManager() {
                                             className={`w-full bg-slate-50 border font-bold rounded-xl px-4 py-2.5 outline-none cursor-pointer ${formErrors.id_turno ? 'border-red-400 text-red-700' : 'border-slate-200 text-slate-800 focus:border-brand-primary'}`}
                                         >
                                             <option value="">Seleccionar Turno</option>
-                                            {turnos.map(t => <option key={t.id_turno} value={t.id_turno}>{t.nombre}</option>)}
+                                            {turnos.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
                                         </select>
                                         {formErrors.id_turno && <p className="text-[11px] font-bold text-red-500 mt-2 flex items-center gap-1"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>{formErrors.id_turno}</p>}
                                     </div>
@@ -492,12 +471,12 @@ export default function BloquesReservadosManager() {
                                 </label>
                                 <div className="flex flex-wrap gap-3">
                                     {grados.map(g => {
-                                        const isSelected = formData.grados.includes(g.id_grado);
+                                        const isSelected = formData.grados.includes(g.id);
                                         return (
                                             <button
-                                                key={g.id_grado}
+                                                key={g.id}
                                                 onClick={() => {
-                                                    toggleGrado(g.id_grado);
+                                                    toggleGrado(g.id);
                                                     if (formErrors.grados) setFormErrors({ ...formErrors, grados: null });
                                                 }}
                                                 className={`px-5 py-3 rounded-2xl font-black text-[15px] transition-all flex items-center gap-2 border-2 cursor-pointer ${isSelected
@@ -545,6 +524,7 @@ export default function BloquesReservadosManager() {
                                     </label>
                                     <input
                                         type="text"
+                                        maxLength={256}
                                         value={formData.nombre_actividad}
                                         onChange={(e) => {
                                             setFormData({ ...formData, nombre_actividad: e.target.value });
@@ -655,7 +635,7 @@ export default function BloquesReservadosManager() {
                             </div>
                                 </div>
                                 </div>
-                            
+
                                 {/* Footer */}
                                 <div className="pt-6 mt-8 border-t border-slate-100 flex justify-end gap-3 w-full">
                                     <button
@@ -666,13 +646,13 @@ export default function BloquesReservadosManager() {
                                     </button>
                                     <button
                                         onClick={handleSave}
-                                        disabled={isSaving}
+                                        disabled={isSaving || !canAdd}
                                         className="px-8 py-3 bg-[var(--color-brand-primary)] text-white font-black rounded-xl hover:shadow-[0_4px_12px_rgba(47,91,255,0.3)] hover:shadow-[0_6px_16px_rgba(47,91,255,0.4)] hover:-translate-y-0.5 transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
                                     >
                                         {isSaving ? 'Guardando...' : 'Guardar Actividad'}
                                     </button>
                                 </div>
-                            </div>
+                            </fieldset>
                     )}
                 </div>
             </div>
@@ -696,6 +676,7 @@ export default function BloquesReservadosManager() {
                             Estás a punto de eliminar el bloque reservado <strong className="text-slate-700">"{bloqueToDelete.nombre}"</strong>. ¿Estás seguro?
                         </p>
 
+                        {deleteError && <p role="alert" className="mb-4 text-sm text-red-600">{deleteError}</p>}
                         <div className="flex items-center gap-3 w-full">
                             <button
                                 type="button"

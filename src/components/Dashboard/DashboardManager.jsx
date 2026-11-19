@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-
-const API = 'http://localhost:8000/api';
+import { getSession } from '../../lib/auth/session';
+import { getDashboardData, getHorarioFinalCount } from '../../services/dashboard';
 
 const pastelColors = [
     { bg: 'bg-red-50', border: 'border-red-100', text: 'text-red-600', hoverBg: 'hover:bg-red-100' },
@@ -39,7 +39,7 @@ export default function DashboardManager() {
         }
         return [];
     });
-    const [colegio, setColegio] = useState(null);
+    const currentUser = getSession()?.user;
     const [horarioCount, setHorarioCount] = useState(() => {
         if (typeof window !== 'undefined') {
             try {
@@ -54,23 +54,13 @@ export default function DashboardManager() {
     useEffect(() => {
         const load = async () => {
             try {
-                const endpoints = [
-                    { key: 'profesores', url: 'profesores' },
-                    { key: 'cursos', url: 'cursos' },
-                    { key: 'areas', url: 'areas' },
-                    { key: 'sedes', url: 'sedes' },
-                    { key: 'grados', url: 'grados' },
-                    { key: 'secciones', url: 'secciones' },
-                    { key: 'planes', url: 'planes' },
-                    { key: 'tutorias', url: 'tutorias' },
-                    { key: 'reservas', url: 'bloque-reservado' }
-                ];
-                const responses = await Promise.all(endpoints.map(e => fetch(`${API}/${e.url}`).then(r => r.ok ? r.json() : [])));
-                const c = {};
-                endpoints.forEach((e, i) => c[e.key] = Array.isArray(responses[i]) ? responses[i].length : 0);
+                const dashboardData = await getDashboardData();
+                const c = Object.fromEntries(
+                    Object.entries(dashboardData).map(([key, items]) => [key, items.length]),
+                );
 
-                const areasData = responses[endpoints.findIndex(e => e.key === 'areas')];
-                const cursosData = responses[endpoints.findIndex(e => e.key === 'cursos')];
+                const areasData = dashboardData.areas;
+                const cursosData = dashboardData.cursos;
 
                 c.areasReales = Array.isArray(areasData) ? areasData.filter(a => a.nombre !== 'Desarrollo Personal' && a.nombre_area !== 'Desarrollo Personal').length : 0;
                 c.cursosReales = Array.isArray(cursosData) ? cursosData.filter(c => c.nombre_curso !== 'Tutoría' && c.nombre_curso !== 'Tutoría Psicológica').length : 0;
@@ -80,22 +70,16 @@ export default function DashboardManager() {
 
                 if (Array.isArray(areasData) && Array.isArray(cursosData)) {
                     const details = areasData.map(a => {
-                        const count = cursosData.filter(c => c.id_area === a.id_area).length;
+                        const count = cursosData.filter(curso => curso.id_area === a.id).length;
                         return { nombre: a.nombre, count };
                     }).sort((a, b) => b.count - a.count);
                     setAreaDetails(details);
                     if (typeof window !== 'undefined') localStorage.setItem('dashboard_area_details', JSON.stringify(details));
                 }
 
-                const colRes = await fetch(`${API}/colegio`);
-                if (colRes.ok) { const d = await colRes.json(); setColegio(Array.isArray(d) && d[0] ? d[0] : null); }
-                const hRes = await fetch(`${API}/horario-final`);
-                if (hRes.ok) {
-                    const d = await hRes.json();
-                    const hc = Array.isArray(d) ? d.length : 0;
-                    setHorarioCount(hc);
-                    if (typeof window !== 'undefined') localStorage.setItem('dashboard_horario_count', JSON.stringify(hc));
-                }
+                const count = await getHorarioFinalCount();
+                setHorarioCount(count);
+                if (typeof window !== 'undefined') localStorage.setItem('dashboard_horario_count', JSON.stringify(count));
             } catch (e) { console.error(e); }
             setLoading(false);
         };
@@ -161,7 +145,7 @@ export default function DashboardManager() {
                     {/* Top Banner */}
                     <div className="relative bg-[var(--color-brand-primary)] rounded-[32px] p-10 pb-16 text-white overflow-hidden shadow-lg flex-shrink-0">
                         <div className="relative z-10 max-w-[70%]">
-                            <h1 className="text-4xl font-black mb-3">Hola, {colegio ? (colegio.alias || colegio.nombre_colegio) : 'Administrador'}</h1>
+                            <h1 className="text-4xl font-black mb-3">Hola, {currentUser?.nombre || 'Usuario'}</h1>
                             <p className="text-[15px] text-white/85 font-medium leading-relaxed">
                                 Te damos la bienvenida al panel principal de tu colegio. Aquí tienes un vistazo general de tu configuración actual antes de generar los horarios.
                             </p>

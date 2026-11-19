@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ModuleSidebar from '../Shared/ModuleSidebar';
 
-const API_BASE = 'http://localhost:8000/api';
-
-const GRADO_COLORS = [
-    'var(--color-brand-primary)'
-];
+import { hasPermission } from '../../lib/auth/session';
+import {
+    listTutoriasData, listTutorias, assignTutor, deleteTutoria,
+    summarizeTutorias,
+} from '../../services/tutorias';
 
 // Tarjeta con diseño exacto a la referencia (Carpeta oscura con borde negro y fondo degradado)
-const SeccionCard = ({ sec, tutor, gradoColor, sedeNombre, onAsignar, onQuitar }) => {
+const SeccionCard = ({ sec, tutor, gradoColor, gradoNumero, sedeNombre, onAsignar, onQuitar, canAssign, canDelete, busy, tieneAsignacion }) => {
     const sinTutor = !tutor;
 
     return (
@@ -17,23 +17,23 @@ const SeccionCard = ({ sec, tutor, gradoColor, sedeNombre, onAsignar, onQuitar }
             <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-start">
                 <div>
                     <h3 className="text-slate-700 font-bold text-[14px]">
-                        Grado {sec.id_grado ? `${sec.id_grado}°` : 'N/A'}
+                        {gradoNumero != null ? `${gradoNumero}° Grado` : 'Grado sin configurar'}
                     </h3>
                     <p className="text-slate-400 text-[12px] mt-0.5 font-medium flex items-center gap-1">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
-                        {sedeNombre || 'Sede Principal'}
+                        {sedeNombre || 'Sede sin configurar'}
                     </p>
                 </div>
                 <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-[15px] shadow-sm text-white shrink-0"
                     style={{ backgroundColor: sinTutor ? '#f43f5e' : gradoColor }}>
-                    {sinTutor ? '!' : tutor.nombre_profesor.charAt(0).toUpperCase()}
+                    {sinTutor ? '!' : (tutor.nombre_profesor || '?').charAt(0).toUpperCase()}
                 </div>
             </div>
 
             {/* Middle row */}
             <div className="px-5 py-4 flex-1">
                 <h2 className="text-slate-800 font-black text-[20px] truncate pr-2">
-                    Sección {sec.nombre || sec.id_seccion.toString().padStart(2, '0')}
+                    Sección {sec.nombre || sec.id.toString().padStart(2, '0')}
                 </h2>
                 <div className="flex items-center gap-2 mt-1">
                     <p className="text-slate-500 text-[14px] font-medium truncate">
@@ -48,20 +48,25 @@ const SeccionCard = ({ sec, tutor, gradoColor, sedeNombre, onAsignar, onQuitar }
             </div>
 
             {/* Bottom row */}
-            <div
+            {canAssign && <button
+                type="button"
+                disabled={busy}
                 className="px-5 py-4 border-t border-slate-100 flex justify-center items-center cursor-pointer hover:bg-slate-50 transition-colors"
                 onClick={() => onAsignar(sec)}
             >
                 <span className="text-[14px] font-black tracking-wider uppercase flex items-center gap-1.5" style={{ color: sinTutor ? '#f43f5e' : gradoColor }}>
                     {sinTutor ? 'Asignar Tutor' : 'Cambiar Tutor'} <span className="text-[18px] leading-none">›</span>
                 </span>
-            </div>
+            </button>}
 
             {/* Floating Quitar Button */}
-            {!sinTutor && (
+            {tieneAsignacion && canDelete && (
                 <button
-                    onClick={(e) => { e.stopPropagation(); onQuitar(sec.id_seccion); }}
-                    className="absolute top-4 right-16 w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-red-500 hover:border-red-200 flex items-center justify-center transition-colors shadow-sm opacity-0 group-hover:opacity-100 cursor-pointer"
+                    type="button"
+                    disabled={busy}
+                    onClick={(e) => { e.stopPropagation(); onQuitar(sec.id); }}
+                    className="absolute top-4 right-16 w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-red-500 hover:border-red-200 flex items-center justify-center transition-colors shadow-sm cursor-pointer"
+                    aria-label={`Quitar tutor de la sección ${sec.nombre || sec.id}`}
                     title="Quitar tutor"
                 >
                     <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -87,93 +92,125 @@ export default function TutoriasManager() {
     const [selectedSeccion, setSelectedSeccion] = useState(null);
     const [guardando, setGuardando] = useState(false);
 
-    const fetchDatos = async (signal) => {
-        try {
-            setLoading(true);
-            const [resSec, resGrad, resProf, resTut, resSedes] = await Promise.all([
-                fetch(`${API_BASE}/secciones`, { signal }).catch(() => ({ ok: false, json: () => [] })),
-                fetch(`${API_BASE}/grados`, { signal }).catch(() => ({ ok: false, json: () => [] })),
-                fetch(`${API_BASE}/profesores`, { signal }).catch(() => ({ ok: false, json: () => [] })),
-                fetch(`${API_BASE}/tutorias`, { signal }).catch(() => ({ ok: false, json: () => [] })),
-                fetch(`${API_BASE}/sedes`, { signal }).catch(() => ({ ok: false, json: () => [] })),
-            ]);
-            if (resSec.ok) setSecciones(await resSec.json());
-            if (resGrad.ok) setGrados(await resGrad.json());
-            if (resProf.ok) setProfesores(await resProf.json());
-            if (resTut.ok) setTutorias(await resTut.json());
-            if (resSedes.ok) setSedes(await resSedes.json());
-            setError(null);
-        } catch (err) {
-            if (err.name === 'AbortError') return;
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
+    const [sessionReady, setSessionReady] = useState(false);
+    const canView = sessionReady && hasPermission('horarios:tutoria:view');
+    const canAdd = hasPermission('horarios:tutoria:add');
+    const canEdit = hasPermission('horarios:tutoria:edit');
+    const canDelete = hasPermission('horarios:tutoria:delete');
+    const busyRef = useRef(false);
+    const [reload, setReload] = useState(0);
+    const [notice, setNotice] = useState(null);
 
     useEffect(() => {
-        const controller = new AbortController();
-        fetchDatos(controller.signal);
-        return () => controller.abort();
+        setSessionReady(true);
     }, []);
 
-    const getTutorDeSeccion = (id_seccion) => {
-        const tut = tutorias.find(t => t.id_seccion === id_seccion);
-        return tut ? profesores.find(p => p.id_profesor === tut.id_profesor) || null : null;
+    useEffect(() => {
+        if (!sessionReady) return;
+        let active = true;
+        if (!canView) { setLoading(false); return; }
+        setLoading(true);
+        setError(null);
+        listTutoriasData().then(data => {
+            if (!active) return;
+            setSecciones(data.secciones);
+            setGrados(data.grados);
+            setProfesores(data.profesores);
+            setTutorias(data.tutorias);
+            setSedes(data.sedes);
+        }).catch(err => {
+            if (active) setError(err.message);
+        }).finally(() => {
+            if (active) setLoading(false);
+        });
+        return () => { active = false; };
+    }, [sessionReady, canView, reload]);
+
+    const getTutoriaDeSeccion = id => tutorias.find(t => t.id_seccion === id) || null;
+    const getTutorDeSeccion = id => {
+        const asignacion = getTutoriaDeSeccion(id);
+        return profesores.find(p => p.id === asignacion?.id_profesor) || null;
     };
-    const getTutoriaDeSeccion = (id_seccion) => tutorias.find(t => t.id_seccion === id_seccion) || null;
-
-    const abrirAsignacion = (sec) => { setSelectedSeccion(sec); setSearchTermProfesor(''); };
-
-    const handleQuitarTutor = async (id_seccion) => {
-        const tutoriaExistente = getTutoriaDeSeccion(id_seccion);
-        if (!tutoriaExistente || !window.confirm('¿Quitar el tutor de esta sección?')) return;
-        try {
-            await fetch(`${API_BASE}/tutorias/${tutoriaExistente.id_tutoria}`, { method: 'DELETE' });
-            setTutorias(prev => prev.filter(t => t.id_tutoria !== tutoriaExistente.id_tutoria));
-        } catch (err) { alert(`Error: ${err.message}`); }
+    const abrirAsignacion = sec => {
+        if (busyRef.current) return;
+        if (getTutoriaDeSeccion(sec.id) ? !canEdit : !canAdd) return;
+        setSelectedSeccion(sec);
+        setSearchTermProfesor('');
+        setNotice(null);
     };
 
-    const handleAsignarTutor = async (id_profesor) => {
-        if (!selectedSeccion || guardando) return;
-        const tutoriaExistente = getTutoriaDeSeccion(selectedSeccion.id_seccion);
+    const notifyUpdated = () => {
+        window.dispatchEvent(new Event('edusync_data_updated'));
+        window.dispatchEvent(new Event('horarix_data_updated'));
+    };
+
+    const handleQuitarTutor = async idSeccion => {
+        if (!canDelete || busyRef.current) return;
+        const asignacion = getTutoriaDeSeccion(idSeccion);
+        if (!asignacion || !window.confirm('¿Quitar el tutor de esta sección?')) return;
+        busyRef.current = true;
         setGuardando(true);
+        setNotice(null);
         try {
-            if (tutoriaExistente) {
-                await fetch(`${API_BASE}/tutorias/${tutoriaExistente.id_tutoria}`, { method: 'DELETE' });
-                setTutorias(prev => prev.filter(t => t.id_tutoria !== tutoriaExistente.id_tutoria));
-                if (tutoriaExistente.id_profesor === id_profesor) { setSelectedSeccion(null); return; }
-            }
-            const res = await fetch(`${API_BASE}/tutorias`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id_seccion: selectedSeccion.id_seccion, id_profesor })
-            });
-            if (!res.ok) throw new Error('Error al asignar tutoría');
-            const nueva = await res.json();
-            setTutorias(prev => [...prev, nueva]);
-            setSelectedSeccion(null);
-        } catch (err) { alert(`Error: ${err.message}`); }
-        finally { setGuardando(false); }
+            await deleteTutoria(asignacion.id);
+            // The server confirmed deletion; preserve this state even if refreshing fails.
+            setTutorias(prev => prev.filter(t => t.id !== asignacion.id));
+            notifyUpdated();
+            try { setTutorias(await listTutorias()); }
+            catch (err) { setNotice(`Se quitó el tutor, pero no se pudo actualizar la lista: ${err.message}`); }
+        } catch (err) { setNotice(err.message); }
+        finally { busyRef.current = false; setGuardando(false); }
     };
 
+    const handleAsignarTutor = async idProfesor => {
+        if (!selectedSeccion || busyRef.current || !profesores.some(p => p.id === idProfesor)) return;
+        busyRef.current = true;
+        setGuardando(true);
+        setNotice(null);
+        try {
+            await assignTutor(selectedSeccion.id, idProfesor, { canAdd, canEdit });
+            setSelectedSeccion(null);
+            notifyUpdated();
+            try { setTutorias(await listTutorias()); }
+            catch (err) {
+                // POST returns a confirmation without an ID. Never invent a local record.
+                setError(`La asignación se guardó, pero no se pudo actualizar la lista: ${err.message}`);
+            }
+        } catch (err) { setNotice(err.message); }
+        finally { busyRef.current = false; setGuardando(false); }
+    };
+
+    const resumen = summarizeTutorias(secciones, profesores, tutorias);
     const gradosOrdenados = [...grados].sort((a, b) => a.numero - b.numero);
     const seccionesFiltradas = secciones.filter(s =>
-        (s.nombre || `Sección ${s.id_seccion}`).toLowerCase().includes(searchTerm.toLowerCase())
+        (s.nombre || `Sección ${s.id}`).toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    const tutoriaActual = selectedSeccion ? getTutoriaDeSeccion(selectedSeccion.id) : null;
+    const profesoresFiltrados = profesores.filter(p =>
+        (p.nombre_profesor || '').toLowerCase().includes(searchTermProfesor.toLowerCase())
     );
 
-    const tutorActual = selectedSeccion ? getTutorDeSeccion(selectedSeccion.id_seccion) : null;
-    const tutoriaActual = selectedSeccion ? getTutoriaDeSeccion(selectedSeccion.id_seccion) : null;
+    const cardProps = sec => ({
+        sec,
+        tutor: getTutorDeSeccion(sec.id),
+        tieneAsignacion: Boolean(getTutoriaDeSeccion(sec.id)),
+        gradoNumero: grados.find(g => g.id === sec.id_grado)?.numero,
+        sedeNombre: sedes.find(s => s.id === sec.id_sede)?.nombre_sede,
+        gradoColor: 'var(--color-brand-primary)',
+        onAsignar: abrirAsignacion,
+        onQuitar: handleQuitarTutor,
+        canAssign: getTutoriaDeSeccion(sec.id) ? canEdit : canAdd,
+        canDelete,
+        busy: guardando,
+    });
 
-    const isConfigReady = !loading && secciones.length > 0 && tutorias.length >= secciones.length;
-
-    useEffect(() => {
-        if (!loading && secciones.length > 0) {
-            console.log(`Tutorias: Secciones=${secciones.length}, Tutorias=${tutorias.length}, Ready=${isConfigReady}`);
-            localStorage.setItem('configReady', isConfigReady ? 'true' : 'false');
-            window.dispatchEvent(new Event('edusync_config_ready'));
-        }
-    }, [isConfigReady, loading, secciones.length, tutorias.length]);
+    if (!sessionReady) return (
+        <div role="status" className="flex justify-center items-center gap-3 py-20 text-slate-500">
+            <div aria-hidden="true" className="w-8 h-8 border-4 border-[var(--color-brand-primary)]/30 border-t-[var(--color-brand-primary)] rounded-full animate-spin" />
+            <span>Cargando tutorías…</span>
+        </div>
+    );
+    if (!canView) return <p role="alert">No tienes permiso para consultar las tutorías.</p>;
 
     return (
         <div className="w-full animate-fade-in relative">
@@ -185,25 +222,32 @@ export default function TutoriasManager() {
                     svgImage="/tutor.svg"
                     stats={[
                         { label: 'Total de secciones', value: secciones.length, subtext: 'Secciones académicas' },
-                        { label: 'Con tutor', value: tutorias.length, subtext: 'Asignaciones completadas' },
-                        { label: 'Pendientes', value: Math.max(0, secciones.length - tutorias.length), subtext: 'Secciones sin tutor' }
+                        { label: 'Con tutor', value: resumen.completas, subtext: 'Asignaciones válidas' },
+                        { label: 'Pendientes', value: resumen.pendientes, subtext: 'Secciones sin tutor' }
                     ]}
                 />
 
                 <main className="md:w-3/4 flex flex-col gap-5 min-w-0">
                     {error && (
-                        <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-2xl">
+                        <div role="alert" className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-2xl">
                             <p className="text-sm font-medium">{error}</p>
+                            <button type="button" disabled={guardando} onClick={() => setReload(value => value + 1)} className="mt-2 font-bold underline">Reintentar carga</button>
                         </div>
                     )}
 
+                    {notice && <p role="alert" className="bg-amber-50 border border-amber-200 text-amber-800 px-6 py-4 rounded-2xl">{notice}</p>}
+                    {!loading && !error && (resumen.duplicadas > 0 || resumen.invalidas > 0) && (
+                        <p role="alert" className="bg-amber-50 border border-amber-200 text-amber-800 px-6 py-4 rounded-2xl">
+                            Hay {resumen.duplicadas} secciones con varias asignaciones y {resumen.invalidas} asignaciones con datos faltantes. Revisa las asignaciones antes de generar el horario.
+                        </p>
+                    )}
                     {loading && (
                         <div className="flex justify-center py-20">
                             <div className="w-8 h-8 border-4 border-[var(--color-brand-primary)]/30 border-t-[var(--color-brand-primary)] rounded-full animate-spin"></div>
                         </div>
                     )}
 
-                    {!loading && !selectedSeccion && (
+                    {!loading && !error && !selectedSeccion && (
                         <div>
                             <div className="mb-7 space-y-4">
                                 <div className="px-2 flex items-center justify-between gap-4">
@@ -228,42 +272,27 @@ export default function TutoriasManager() {
                             </div>
 
                             <div className="space-y-8">
-                                {gradosOrdenados.map((grado, index) => {
-                                    const gradoColor = GRADO_COLORS[index % GRADO_COLORS.length];
+                                {gradosOrdenados.map(grado => {
                                     const seccionesDelGrado = seccionesFiltradas
-                                        .filter(s => s.id_grado === grado.id_grado)
-                                        .sort((a, b) => a.id_seccion - b.id_seccion);
+                                        .filter(s => s.id_grado === grado.id)
+                                        .sort((a, b) => a.id - b.id);
                                     if (seccionesDelGrado.length === 0) return null;
 
                                     return (
-                                        <section key={grado.id_grado}>
+                                        <section key={grado.id}>
                                             <div className="flex items-center justify-between mb-3 px-1">
                                                 <h3 className="text-sm font-black text-slate-700">{grado.numero}° Grado</h3>
                                                 <span className="text-[11px] font-bold text-slate-400">{seccionesDelGrado.length} sección{seccionesDelGrado.length !== 1 ? 'es' : ''}</span>
                                             </div>
                                             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
-                                                {seccionesDelGrado.map(sec => {
-                                                    const sedeObj = sedes.find(s => s.id_sede === sec.id_sede);
-                                                    const sedeNombre = sedeObj ? (sedeObj.nombre_sede || sedeObj.nombre) : 'Sede Principal';
-                                                    return (
-                                                        <SeccionCard
-                                                            key={sec.id_seccion}
-                                                            sec={sec}
-                                                            tutor={getTutorDeSeccion(sec.id_seccion)}
-                                                            gradoColor={gradoColor}
-                                                            sedeNombre={sedeNombre}
-                                                            onAsignar={abrirAsignacion}
-                                                            onQuitar={handleQuitarTutor}
-                                                        />
-                                                    );
-                                                })}
+                                                {seccionesDelGrado.map(sec => <SeccionCard key={sec.id} {...cardProps(sec)} />)}
                                             </div>
                                         </section>
                                     );
                                 })}
 
                                 {(() => {
-                                    const sinGrado = seccionesFiltradas.filter(s => !s.id_grado).sort((a, b) => a.id_seccion - b.id_seccion);
+                                    const sinGrado = seccionesFiltradas.filter(s => !grados.some(g => g.id === s.id_grado)).sort((a, b) => a.id - b.id);
                                     if (sinGrado.length === 0) return null;
                                     return (
                                         <section>
@@ -272,11 +301,7 @@ export default function TutoriasManager() {
                                                 <span className="text-[11px] font-bold text-slate-400">{sinGrado.length} sección{sinGrado.length !== 1 ? 'es' : ''}</span>
                                             </div>
                                             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
-                                                {sinGrado.map(sec => {
-                                                    const sedeObj = sedes.find(s => s.id_sede === sec.id_sede);
-                                                    const sedeNombre = sedeObj ? (sedeObj.nombre_sede || sedeObj.nombre) : 'Sede Principal';
-                                                    return <SeccionCard key={sec.id_seccion} sec={sec} tutor={getTutorDeSeccion(sec.id_seccion)} gradoColor="var(--color-brand-primary)" sedeNombre={sedeNombre} onAsignar={abrirAsignacion} onQuitar={handleQuitarTutor} />;
-                                                })}
+                                                {sinGrado.map(sec => <SeccionCard key={sec.id} {...cardProps(sec)} />)}
                                             </div>
                                         </section>
                                     );
@@ -285,23 +310,23 @@ export default function TutoriasManager() {
                                 {seccionesFiltradas.length === 0 && (
                                     <div className="border-2 border-slate-200 border-dashed rounded-[28px] p-14 text-center">
                                         <h3 className="text-lg font-black text-slate-800">No se encontraron secciones</h3>
-                                        <p className="text-sm text-slate-400 mt-1">Prueba con otro término de búsqueda.</p>
+                                        <p className="text-sm text-slate-400 mt-1">{secciones.length ? 'Prueba con otro término de búsqueda.' : 'Configura las secciones del colegio para asignar sus tutores.'}</p>
                                     </div>
                                 )}
                             </div>
                         </div>
                     )}
 
-                    {!loading && selectedSeccion && (
+                    {!loading && !error && selectedSeccion && (
                         <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm overflow-hidden animate-fade-in">
                             <div className="px-7 py-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                                 <div>
                                     <h2 className="text-xl font-black text-slate-800">Elegir tutor</h2>
                                     <p className="text-sm text-slate-500 mt-1">
-                                        Selecciona al docente responsable de <span className="font-bold text-[var(--color-brand-primary)]">{selectedSeccion.nombre || `Sección ${selectedSeccion.id_seccion}`}</span>.
+                                        Selecciona al docente responsable de <span className="font-bold text-[var(--color-brand-primary)]">{selectedSeccion.nombre || `Sección ${selectedSeccion.id}`}</span>.
                                     </p>
                                 </div>
-                                <button type="button" onClick={() => setSelectedSeccion(null)} className="text-[var(--color-brand-primary)] hover:text-[var(--color-brand-dark)] flex items-center gap-2 text-sm font-bold px-3 py-2 cursor-pointer transition-colors shrink-0">
+                                <button type="button" disabled={guardando} onClick={() => { setSelectedSeccion(null); setNotice(null); }} className="text-[var(--color-brand-primary)] hover:text-[var(--color-brand-dark)] flex items-center gap-2 text-sm font-bold px-3 py-2 cursor-pointer transition-colors shrink-0">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
                                     Volver
                                 </button>
@@ -321,23 +346,23 @@ export default function TutoriasManager() {
                                 )}
 
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                                    {profesores.filter(p => (p.nombre_profesor || '').toLowerCase().includes(searchTermProfesor.toLowerCase())).map(prof => {
-                                        const isActual = tutoriaActual?.id_profesor === prof.id_profesor;
+                                    {profesoresFiltrados.map(prof => {
+                                        const isActual = tutoriaActual?.id_profesor === prof.id;
                                         return (
                                             <button
                                                 type="button"
-                                                key={prof.id_profesor}
-                                                disabled={guardando}
-                                                onClick={() => handleAsignarTutor(prof.id_profesor)}
+                                                key={prof.id}
+                                                disabled={guardando || isActual || (tutoriaActual ? !canEdit : !canAdd)}
+                                                onClick={() => handleAsignarTutor(prof.id)}
                                                 className={`flex items-center gap-4 p-4 rounded-[18px] border-2 text-left transition-all cursor-pointer disabled:opacity-60 ${isActual ? 'border-emerald-400 text-emerald-700' : 'border-slate-100 hover:border-[var(--color-brand-primary)]/40 hover:shadow-sm text-slate-700'}`}
                                             >
                                                 <div className={`w-11 h-11 rounded-full flex items-center justify-center text-white font-black shrink-0 ${isActual ? 'bg-emerald-500' : 'bg-[var(--color-brand-primary)]'}`}>
-                                                    {prof.nombre_profesor.charAt(0).toUpperCase()}
+                                                    {(prof.nombre_profesor || '?').charAt(0).toUpperCase()}
                                                 </div>
                                                 <div className="min-w-0 flex-1">
                                                     <p className="font-bold text-sm truncate">{prof.nombre_profesor}</p>
                                                     <p className={`text-[11px] font-medium mt-0.5 ${isActual ? 'text-emerald-600' : 'text-slate-400'}`}>
-                                                        {isActual ? 'Tutor actual · Presiona para quitar' : 'Presiona para asignar'}
+                                                        {isActual ? 'Tutor actual' : 'Presiona para asignar'}
                                                     </p>
                                                 </div>
                                                 {isActual && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>}
@@ -346,7 +371,7 @@ export default function TutoriasManager() {
                                     })}
                                 </div>
 
-                                {profesores.filter(p => (p.nombre_profesor || '').toLowerCase().includes(searchTermProfesor.toLowerCase())).length === 0 && (
+                                {profesoresFiltrados.length === 0 && (
                                     <div className="border-2 border-slate-200 border-dashed rounded-2xl p-10 text-center text-sm font-medium text-slate-400">No se encontraron docentes con ese nombre.</div>
                                 )}
                             </div>

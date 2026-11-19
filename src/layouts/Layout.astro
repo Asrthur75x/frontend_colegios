@@ -18,30 +18,11 @@ const bodyBg = "#f8fafc";
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>{title}</title>
-		<script is:inline>
-			if (!localStorage.getItem("user")) {
-				window.location.href = "/login";
-			}
-			// Global interceptor for API calls to bypass CORS sin backend
-			if (!window.__fetchIntercepted) {
-				window.__fetchIntercepted = true;
-				const originalFetch = window.fetch;
-				window.fetch = function (...args) {
-					if (typeof args[0] === "string") {
-						if (args[0].startsWith("http://127.0.0.1:8000/api")) {
-							args[0] = args[0].replace(
-								"http://127.0.0.1:8000/api",
-								"/api",
-							);
-						} else if (args[0].startsWith("http://localhost:8000/api")) {
-							args[0] = args[0].replace(
-								"http://localhost:8000/api",
-								"/api",
-							);
-						}
-					}
-					return originalFetch.apply(this, args);
-				};
+		<script>
+			import { hasUsableSession } from "../lib/auth/session";
+
+			if (!hasUsableSession()) {
+				window.location.replace("/login");
 			}
 		</script>
 		<ClientRouter />

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import ModuleSidebar from '../Shared/ModuleSidebar';
-
-const API_BASE = 'http://localhost:8000/api';
+import { hasPermission } from '../../lib/auth/session';
+import { createCurso, deleteCurso, listAreas, listCursos, updateCurso } from '../../services/cursos';
 
 // --- Componente Tarjeta Libro (Book Card) ---
-const CursoBookCard = ({ curso, area, onEdit, onDelete, index, isSelected, onToggleSelect, isSelectionMode }) => {
+const CursoBookCard = ({ curso, area, onEdit, onDelete, index, isSelected, onToggleSelect, isSelectionMode, canEdit, canDelete }) => {
     // Paleta de colores con valores hex directos (evita el bug de purge de Tailwind JIT)
     const colors = [
         { bg: '#1e293b', spine: '#0f172a', text: '#f1f5f9', bmBg: '#fbbf24' }, // Slate oscuro
@@ -28,7 +28,7 @@ const CursoBookCard = ({ curso, area, onEdit, onDelete, index, isSelected, onTog
             {/* Wrapper interno: libro + botones en fila */}
             <div 
                 className={`group relative flex items-start gap-2 p-1 ${isSelected ? 'ring-4 ring-[var(--color-brand-primary)]/40 rounded-xl bg-[var(--color-brand-light)]/20' : ''}`}
-                onClick={() => isSelectionMode && onToggleSelect(curso.id_curso)}
+                onClick={() => isSelectionMode && onToggleSelect(curso.id)}
             >
 
                 {/* Contenedor del Libro */}
@@ -42,8 +42,8 @@ const CursoBookCard = ({ curso, area, onEdit, onDelete, index, isSelected, onTog
                     onClick={(e) => {
                         if (isSelectionMode) {
                             e.stopPropagation();
-                            onToggleSelect(curso.id_curso);
-                        } else {
+                            onToggleSelect(curso.id);
+                        } else if (canEdit) {
                             onEdit(curso);
                         }
                     }}
@@ -52,7 +52,7 @@ const CursoBookCard = ({ curso, area, onEdit, onDelete, index, isSelected, onTog
                     {isSelectionMode && (
                         <div 
                             className="absolute top-3 right-3 z-50 cursor-pointer"
-                            onClick={(e) => { e.stopPropagation(); onToggleSelect(curso.id_curso); }}
+                            onClick={(e) => { e.stopPropagation(); onToggleSelect(curso.id); }}
                         >
                             <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-all border-2 shadow-sm ${isSelected ? 'bg-[var(--color-brand-primary)] border-[var(--color-brand-primary)] text-white' : 'bg-white/80 border-slate-300 hover:border-[var(--color-brand-primary)] hover:bg-white'}`}>
                                 {isSelected && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>}
@@ -96,7 +96,7 @@ const CursoBookCard = ({ curso, area, onEdit, onDelete, index, isSelected, onTog
                             className="text-[10px] font-bold mb-2 md:mb-3 border-t border-white/20 pt-2 w-1/2"
                             style={{ color: c.text, opacity: 0.6 }}
                         >
-                            ID: {curso.id_curso}
+                            ID: {curso.id}
                         </div>
                     </div>
 
@@ -121,20 +121,20 @@ const CursoBookCard = ({ curso, area, onEdit, onDelete, index, isSelected, onTog
 
                 {/* Acciones — siempre visibles a la derecha del libro */}
                 <div className="flex flex-col gap-2 pt-2 flex-shrink-0">
-                    <button
+                    {canEdit && <button
                         onClick={(e) => { e.stopPropagation(); onEdit(curso); }}
                         title="Editar"
                         className="p-2.5 bg-white text-brand-primary rounded-full shadow-lg hover:bg-[var(--color-brand-light)] hover:scale-110 transition-all cursor-pointer"
                     >
                         <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                    </button>
-                    <button
+                    </button>}
+                    {canDelete && <button
                         onClick={(e) => { e.stopPropagation(); onDelete(curso); }}
                         title="Eliminar"
                         className="p-2.5 bg-white text-red-500 rounded-full shadow-lg hover:bg-red-50 hover:scale-110 transition-all cursor-pointer"
                     >
                         <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                    </button>
+                    </button>}
                 </div>
 
             </div>
@@ -143,6 +143,9 @@ const CursoBookCard = ({ curso, area, onEdit, onDelete, index, isSelected, onTog
 };
 
 export default function CursosManager() {
+    const canAdd = hasPermission('horarios:curso:add');
+    const canEdit = hasPermission('horarios:curso:edit');
+    const canDelete = hasPermission('horarios:curso:delete');
     const [cursos, setCursos] = useState([]);
     const [currentView, setCurrentView] = useState('list');
     const [areas, setAreas] = useState([]);
@@ -165,65 +168,44 @@ export default function CursosManager() {
     const [isSelectionMode, setIsSelectionMode] = useState(false);
     const [selectedIds, setSelectedIds] = useState([]);
 
-    // Adaptado al SQLModel: id_curso, nombre_curso y id_area
-    const [nuevoCurso, setNuevoCurso] = useState({ nombre_curso: '', id_area: '' });
+    const [nuevoCurso, setNuevoCurso] = useState({ nombre_curso: '', id_area: '', requiere_espacio_unico: false });
     const [cursosNuevos, setCursosNuevos] = useState([]);
     const [inputCursoVirtual, setInputCursoVirtual] = useState('');
 
     // ── Cargar cursos y áreas del backend al montar ──
-    const fetchDatos = async (signal) => {
+    const fetchDatos = async () => {
         try {
             setLoading(true);
-            const [resCursos, resAreas] = await Promise.all([
-                fetch(`${API_BASE}/cursos`, { signal }).catch((e) => {
-                    if (e.name === 'AbortError') throw e;
-                    return { ok: false, json: async () => [] };
-                }),
-                fetch(`${API_BASE}/areas`, { signal }).catch((e) => {
-                    if (e.name === 'AbortError') throw e;
-                    return { ok: false, json: async () => [] };
-                }),
-            ]);
+            const [dataCursos, dataAreas] = await Promise.all([listCursos(), listAreas()]);
+            setCursos(dataCursos);
+            setAreas(dataAreas);
 
-            if (resCursos.ok) {
-                const dataCursos = await resCursos.json();
-                setCursos(dataCursos);
-
-                const hash = window.location.hash;
-                if (hash === '#new') {
-                    abrirModalNueva(false);
-                } else if (hash.startsWith('#edit-')) {
-                    const id = hash.replace('#edit-', '');
-                    const curso = dataCursos.find(c => c.id_curso.toString() === id);
-                    if (curso) {
-                        abrirModalEdicion(curso, false);
-                    } else {
-                        volverALista(false);
-                    }
+            const hash = window.location.hash;
+            if (hash === '#new' && canAdd) {
+                abrirModalNueva(false);
+            } else if (hash.startsWith('#edit-') && canEdit) {
+                const id = hash.replace('#edit-', '');
+                const curso = dataCursos.find(c => c.id.toString() === id);
+                if (curso) {
+                    abrirModalEdicion(curso, false);
                 } else {
                     volverALista(false);
                 }
-            } else setCursos([]);
-
-            if (resAreas.ok) {
-                const dataAreas = await resAreas.json();
-                setAreas(dataAreas);
-            } else setAreas([]);
+            } else {
+                volverALista(false);
+            }
 
             setError(null);
         } catch (err) {
-            if (err.name === 'AbortError') return;
             console.warn('No se pudo obtener datos del backend.', err);
-            setError(err.message);
+            setError(err instanceof Error ? err.message : 'No se pudieron cargar los cursos');
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
-        const controller = new AbortController();
-        fetchDatos(controller.signal);
-        return () => controller.abort();
+        fetchDatos();
     }, []);
 
     const volverALista = (push = true) => {
@@ -235,11 +217,11 @@ export default function CursosManager() {
         const handleHashChange = () => {
             const hash = window.location.hash;
             if (hash === '#new') {
-                abrirModalNueva(false);
+                if (canAdd) abrirModalNueva(false);
             } else if (hash.startsWith('#edit-')) {
                 const id = hash.replace('#edit-', '');
-                const curso = cursos.find(c => c.id_curso.toString() === id);
-                if (curso) {
+                const curso = cursos.find(c => c.id.toString() === id);
+                if (curso && canEdit) {
                     abrirModalEdicion(curso, false);
                 } else {
                     volverALista(false);
@@ -257,9 +239,10 @@ export default function CursosManager() {
 
     // ── Abrir modal para nuevo curso ──
     const abrirModalNueva = (push = true) => {
+        if (!canAdd) return;
         setIsEditing(false);
         setEditId(null);
-        setNuevoCurso({ nombre_curso: '', id_area: '' });
+        setNuevoCurso({ nombre_curso: '', id_area: '', requiere_espacio_unico: false });
         setCursosNuevos([]);
         setInputCursoVirtual('');
         setCurrentView('form');
@@ -268,25 +251,28 @@ export default function CursosManager() {
 
     // ── Abrir modal para edición ──
     const abrirModalEdicion = (curso, push = true) => {
+        if (!canEdit) return;
         setIsEditing(true);
-        setEditId(curso.id_curso);
+        setEditId(curso.id);
         setNuevoCurso({
             nombre_curso: curso.nombre_curso || '',
             id_area: curso.id_area || '',
             requiere_espacio_unico: curso.requiere_espacio_unico || false
         });
         setCurrentView('form');
-        if (push) window.history.pushState(null, '', `#edit-${curso.id_curso}`);
+        if (push) window.history.pushState(null, '', `#edit-${curso.id}`);
     };
 
     // ── Preparar Eliminación (Abrir Modal) ──
     const eliminarCurso = (curso) => {
-        setItemsToDelete([curso.id_curso]);
+        if (!canDelete) return;
+        setItemsToDelete([curso.id]);
         setDeleteError(null);
         setIsDeleteModalOpen(true);
     };
 
     const openDeleteModal = (ids) => {
+        if (!canDelete) return;
         setItemsToDelete(ids);
         setDeleteError(null);
         setIsDeleteModalOpen(true);
@@ -302,26 +288,16 @@ export default function CursosManager() {
         setEliminando(true);
         setDeleteError(null);
         try {
-            let errorMsg = null;
             for (let id of itemsToDelete) {
-                const res = await fetch(`${API_BASE}/cursos/${id}`, { method: 'DELETE' });
-                if (!res.ok) {
-                    try {
-                        const errorData = await res.json();
-                        errorMsg = errorData.detail || errorData.message || 'No se pudo eliminar el curso debido a dependencias en el sistema (por ejemplo, está asignado a un grado o plan).';
-                    } catch (e) {
-                        errorMsg = 'No se pudo eliminar el curso debido a dependencias en el sistema.';
-                    }
-                    throw new Error(errorMsg);
-                }
+                await deleteCurso(id);
             }
-            setCursos(cursos.filter(c => !itemsToDelete.includes(c.id_curso)));
+            setCursos(cursos.filter(c => !itemsToDelete.includes(c.id)));
             setSelectedIds(prev => prev.filter(id => !itemsToDelete.includes(id)));
             window.dispatchEvent(new CustomEvent('edusync_data_updated'));
             setIsDeleteModalOpen(false);
             setItemsToDelete([]);
         } catch (err) {
-            setDeleteError(err.message);
+            setDeleteError(err instanceof Error ? err.message : 'No se pudo eliminar el curso');
         } finally {
             setEliminando(false);
         }
@@ -362,15 +338,8 @@ export default function CursosManager() {
                     requiere_espacio_unico: nuevoCurso.requiere_espacio_unico || false
                 };
 
-                // Optimistic Update
-                setCursos(cursos.map(c => c.id_curso === editId ? { ...c, ...payload } : c));
-
-                // API Call for update
-                await fetch(`${API_BASE}/cursos/${editId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
+                await updateCurso(editId, payload);
+                await fetchDatos();
 
                 window.dispatchEvent(new CustomEvent('edusync_data_updated'));
             } else {
@@ -382,29 +351,13 @@ export default function CursosManager() {
                     return;
                 }
 
-                // Batch creation (Simulado optimista o real)
-                const nuevosCreados = listToSave.map((item, i) => ({
-                    id_curso: Math.floor(Math.random() * 10000) + i,
-                    nombre_curso: item.nombre,
-                    id_area: nuevoCurso.id_area ? parseInt(nuevoCurso.id_area) : null
-                }));
-
-                // Promise.all para enviar cada curso al backend
-                await Promise.all(listToSave.map(async (item) => {
+                await Promise.all(listToSave.map((item) => {
                     const payload = {
                         nombre_curso: item.nombre,
                         id_area: nuevoCurso.id_area ? parseInt(nuevoCurso.id_area) : null,
                         requiere_espacio_unico: item.requiere_espacio_unico || false
                     };
-                    try {
-                        await fetch(`${API_BASE}/cursos`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(payload)
-                        });
-                    } catch (e) {
-                        // Ignorar errores por ahora, se mostrarán en UI
-                    }
+                    return createCurso(payload);
                 }));
 
                 // Recargar para sincronizar IDs reales
@@ -414,7 +367,7 @@ export default function CursosManager() {
 
             volverALista();
         } catch (err) {
-            alert(`Error: ${err.message}`);
+            alert(`Error: ${err instanceof Error ? err.message : 'No se pudo guardar el curso'}`);
         } finally {
             setGuardando(false);
         }
@@ -443,7 +396,7 @@ export default function CursosManager() {
         }
 
         if (maxId) {
-            const area = areas.find(a => String(a.id_area) === String(maxId));
+            const area = areas.find(a => String(a.id) === String(maxId));
             if (area) {
                 maxAreaName = area.nombre_area || area.nombre || 'Desconocida';
             }
@@ -470,6 +423,7 @@ export default function CursosManager() {
                     description="Añade los cursos que se dictarán en tu colegio y conéctalas con el área a la que pertenecen."
                     onAddClick={abrirModalNueva}
                     addButtonText="Añadir Nuevos Cursos"
+                    hideAddButton={!canAdd}
                     svgImage="/cursos.svg"
                     tipText={currentView === 'form' ? "El botón 'Único' indica que un curso requiere un laboratorio, taller o aula exclusiva para dictarse." : undefined}
                     stats={currentView === 'list' ? [
@@ -484,7 +438,7 @@ export default function CursosManager() {
                     {error && (
                         <div className="bg-amber-50 border border-amber-200 text-amber-800 px-6 py-4 rounded-2xl flex items-center gap-3">
                             <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
-                            <p className="text-sm font-medium">Usando datos locales por ahora debido a error de conectividad.</p>
+                            <p className="text-sm font-medium">{error}</p>
                         </div>
                     )}
 
@@ -522,7 +476,7 @@ export default function CursosManager() {
                                             )}
                                         </div>
 
-                                        <div className="flex items-center gap-3 justify-end flex-shrink-0">
+                                        {canDelete && <div className="flex items-center gap-3 justify-end flex-shrink-0">
                                             <button
                                                 onClick={() => { setIsSelectionMode(!isSelectionMode); if (isSelectionMode) setSelectedIds([]); }}
                                                 className={`h-14 text-[12px] font-bold transition-all cursor-pointer px-5 rounded-[14px] flex items-center justify-center gap-2 border whitespace-nowrap
@@ -550,7 +504,7 @@ export default function CursosManager() {
                                                     Eliminar {selectedIds.length > 0 && `(${selectedIds.length})`}
                                                 </button>
                                             )}
-                                        </div>
+                                        </div>}
                                     </div>
 
                                     {/* Area Pills Filter */}
@@ -562,7 +516,7 @@ export default function CursosManager() {
                                             Todas las áreas
                                         </button>
                                         {areas.map(a => {
-                                            const id = a.id_area || a.id;
+                                            const id = a.id;
                                             const isSelected = selectedArea.toString() === id.toString();
                                             return (
                                                 <button
@@ -589,8 +543,8 @@ export default function CursosManager() {
                                     ) : (
                                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-x-12 gap-y-24 px-6 pt-6 pb-16">
                                             {cursosFiltrados.map((curso, index) => {
-                                                const localId = curso.id_curso || curso.nombre_curso || `ID-${index}`;
-                                                const areaEncontrada = areas.find(a => (a.id_area || a.id) === curso.id_area);
+                                                const localId = curso.id;
+                                                const areaEncontrada = areas.find(a => a.id === curso.id_area);
                                                 // Buscar el índice original para que el color del libro no cambie al filtrar
                                                 const originalIndex = cursos.findIndex(c => c === curso);
                                                 return (
@@ -601,9 +555,11 @@ export default function CursosManager() {
                                                         index={originalIndex !== -1 ? originalIndex : index}
                                                         onEdit={abrirModalEdicion}
                                                         onDelete={eliminarCurso}
-                                                        isSelected={selectedIds.includes(curso.id_curso)}
+                                                        isSelected={selectedIds.includes(curso.id)}
                                                         onToggleSelect={handleToggleSelect}
                                                         isSelectionMode={isSelectionMode}
+                                                        canEdit={canEdit}
+                                                        canDelete={canDelete}
                                                     />
                                                 );
                                             })}
@@ -649,12 +605,12 @@ export default function CursosManager() {
                                                 ) : (
                                                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 pr-2 max-h-[160px] overflow-y-auto custom-scrollbar">
                                                         {areas.map(area => {
-                                                            const isSelected = nuevoCurso.id_area == area.id_area;
+                                                            const isSelected = nuevoCurso.id_area == area.id;
                                                             return (
                                                                 <button
-                                                                    key={area.id_area}
+                                                                    key={area.id}
                                                                     type="button"
-                                                                    onClick={() => setNuevoCurso({ ...nuevoCurso, id_area: area.id_area })}
+                                                                    onClick={() => setNuevoCurso({ ...nuevoCurso, id_area: area.id })}
                                                                     className={`p-3.5 rounded-xl border-2 text-left flex items-center justify-between transition-all cursor-pointer ${isSelected ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-light)] shadow-sm' : 'border-slate-100 hover:border-[var(--color-brand-primary)]/40 hover:bg-slate-50 bg-white'}`}
                                                                 >
                                                                     <span className={`text-[13px] font-extrabold truncate pr-2 ${isSelected ? 'text-[var(--color-brand-primary)]' : 'text-slate-600'}`}>

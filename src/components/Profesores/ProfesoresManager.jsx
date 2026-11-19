@@ -1,8 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ModuleSidebar from '../Shared/ModuleSidebar';
-
-const API_BASE = 'http://localhost:8000/api';
+import {
+    createGradoProfesor,
+    createProfesor,
+    createProfesorCurso,
+    createProfesorDisponibilidad,
+    createProfesorPreferencia,
+    createSedeProfesor,
+    deleteGradoProfesor,
+    deleteProfesor,
+    deleteProfesorCurso,
+    deleteProfesorDisponibilidad,
+    deleteProfesorPreferencia,
+    deleteSedeProfesor,
+    listProfesoresData,
+    updateProfesor,
+} from '../../services/profesores';
 const TOTAL_DISPONIBILIDAD_KEY = 'horavlep_profesores_disponibilidad_total';
+
+const horarioKey = ({ id_dia, id_turno, id_sede, nro_bloque }) =>
+    [id_dia, id_turno, id_sede, nro_bloque].map(Number).join(':');
 
 function getDisponibilidadTotalIds() {
     if (typeof window === 'undefined') return [];
@@ -127,15 +144,6 @@ const ProfesorCard = ({ prof, sedesStr, cursosNombres, cantGrados, cantDispo, on
     );
 };
 
-function parseApiError(res, fallback) {
-    return res.json().then((body) => {
-        const d = body?.detail;
-        if (typeof d === 'string') return d;
-        if (Array.isArray(d) && d[0]?.msg) return d.map((e) => e.msg).join(', ');
-        return fallback;
-    }).catch(() => fallback);
-}
-
 export default function ProfesoresManager() {
     const [profesores, setProfesores] = useState([]);
     const [sedes, setSedes] = useState([]);
@@ -171,7 +179,7 @@ export default function ProfesoresManager() {
 
     // Form State
     const [formNombre, setFormNombre] = useState('');
-    const [formHorasMinimas, setFormHorasMinimas] = useState(0);
+    const [formHorasMinimas, setFormHorasMinimas] = useState('1');
     const [nombreError, setNombreError] = useState('');
     const [horasMinError, setHorasMinError] = useState('');
     const [sedesError, setSedesError] = useState('');
@@ -255,18 +263,13 @@ export default function ProfesoresManager() {
     };
 
     // Confirm deletion handler
+    // El backend elimina las relaciones del profesor dentro de la misma
+    // transacción, así que el frontend solo necesita una petición por docente.
     const confirmarEliminacion = async () => {
         setIsDeleting(true);
         try {
-            // Utilizamos Promise.all para enviar las peticiones de borrado en paralelo (el backend ya borra las dependencias)
-            const promesas = itemsToDelete.map(id => fetch(`${API_BASE}/profesores/${id}`, { method: 'DELETE' }));
-            const respuestas = await Promise.all(promesas);
-            
-            // Verificamos si hubo algún error en las respuestas
-            for (let res of respuestas) {
-                if (!res.ok) {
-                    console.error("Error al eliminar un profesor:", await res.text());
-                }
+            for (const id of itemsToDelete) {
+                await deleteProfesor(id);
             }
 
             for (let id of itemsToDelete) {
@@ -286,46 +289,45 @@ export default function ProfesoresManager() {
         }
     };
 
-    const fetchDatos = async (signal) => {
+    const fetchDatos = async () => {
         try {
             setLoading(true);
-            const endpoints = [
-                'profesores', 'sedes', 'profesor-sedes',
-                'profesor-disponibilidad', 'profesor-preferencia', 'dias', 'turnos', 'bloques', 'grado-dia-config',
-                'grados', 'grado-profesor', 'secciones', 'seccion-turno',
-                'profesor-curso', 'planes', 'cursos', 'areas'
-            ];
+            const data = await listProfesoresData();
 
-            const responses = await Promise.all(
-                endpoints.map(ep => fetch(`${API_BASE}/${ep}`, { signal }))
-            );
+            // El componente conserva temporalmente sus nombres de ID históricos;
+            // esta adaptación permite usar el contrato OpenAPI nuevo sin alterar la UI.
+            const profesoresData = data.profesores.map(x => ({ ...x, id_profesor: x.id }));
+            const sedesData = data.sedes.map(x => ({ ...x, id_sede: x.id }));
+            const profesorSedesData = data.profesorSedes.map(x => ({ ...x, id_sede_profesor: x.id }));
+            const disponibilidadesData = data.disponibilidades.map(x => ({ ...x, id_disponibilidad: x.id }));
+            const preferenciasData = data.preferencias.map(x => ({ ...x, id_preferencia: x.id }));
+            const diasData = data.dias.map(x => ({ ...x, id_dia: x.id }));
+            const turnosData = data.turnos.map(x => ({ ...x, id_turno: x.id }));
+            const bloquesData = data.bloques.map(x => ({ ...x, id_bloque: x.id }));
+            const gradosData = data.grados.map(x => ({ ...x, id_grado: x.id }));
+            const gradoProfesoresData = data.gradoProfesores.map(x => ({ ...x, id_grado_profesor: x.id }));
+            const seccionesData = data.secciones.map(x => ({ ...x, id_seccion: x.id }));
+            const seccionTurnosData = data.seccionTurnos.map(x => ({ ...x, id_seccion_turno: x.id }));
+            const profesorCursosData = data.profesorCursos.map(x => ({ ...x, id_profesor_curso: x.id }));
+            const cursosData = data.cursos.map(x => ({ ...x, id_curso: x.id }));
+            const areasData = data.areas.map(x => ({ ...x, id_area: x.id }));
 
-            for (let i = 0; i < responses.length; i++) {
-                if (!responses[i].ok && responses[i].status !== 404) {
-                    if (endpoints[i] !== 'profesor-preferencia') throw new Error(`Error cargando ${endpoints[i]}`);
-                }
-            }
-
-            const data = await Promise.all(responses.map(r => r.ok ? r.json() : []));
-
-            setProfesores(data[0] || []);
-            setSedes(data[1] || []);
-            setProfesorSedes(data[2] || []);
-            setDisponibilidades(data[3] || []);
-            setPreferencias(data[4] || []);
-            setDias(data[5] || []);
-            setTurnos(data[6] || []);
-            setBloques(data[7] || []);
-            setGrados(data[9] || []);
-            setGradoProfesores(data[10] || []);
-            setSecciones(data[11] || []);
-            setSeccionTurnos(data[12] || []);
-            setProfesorCursos(data[13] || []);
-            setPlanes(data[14] || []);
-            setCursos(data[15] || []);
-            setAreas(data[16] || []);
-
-            const profesoresData = data[0] || [];
+            setProfesores(profesoresData);
+            setSedes(sedesData);
+            setProfesorSedes(profesorSedesData);
+            setDisponibilidades(disponibilidadesData);
+            setPreferencias(preferenciasData);
+            setDias(diasData);
+            setTurnos(turnosData);
+            setBloques(bloquesData);
+            setGrados(gradosData);
+            setGradoProfesores(gradoProfesoresData);
+            setSecciones(seccionesData);
+            setSeccionTurnos(seccionTurnosData);
+            setProfesorCursos(profesorCursosData);
+            setPlanes(data.planes);
+            setCursos(cursosData);
+            setAreas(areasData);
             
             // Limpiar IDs "fantasma" si se borraron profesores o se limpió la BD
             const idsActivos = new Set(profesoresData.map(p => Number(p.id_profesor)));
@@ -340,15 +342,12 @@ export default function ProfesoresManager() {
             // en profesor_disponibilidad. Recuperamos esa marca una sola vez al cargar,
             // únicamente para docentes que ya tienen completo el resto de su registro.
             if (!legacyTotalMigratedRef.current) {
-                const disponibilidadesData = data[3] || [];
-                const gradosProfesorData = data[10] || [];
-                const cursosProfesorData = data[13] || [];
                 const inferidos = profesoresData
                     .filter(prof => {
                         const id = Number(prof.id_profesor);
                         const tieneBloques = disponibilidadesData.some(item => Number(item.id_profesor) === id);
-                        const tieneGrados = gradosProfesorData.some(item => Number(item.id_profesor) === id);
-                        const tieneCursos = cursosProfesorData.some(item => Number(item.id_profesor) === id);
+                        const tieneGrados = gradoProfesoresData.some(item => Number(item.id_profesor) === id);
+                        const tieneCursos = profesorCursosData.some(item => Number(item.id_profesor) === id);
                         const tieneHoras = Number(prof.horas_minimas) >= 1;
                         return !tieneBloques && tieneGrados && tieneCursos && tieneHoras;
                     })
@@ -360,14 +359,13 @@ export default function ProfesoresManager() {
             }
 
             // Calcular el máximo de bloques por día desde grado-dia-config
-            const gdc = data[8] || [];
+            const gdc = data.gradoDiaConfigs;
             setGradoDiaConfigs(gdc);
             const maxBlq = gdc.reduce((acc, c) => Math.max(acc, c.bloques_dia || 0), 0);
             setMaxBloquesDia(maxBlq > 0 ? maxBlq : 10);
 
             setError(null);
         } catch (err) {
-            if (err.name === 'AbortError') return;
             setError(err.message);
         } finally {
             setLoading(false);
@@ -375,10 +373,8 @@ export default function ProfesoresManager() {
     };
 
     useEffect(() => {
-        const controller = new AbortController();
         setDisponibilidadTotalIds(getDisponibilidadTotalIds());
-        fetchDatos(controller.signal);
-        return () => controller.abort();
+        fetchDatos();
     }, []);
 
     const guardarMarcaDisponibilidadTotal = (idProfesor, activa) => {
@@ -458,7 +454,7 @@ export default function ProfesoresManager() {
         setIsNewRegistration(true);
         setEditId(null);
         setFormNombre('');
-        setFormHorasMinimas(0);
+        setFormHorasMinimas('1');
         setNombreError('');
         setHorasMinError('');
         setHorasMinWarnings([]);
@@ -483,7 +479,7 @@ export default function ProfesoresManager() {
         setIsNewRegistration(false);
         setEditId(prof.id_profesor);
         setFormNombre(prof.nombre_profesor);
-        setFormHorasMinimas(prof.horas_minimas || 0);
+        setFormHorasMinimas(String(prof.horas_minimas || 1));
         setNombreError('');
         setHorasMinError('');
         setHorasMinWarnings([]);
@@ -576,7 +572,7 @@ export default function ProfesoresManager() {
         const warnings = [];
 
         // Errores bloqueantes
-        if (isNaN(val) || val === '' || valor === '') {
+        if (isNaN(val) || valor === '') {
             return { error: 'Debes ingresar un valor numérico.', warnings };
         }
         if (val < 1) {
@@ -653,12 +649,10 @@ export default function ProfesoresManager() {
 
         setGuardando(true);
         try {
-            const res = await fetch(`${API_BASE}/profesores/${editId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nombre_profesor: formNombre.trim(), horas_minimas: parseInt(formHorasMinimas, 10) || 0 })
+            await updateProfesor(editId, {
+                nombre_profesor: formNombre.trim(),
+                horas_minimas: parseInt(formHorasMinimas, 10) || 1,
             });
-            if (!res.ok) throw new Error(await parseApiError(res, 'Error al guardar horas mínimas'));
             await fetchDatos();
             window.dispatchEvent(new Event('edusync_data_updated'));
             setIsModalOpen(false);
@@ -692,19 +686,13 @@ export default function ProfesoresManager() {
 
             for (const relacion of actuales) {
                 if (!formCursos.includes(relacion.id_curso)) {
-                    const res = await fetch(`${API_BASE}/profesor-curso/${relacion.id_profesor_curso}`, { method: 'DELETE' });
-                    if (!res.ok) throw new Error(await parseApiError(res, 'Error al quitar un curso'));
+                    await deleteProfesorCurso(relacion.id_profesor_curso);
                 }
             }
 
             for (const id_curso of formCursos) {
                 if (!actualesIds.includes(id_curso)) {
-                    const res = await fetch(`${API_BASE}/profesor-curso`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id_profesor: editId, id_curso })
-                    });
-                    if (!res.ok) throw new Error(await parseApiError(res, 'Error al asignar un curso'));
+                    await createProfesorCurso({ id_profesor: editId, id_curso });
                 }
             }
 
@@ -730,21 +718,16 @@ export default function ProfesoresManager() {
         try {
             let pId = editId;
             if (isEditing) {
-                const res = await fetch(`${API_BASE}/profesores/${editId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nombre_profesor: formNombre.trim(), horas_minimas: parseInt(formHorasMinimas, 10) || 0 })
+                await updateProfesor(editId, {
+                    nombre_profesor: formNombre.trim(),
+                    horas_minimas: parseInt(formHorasMinimas, 10) || 1,
                 });
-                if (!res.ok) throw new Error(await parseApiError(res, 'Error al actualizar'));
             } else {
-                const res = await fetch(`${API_BASE}/profesores`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nombre_profesor: formNombre.trim(), horas_minimas: parseInt(formHorasMinimas, 10) || 0 })
+                const newProf = await createProfesor({
+                    nombre_profesor: formNombre.trim(),
+                    horas_minimas: parseInt(formHorasMinimas, 10) || 1,
                 });
-                if (!res.ok) throw new Error(await parseApiError(res, 'Error al crear'));
-                const newProf = await res.json();
-                pId = newProf.id_profesor;
+                pId = newProf.id;
                 setEditId(pId);
                 setIsEditing(true);
                 // Explicitly clear any ghost state for this new ID
@@ -800,29 +783,21 @@ export default function ProfesoresManager() {
         setGuardando(true);
         try {
             const sedesActuales = profesorSedes.filter(x => x.id_profesor === editId);
-            for (const relacion of sedesActuales) {
-                await fetch(`${API_BASE}/profesor-sedes/${relacion.id_sede_profesor}`, { method: 'DELETE' });
+            const sedesSeleccionadas = new Set(formSedes.map(Number));
+            for (const relacion of sedesActuales.filter(x => !sedesSeleccionadas.has(Number(x.id_sede)))) {
+                await deleteSedeProfesor(relacion.id_sede_profesor);
             }
-            for (const id_sede of formSedes) {
-                const res = await fetch(`${API_BASE}/profesor-sedes`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id_profesor: editId, id_sede })
-                });
-                if (!res.ok) throw new Error(await parseApiError(res, 'Error al asignar una sede'));
+            for (const id_sede of formSedes.filter(id => !sedesActuales.some(x => Number(x.id_sede) === Number(id)))) {
+                await createSedeProfesor({ id_profesor: editId, id_sede });
             }
 
             const gradosActuales = gradoProfesores.filter(x => x.id_profesor === editId);
-            for (const a of gradosActuales) {
-                await fetch(`${API_BASE}/grado-profesor/${a.id_grado_profesor}`, { method: 'DELETE' });
+            const gradosSeleccionados = new Set(formGrados.map(Number));
+            for (const a of gradosActuales.filter(x => !gradosSeleccionados.has(Number(x.id_grado)))) {
+                await deleteGradoProfesor(a.id_grado_profesor);
             }
-            for (const id_grado of formGrados) {
-                const res = await fetch(`${API_BASE}/grado-profesor`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id_profesor: editId, id_grado })
-                });
-                if (!res.ok) throw new Error(await parseApiError(res, 'Error al asignar un grado'));
+            for (const id_grado of formGrados.filter(id => !gradosActuales.some(x => Number(x.id_grado) === Number(id)))) {
+                await createGradoProfesor({ id_profesor: editId, id_grado });
             }
 
             await fetchDatos();
@@ -927,14 +902,22 @@ export default function ProfesoresManager() {
 
         setGuardando(true);
         try {
-            // Eliminar actuales
             const actualesD = disponibilidades.filter(x => Number(x.id_profesor) === Number(editId));
-            for (let a of actualesD) {
-                await fetch(`${API_BASE}/profesor-disponibilidad/${a.id_disponibilidad}`, { method: 'DELETE' });
-            }
             const actualesP = preferencias.filter(x => Number(x.id_profesor) === Number(editId));
-            for (let a of actualesP) {
-                await fetch(`${API_BASE}/profesor-preferencia/${a.id_preferencia}`, { method: 'DELETE' });
+            const deseadasD = esDisponibilidadTotal ? [] : formDispo;
+            const deseadasP = esDisponibilidadTotal ? [] : formPreferencia;
+
+            const clavesActualesD = new Set(actualesD.map(horarioKey));
+            const clavesDeseadasD = new Set(deseadasD.map(horarioKey));
+            const clavesActualesP = new Set(actualesP.map(horarioKey));
+            const clavesDeseadasP = new Set(deseadasP.map(horarioKey));
+
+            // Solo se eliminan los bloques que el usuario quitó.
+            for (const a of actualesD.filter(item => !clavesDeseadasD.has(horarioKey(item)))) {
+                await deleteProfesorDisponibilidad(a.id_disponibilidad);
+            }
+            for (const a of actualesP.filter(item => !clavesDeseadasP.has(horarioKey(item)))) {
+                await deleteProfesorPreferencia(a.id_preferencia);
             }
 
             if (esDisponibilidadTotal) {
@@ -944,31 +927,23 @@ export default function ProfesoresManager() {
                 guardarMarcaDisponibilidadTotal(editId, true);
             } else {
                 guardarMarcaDisponibilidadTotal(editId, false);
-                // Insertar nuevas
-                for (let d of formDispo) {
-                    await fetch(`${API_BASE}/profesor-disponibilidad`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            id_profesor: editId,
-                            id_dia: d.id_dia,
-                            id_turno: d.id_turno,
-                            nro_bloque: d.nro_bloque,
-                            id_sede: d.id_sede
-                        })
+                // Solo se crean los bloques que el usuario agregó.
+                for (const d of deseadasD.filter(item => !clavesActualesD.has(horarioKey(item)))) {
+                    await createProfesorDisponibilidad({
+                        id_profesor: editId,
+                        id_dia: d.id_dia,
+                        id_turno: d.id_turno,
+                        nro_bloque: d.nro_bloque,
+                        id_sede: d.id_sede,
                     });
                 }
-                for (let p of formPreferencia) {
-                    await fetch(`${API_BASE}/profesor-preferencia`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            id_profesor: editId,
-                            id_dia: p.id_dia,
-                            id_turno: p.id_turno,
-                            nro_bloque: p.nro_bloque,
-                            id_sede: p.id_sede
-                        })
+                for (const p of deseadasP.filter(item => !clavesActualesP.has(horarioKey(item)))) {
+                    await createProfesorPreferencia({
+                        id_profesor: editId,
+                        id_dia: p.id_dia,
+                        id_turno: p.id_turno,
+                        nro_bloque: p.nro_bloque,
+                        id_sede: p.id_sede,
                     });
                 }
             }
@@ -980,6 +955,8 @@ export default function ProfesoresManager() {
             setHorasMinWarnings(warnings);
             setActiveTab('horas_minimas');
         } catch (err) {
+            // Si una petición falla, sincronizar la UI con lo que sí alcanzó a guardar el backend.
+            await fetchDatos();
             alert(`Error: ${err.message}`);
         } finally {
             setGuardando(false);

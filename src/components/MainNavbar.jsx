@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-
-const API_BASE = 'http://localhost:8000/api';
+import { getSession } from '../lib/auth/session';
+import { logout } from '../services/auth';
+import { listAreas, listCursos, listPlanesEstudio } from '../services/catalogs';
 
 export default function MainNavbar({ currentPath = '' }) {
+    const currentUser = getSession()?.user;
     const [areasCount, setAreasCount] = useState(0);
     const [cursosCount, setCursosCount] = useState(0);
     const [planesCount, setPlanesCount] = useState(0);
@@ -41,18 +43,14 @@ export default function MainNavbar({ currentPath = '' }) {
     useEffect(() => {
         const fetchCounts = async () => {
             try {
-                const [areasRes, cursosRes, planesRes] = await Promise.all([
-                    fetch(`${API_BASE}/areas`),
-                    fetch(`${API_BASE}/cursos`),
-                    fetch(`${API_BASE}/planes`),
+                const [areas, cursos, planes] = await Promise.all([
+                    listAreas(),
+                    listCursos(),
+                    listPlanesEstudio(),
                 ]);
-                let numAreas = 0;
-                let numCursos = 0;
-                let numPlanes = 0;
-
-                if (areasRes.ok) numAreas = (await areasRes.json()).length;
-                if (cursosRes.ok) numCursos = (await cursosRes.json()).length;
-                if (planesRes.ok) numPlanes = (await planesRes.json()).length;
+                const numAreas = areas.length;
+                const numCursos = cursos.length;
+                const numPlanes = planes.length;
 
                 setAreasCount(numAreas);
                 setCursosCount(numCursos);
@@ -137,10 +135,10 @@ export default function MainNavbar({ currentPath = '' }) {
         }
     };
 
-    const handleLogout = () => {
-        localStorage.removeItem('user');
+    const handleLogout = async () => {
+        await logout();
         sessionStorage.clear();
-        window.location.href = '/login';
+        window.location.replace('/login');
     };
 
     return (
@@ -254,13 +252,13 @@ export default function MainNavbar({ currentPath = '' }) {
             <div className="relative flex items-center">
                 <div className="group relative">
                     <div className="w-10 h-10 rounded-full bg-[var(--color-brand-light)]/20 flex items-center justify-center text-[var(--color-brand-primary)] font-bold border border-[var(--color-brand-primary)]/20 cursor-pointer hover:bg-[var(--color-brand-primary)] hover:text-white transition-colors">
-                        U
+                        {(currentUser?.nombre || currentUser?.email || 'U').charAt(0).toUpperCase()}
                     </div>
                     {/* Dropdown Menu (Hover) */}
                     <div className="absolute right-0 top-full pt-3 w-48 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform translate-y-2 group-hover:translate-y-0 z-50">
                         <div className="bg-white rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.1)] border border-slate-100 p-2">
                             <div className="px-3 py-2 border-b border-slate-50 mb-2">
-                                <p className="text-sm font-black text-slate-800">Administrador</p>
+                                <p className="text-sm font-black text-slate-800">{currentUser?.nombre || 'Usuario'}</p>
                                 <p className="text-[11px] text-slate-500 font-medium">Cuenta Activa</p>
                             </div>
                             <button

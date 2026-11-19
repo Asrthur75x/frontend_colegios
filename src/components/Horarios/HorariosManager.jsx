@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import ConfiguracionTiemposModal from './ConfiguracionTiemposModal';
 import ModuleSidebar from '../Shared/ModuleSidebar';
 import IAReportWidget from './IAReportWidget';
@@ -7,21 +7,9 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { subscribe, startGeneracion, clearResult, getGeneracionState, LOADING_MESSAGES } from './generacionGlobal';
 import { clearDiagnostico, startDiagnostico } from './diagnosticoGlobal.jsx';
+import { hasPermission } from '../../lib/auth/session';
+import { getHorarioData, getHorarioActivo, listHorarioBloques, adaptBloques } from '../../services/horarios';
 const API_BASE = 'http://localhost:8000/api';
-
-const fetchJsonWithTimeout = async (url, fallback, timeoutMs = 8000) => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-        const response = await fetch(url, { signal: controller.signal });
-        if (!response.ok) return fallback;
-        return await response.json();
-    } catch {
-        return fallback;
-    } finally {
-        clearTimeout(timeoutId);
-    }
-};
 
 // Colores consistentes con CursosManager: borde sólido + fondo pastel
 const CURSO_COLORS = [
@@ -80,18 +68,15 @@ const formatFriendlyError = (err, profesores) => {
 };
 
 export default function HorariosManager({ isEditPage = false }) {
-    const [status, setStatus] = useState(() => {
-        if (typeof window === 'undefined') return 'loading';
-        const gen = getGeneracionState();
-        if (gen.status === 'generating') return 'generating';
-        // No mostrar la pantalla vacía hasta confirmar si existe un horario guardado.
-        return 'loading';
-    });
-    const [loadingStep, setLoadingStep] = useState(() => {
-        if (typeof window === 'undefined') return 0;
-        const gen = getGeneracionState();
-        return gen.status === 'generating' ? gen.loadingStep : 0;
-    });
+    const [status, setStatus] = useState('loading');
+    const [loadingStep, setLoadingStep] = useState(0);
+    const [sessionReady, setSessionReady] = useState(false);
+    const [reload, setReload] = useState(0);
+    const [loadError, setLoadError] = useState(null);
+    const generationResultRef = useRef(null);
+    const canView = sessionReady && hasPermission('horarios:horario:view');
+    const canGenerate = sessionReady && hasPermission('horarios:horario:add');
+    useEffect(() => { setSessionReady(true); }, []);
     const [errorMsg, setErrorMsg] = useState(null);
     const [maxBloquesDia, setMaxBloquesDia] = useState(6);
 
@@ -135,118 +120,66 @@ export default function HorariosManager({ isEditPage = false }) {
     const [activeView] = useState('horario'); // Estadísticas ocultas temporalmente.
     const [metricasMotor, setMetricasMotor] = useState(null);
 
-    // Se eliminó la dependencia de localStorage para timeConfig
-    // Ahora dependemos exclusivamente de la base de datos (fetchData).
     useEffect(() => {
-        const handleStorageChange = () => {
-            // Recargar datos desde la API si la modal de configuración cambia
-            fetch('http://localhost:8000/api/bloques', { cache: 'no-store' })
-                .then(r => r.json())
-                .then(b => {
-                    const data = Array.isArray(b) ? b : (b.data || []);
-                    setBloques(data.sort((x, y) => x.numero_bloque - y.numero_bloque));
-                })
-                .catch(e => console.error(e));
+        if (!sessionReady || !hasPermission('horarios:bloque:view')) return;
+        let active = true;
+        const handleTimeChange = () => {
+            listHorarioBloques().then(data => { if (active) setBloques(adaptBloques(data)); })
+                .catch(err => { if (active) setConfigNotice(err.message); });
         };
-        window.addEventListener('edusync_time_config_changed', handleStorageChange);
-        return () => window.removeEventListener('edusync_time_config_changed', handleStorageChange);
-    }, []);
+        window.addEventListener('edusync_time_config_changed', handleTimeChange);
+        return () => { active = false; window.removeEventListener('edusync_time_config_changed', handleTimeChange); };
+    }, [sessionReady]);
 
     const loadingMessages = LOADING_MESSAGES;
 
-    // Suscribirse al estado global de generación para mantener sincronizado
     useEffect(() => {
-        const unsub = subscribe((genState) => {
-            if (genState.status === 'generating') {
+        if (!canView) return;
+        return subscribe(gen => {
+            if (gen.status === 'generating') {
                 setStatus('generating');
-                setLoadingStep(genState.loadingStep);
-            } else if (genState.status === 'success' && genState.asignaciones) {
-                setAsignaciones(genState.asignaciones);
+                setLoadingStep(gen.loadingStep);
+            } else if (gen.status === 'success' && gen.asignaciones) {
+                generationResultRef.current = gen.asignaciones;
+                setAsignaciones(gen.asignaciones);
                 setLoadingStep(loadingMessages.length - 1);
                 setErrorMsg(null);
-                setTimeout(() => {
-                    setStatus('ready');
-                    clearResult();
-                }, 1000);
-            } else if (genState.status === 'error') {
-                setErrorMsg(genState.errorMsg);
-                setStatus('empty');
+                setStatus('ready');
                 clearResult();
+            } else if (gen.status === 'error') {
+                setErrorMsg(gen.errorMsg);
+                setStatus('empty');
             }
         });
-        return unsub;
-    }, []);
+    }, [canView]);
 
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                // Cada consulta tiene un límite de espera para que una ruta auxiliar
-                // no mantenga bloqueada la pantalla de generación.
-                const [secData, curData, profData, diasData, bloqData, configData, horarioData, gradosData, sedesData, turnosData, stData, bloqReservData] = await Promise.all([
-                    fetchJsonWithTimeout(`${API_BASE}/secciones`, []),
-                    fetchJsonWithTimeout(`${API_BASE}/cursos`, []),
-                    fetchJsonWithTimeout(`${API_BASE}/profesores`, []),
-                    fetchJsonWithTimeout(`${API_BASE}/dias`, []),
-                    fetchJsonWithTimeout(`${API_BASE}/bloques`, []),
-                    fetchJsonWithTimeout(`${API_BASE}/grado-dia-config`, []),
-                    fetchJsonWithTimeout(`${API_BASE}/cargar-horario`, null),
-                    fetchJsonWithTimeout(`${API_BASE}/grados`, []),
-                    fetchJsonWithTimeout(`${API_BASE}/sedes`, []),
-                    fetchJsonWithTimeout(`${API_BASE}/turnos`, []),
-                    fetchJsonWithTimeout(`${API_BASE}/seccion-turno`, []),
-                    fetchJsonWithTimeout(`${API_BASE}/bloque-reservado`, [])
-                ]);
-
-                // Calcular valores derivados
-                const diasOrdenados = diasData.sort((a, b) => a.orden - b.orden);
-                const bloquesOrdenados = bloqData.sort((a, b) => a.numero_bloque - b.numero_bloque);
-                const maxBlq = configData.reduce((acc, c) => Math.max(acc, c.bloques_dia || 0), 0);
-                const primeraSeccion = secData.length > 0 ? `SEC_${secData[0].id_seccion}` : '';
-
-                // Verificar si hay horario guardado
-                let asignacionesData = [];
-                let nuevoStatus = 'empty';
-                if (horarioData && horarioData.status === 'success' && horarioData.resultado?.asignaciones) {
-                    asignacionesData = horarioData.resultado.asignaciones;
-                    nuevoStatus = 'ready';
-                }
-
-                // Un solo batch de setState
-                setSecciones(secData);
-                setCursos(curData);
-                setProfesores(profData);
-                setDias(diasOrdenados);
-                setBloques(bloquesOrdenados);
-                setConfigGradoDia(configData);
-                setGrados(gradosData);
-                setSedes(sedesData);
-                setTurnos(turnosData);
-                setSeccionTurnos(stData);
-                setBloquesReservados(bloqReservData);
-                setMaxBloquesDia(maxBlq > 0 ? maxBlq : 6);
-                setAsignaciones(asignacionesData);
-                setSelectedSeccion(primeraSeccion);
-                // No sobreescribir el status si hay una generación en curso
-                const gen = getGeneracionState();
-                if (gen.status !== 'generating') {
-                    setStatus(nuevoStatus);
-                }
-
-                // Las métricas son complementarias y se cargan después; nunca
-                // deben impedir que aparezca el horario o el botón para generarlo.
-                fetchJsonWithTimeout(`${API_BASE}/horario-metricas-motor`, null, 5000)
-                    .then(setMetricasMotor);
-
-            } catch (error) {
-                console.error("Error fetching data:", error);
-                const gen2 = getGeneracionState();
-                if (gen2.status !== 'generating') {
-                    setStatus('empty');
-                }
+        if (!canView) return;
+        let active = true;
+        setLoadError(null);
+        getHorarioData(hasPermission).then(data => {
+            if (!active) return;
+            setSecciones(data.secciones);
+            setCursos(data.cursos);
+            setProfesores(data.profesores);
+            setDias(data.dias);
+            setBloques(data.bloques);
+            setConfigGradoDia(data.configs);
+            setGrados(data.grados);
+            setSedes(data.sedes);
+            setTurnos(data.turnos);
+            setSeccionTurnos(data.seccionTurnos);
+            setBloquesReservados(data.reservas);
+            setMaxBloquesDia(Math.max(0, ...data.configs.map(c => c.bloques_dia || 0)));
+            setSelectedSeccion(data.secciones.length ? `SEC_${data.secciones[0].id_seccion}` : '');
+            const gen = getGeneracionState();
+            if (!generationResultRef.current && gen.status !== 'generating' && gen.status !== 'error') {
+                setAsignaciones(data.horario.asignaciones);
+                setStatus(data.horario.asignaciones.length ? 'ready' : 'empty');
             }
-        };
-        fetchData();
-    }, []);
+        }).catch(err => { if (active) setLoadError(err.message); });
+        return () => { active = false; };
+    }, [canView, reload]);
 
     const handleDownloadPDF = async () => {
         const normalize = (str) => str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim() : "";
@@ -504,10 +437,12 @@ export default function HorariosManager({ isEditPage = false }) {
     }, [filteredSecciones, status]);
 
     const handleGenerar = async () => {
+        if (!canGenerate || !canView || loadError || getGeneracionState().status === 'generating') return;
+        generationResultRef.current = null;
         setErrorMsg(null);
         // Limpiar diagnóstico previo al reintentar generación
         clearDiagnostico();
-        startGeneracion();
+        void startGeneracion();
     };
 
     const handleDeleteTurnoConfig = async (idTurno) => {
@@ -540,13 +475,8 @@ export default function HorariosManager({ isEditPage = false }) {
     };
 
     const reloadAsignaciones = async () => {
-        try {
-            const res = await fetch(`${API_BASE}/cargar-horario`);
-            const data = await res.json();
-            if (data.status === 'success' && data.resultado?.asignaciones) {
-                setAsignaciones(data.resultado.asignaciones);
-            }
-        } catch (e) { console.error(e); }
+        try { setAsignaciones((await getHorarioActivo()).asignaciones); }
+        catch (err) { setMoveConflicts({ conflicts: [err.message], warnings: [] }); }
     };
 
     const handleDragStart = (e, asignacion) => {
@@ -679,7 +609,7 @@ export default function HorariosManager({ isEditPage = false }) {
 
     const getCurso = (idStr) => {
         const id = parseInt(idStr.replace('CUR_', ''));
-        const c = cursos.find(x => x.id_curso === id);
+        const c = idStr === 'TUT1' ? cursos.find(x => x.nombre_curso.includes('Tutoría')) : cursos.find(x => x.id_curso === id);
         return c ? c.nombre_curso : idStr;
     };
 
@@ -690,7 +620,7 @@ export default function HorariosManager({ isEditPage = false }) {
     };
 
     const getColor = (cursoIdStr) => {
-        const id = parseInt(cursoIdStr.replace('CUR_', '')) || 0;
+        const id = cursoIdStr === 'TUT1' ? (cursos.find(x => x.nombre_curso.includes('Tutoría'))?.id_curso || 0) : parseInt(cursoIdStr.replace('CUR_', '')) || 0;
         const idx = cursos.findIndex(x => x.id_curso === id);
         return CURSO_COLORS[(idx >= 0 ? idx : id) % CURSO_COLORS.length];
     };
@@ -906,6 +836,11 @@ export default function HorariosManager({ isEditPage = false }) {
         </div>
     ) : null;
 
+    if (!sessionReady) return <div role="status" aria-label="Cargando horarios" className="flex justify-center py-20"><div className="w-10 h-10 border-4 border-slate-200 border-t-brand-primary rounded-full animate-spin" /></div>;
+    if (!canView) return <p role="alert">No tienes permiso para consultar los horarios.</p>;
+    if (loadError) return <div role="alert" className="rounded-2xl bg-red-50 p-6 text-red-700">
+        <p>{loadError}</p><button type="button" onClick={() => setReload(value => value + 1)} className="mt-2 font-bold underline">Reintentar carga</button>
+    </div>;
     return (
         <div className={`w-full h-full flex flex-col items-center animate-fade-in relative ${status === 'empty' ? 'justify-center' : 'justify-start'}`}>
 
@@ -915,7 +850,7 @@ export default function HorariosManager({ isEditPage = false }) {
                         <div className="absolute inset-0 border-4 border-slate-100 rounded-full" />
                         <div className="absolute inset-0 border-4 border-brand-primary rounded-full border-t-transparent animate-spin" style={{ animationDuration: '1s' }} />
                     </div>
-                    <p className="text-slate-400 text-sm font-semibold">Cargando horarios...</p>
+
                 </div>
             )}
 
@@ -1004,10 +939,13 @@ export default function HorariosManager({ isEditPage = false }) {
                                         </div>
                                         <h3 className="text-[22px] font-black text-slate-800 mb-2 tracking-tight">No se pudieron armar los horarios</h3>
                                         <p className="text-[15px] text-slate-500 max-w-md mx-auto leading-relaxed mb-6 font-medium">
-                                            La configuración actual tiene cruces que impiden completar el horario.
-                                            Usa esta herramienta para descubrir dónde está el problema.
+                                            {Array.isArray(errorMsg) ? errorMsg.join(' · ') : errorMsg}
                                         </p>
 
+                                        <button type="button" disabled={!canGenerate} onClick={handleGenerar}
+                                            className="mb-4 inline-flex px-6 py-3 rounded-2xl bg-[var(--color-brand-primary)] text-white font-bold disabled:opacity-50">
+                                            Reintentar
+                                        </button>
                                         <button
                                             onClick={() => {
                                                 clearDiagnostico();
@@ -1042,7 +980,7 @@ export default function HorariosManager({ isEditPage = false }) {
 
                         {!errorMsg && (
                             <button
-                                onClick={handleGenerar}
+                                disabled={!canGenerate} onClick={handleGenerar}
                                 className="group relative flex items-center justify-center gap-2 px-8 py-4 bg-[var(--color-brand-primary)] text-white font-black text-lg rounded-2xl hover:shadow-xl hover:-translate-y-1 transition-all overflow-hidden w-full max-w-[320px] mx-auto cursor-pointer"
                             >
                                 <div className="absolute inset-0 w-full h-full -ml-16 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 animate-shine" />
@@ -1164,7 +1102,7 @@ export default function HorariosManager({ isEditPage = false }) {
                                 onAddClick={handleGenerar}
                                 addButtonText="Generar Horarios"
                                 buttonVariant="action"
-                                hideAddButton={isEditPage}
+                                hideAddButton={isEditPage || !canGenerate}
                                 headerContent={editSidebarActions}
                             >
                                 <div className="bg-white border border-slate-100 shadow-sm rounded-[20px] p-4 flex flex-col gap-3">

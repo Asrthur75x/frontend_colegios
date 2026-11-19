@@ -3,8 +3,25 @@ import { sileo } from 'sileo';
 import ModuleSidebar from '../Shared/ModuleSidebar';
 import ExcelImportPanel from '../Shared/ExcelImportPanel';
 import * as XLSX from 'xlsx';
-
-const API_BASE = 'http://localhost:8000/api';
+import { hasPermission } from '../../lib/auth/session';
+import {
+    createArea,
+    createCurso,
+    createGradoProfesor,
+    createProfesor,
+    createProfesorCurso,
+    createSedeProfesor,
+    deleteArea,
+    listAreas,
+    listGradoProfesores,
+    listGrados,
+    listProfesorCursos,
+    listProfesores,
+    listSedeProfesores,
+    listSedes,
+    listCursos,
+    updateArea,
+} from '../../services/areas';
 
 // --- Colores Dinámicos para las Carpetas ---
 const FOLDER_COLORS = [
@@ -19,15 +36,15 @@ const FOLDER_COLORS = [
 ];
 
 // --- Componente Tarjeta Carpeta (Ticket Style) ---
-const AreaFolderCard = ({ area, onEdit, onDelete, index, isSelected, onToggleSelect, isSelectionMode }) => {
+const AreaFolderCard = ({ area, onEdit, onDelete, index, isSelected, onToggleSelect, isSelectionMode, canEdit, canDelete }) => {
     // Determinar color en base al índice o ID
-    const colorIdx = (index !== undefined ? index : (area.id_area || 0)) % FOLDER_COLORS.length;
+    const colorIdx = (index !== undefined ? index : (area.id || 0)) % FOLDER_COLORS.length;
     const color = FOLDER_COLORS[colorIdx];
 
     return (
         <div
-            className={`relative w-full rounded-[20px] cursor-pointer shadow-sm border overflow-hidden flex flex-col hover:shadow-md hover:-translate-y-1 transition-all duration-300 group ${isSelected ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-light)]/20 ring-4 ring-[var(--color-brand-primary)]/30' : 'border-slate-100 bg-white'}`}
-            onClick={() => isSelectionMode ? onToggleSelect(area.id_area) : onEdit(area)}
+            className={`relative w-full rounded-[20px] shadow-sm border overflow-hidden flex flex-col hover:shadow-md hover:-translate-y-1 transition-all duration-300 group ${(canEdit || isSelectionMode) ? 'cursor-pointer' : ''} ${isSelected ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-light)]/20 ring-4 ring-[var(--color-brand-primary)]/30' : 'border-slate-100 bg-white'}`}
+            onClick={() => isSelectionMode ? onToggleSelect(area.id) : canEdit ? onEdit(area) : undefined}
         >
 
             {/* Top part (Solid color, decorative) */}
@@ -43,7 +60,7 @@ const AreaFolderCard = ({ area, onEdit, onDelete, index, isSelected, onToggleSel
                 {isSelectionMode && (
                     <div
                         className="absolute top-5 right-5 z-50 cursor-pointer"
-                        onClick={(e) => { e.stopPropagation(); onToggleSelect(area.id_area); }}
+                        onClick={(e) => { e.stopPropagation(); onToggleSelect(area.id); }}
                     >
                         <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-all border-2 shadow-sm ${isSelected ? 'bg-[var(--color-brand-primary)] border-[var(--color-brand-primary)] text-white' : 'bg-white border-slate-300 hover:border-[var(--color-brand-primary)]'}`}>
                             {isSelected && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>}
@@ -82,20 +99,24 @@ const AreaFolderCard = ({ area, onEdit, onDelete, index, isSelected, onToggleSel
 
                     {/* Buttons */}
                     <div className="flex gap-2">
-                        <button
-                            onClick={(e) => { e.stopPropagation(); onDelete(area); }}
-                            className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-red-50 border border-red-600 text-red-600 text-[12px] font-bold rounded-full transition-colors shadow-sm cursor-pointer"
-                        >
-                            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                            Eliminar
-                        </button>
-                        <button
-                            onClick={(e) => { e.stopPropagation(); onEdit(area); }}
-                            className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-[var(--color-brand-primary)]/10 border border-[var(--color-brand-primary)]  text-[var(--color-brand-primary)] text-[12px] font-bold rounded-full transition-colors shadow-sm cursor-pointer"
-                        >
-                            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                            Editar
-                        </button>
+                        {canDelete && (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onDelete(area); }}
+                                className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-red-50 border border-red-600 text-red-600 text-[12px] font-bold rounded-full transition-colors shadow-sm cursor-pointer"
+                            >
+                                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                Eliminar
+                            </button>
+                        )}
+                        {canEdit && (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onEdit(area); }}
+                                className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-[var(--color-brand-primary)]/10 border border-[var(--color-brand-primary)]  text-[var(--color-brand-primary)] text-[12px] font-bold rounded-full transition-colors shadow-sm cursor-pointer"
+                            >
+                                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                Editar
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>
@@ -104,6 +125,15 @@ const AreaFolderCard = ({ area, onEdit, onDelete, index, isSelected, onToggleSel
 };
 
 export default function AreasManager() {
+    const canAdd = hasPermission('horarios:area:add');
+    const canEdit = hasPermission('horarios:area:edit');
+    const canDelete = hasPermission('horarios:area:delete');
+    const canImport = canAdd
+        && hasPermission('horarios:curso:add')
+        && hasPermission('horarios:profesor:add')
+        && hasPermission('horarios:profesor_curso:add')
+        && hasPermission('horarios:sede_profesor:add')
+        && hasPermission('horarios:grado_profesor:add');
     const [areas, setAreas] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -171,6 +201,7 @@ export default function AreasManager() {
 
     // ── Abrir modal para nueva área ──
     const abrirModalNueva = (push = true) => {
+        if (!canAdd) return;
         setIsEditing(false);
         setEditId(null);
         setNuevaArea({ nombre: '', max_horas_dia: '' });
@@ -181,24 +212,23 @@ export default function AreasManager() {
 
     // ── Abrir modal para edición ──
     const abrirModalEdicion = (area, push = true) => {
+        if (!canEdit) return;
         setIsEditing(true);
-        setEditId(area.id_area);
+        setEditId(area.id);
         setNuevaArea({
             nombre: area.nombre,
             max_horas_dia: area.max_horas_dia || 4
         });
         setFormErrors({});
         setCurrentView('form');
-        if (push) window.history.pushState(null, '', `#edit-${area.id_area}`);
+        if (push) window.history.pushState(null, '', `#edit-${area.id}`);
     };
 
     // ── Cargar áreas del backend al montar ──
     const fetchAreas = async () => {
         try {
             setLoading(true);
-            const res = await fetch(`${API_BASE}/areas`);
-            if (!res.ok) throw new Error('Error al obtener las áreas');
-            const data = await res.json();
+            const data = await listAreas();
             setAreas(data);
             setError(null);
 
@@ -208,7 +238,7 @@ export default function AreasManager() {
                 abrirModalNueva(false);
             } else if (hash.startsWith('#edit-')) {
                 const id = hash.replace('#edit-', '');
-                const area = data.find(a => a.id_area.toString() === id);
+                const area = data.find(a => a.id.toString() === id);
                 if (area) {
                     abrirModalEdicion(area, false);
                 } else {
@@ -236,7 +266,7 @@ export default function AreasManager() {
                 abrirModalNueva(false);
             } else if (hash.startsWith('#edit-')) {
                 const id = hash.replace('#edit-', '');
-                const area = areas.find(a => a.id_area.toString() === id);
+                const area = areas.find(a => a.id.toString() === id);
                 if (area) {
                     abrirModalEdicion(area, false);
                 } else {
@@ -253,7 +283,7 @@ export default function AreasManager() {
 
     // ── Preparar Eliminación (Abrir Modal) ──
     const eliminarArea = (area) => {
-        setItemsToDelete([area.id_area]);
+        setItemsToDelete([area.id]);
         setDeleteError(null);
         setIsDeleteModalOpen(true);
     };
@@ -274,20 +304,10 @@ export default function AreasManager() {
         setEliminando(true);
         setDeleteError(null);
         try {
-            let errorMsg = null;
             for (let id of itemsToDelete) {
-                const res = await fetch(`${API_BASE}/areas/${id}`, { method: 'DELETE' });
-                if (!res.ok) {
-                    try {
-                        const errorData = await res.json();
-                        errorMsg = errorData.detail || errorData.message || 'No se puede eliminar porque esta área está siendo usada.';
-                    } catch (e) {
-                        errorMsg = 'No se puede eliminar porque esta área está siendo usada.';
-                    }
-                    throw new Error(errorMsg);
-                }
+                await deleteArea(id);
             }
-            setAreas(areas.filter(a => !itemsToDelete.includes(a.id_area)));
+            setAreas(areas.filter(a => !itemsToDelete.includes(a.id)));
             setSelectedIds(prev => prev.filter(id => !itemsToDelete.includes(id)));
             window.dispatchEvent(new Event('edusync_data_updated'));
             setIsDeleteModalOpen(false);
@@ -323,35 +343,17 @@ export default function AreasManager() {
         try {
             if (isEditing) {
                 // Edición (PUT endpoint)
-                const res = await fetch(`${API_BASE}/areas/${editId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        nombre: nuevaArea.nombre,
-                        max_horas_dia: parseInt(nuevaArea.max_horas_dia)
-                    })
+                await updateArea(editId, {
+                    nombre: nuevaArea.nombre,
+                    max_horas_dia: parseInt(nuevaArea.max_horas_dia),
                 });
-
-                if (!res.ok) {
-                    const errorData = await res.json().catch(() => ({}));
-                    throw new Error(errorData.detail || 'Error al actualizar el área');
-                }
                 await fetchAreas();
             } else {
                 // Crear nueva área via POST
-                const res = await fetch(`${API_BASE}/areas`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        nombre: nuevaArea.nombre,
-                        max_horas_dia: parseInt(nuevaArea.max_horas_dia)
-                    })
+                await createArea({
+                    nombre: nuevaArea.nombre,
+                    max_horas_dia: parseInt(nuevaArea.max_horas_dia),
                 });
-
-                if (!res.ok) {
-                    const errorData = await res.json().catch(() => ({}));
-                    throw new Error(errorData.detail || 'Error al crear el área');
-                }
 
                 // Recargar lista desde el backend para obtener el id real
                 await fetchAreas();
@@ -392,22 +394,18 @@ export default function AreasManager() {
                 const areaExistente = areasLocal.find(a => norm(a.nombre) === norm(nombreArea));
 
                 if (areaExistente) {
-                    areaId = areaExistente.id_area;
+                    areaId = areaExistente.id;
                 } else {
-                    const resArea = await fetch(`${API_BASE}/areas`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ nombre: nombreArea, max_horas_dia: maxHoras })
-                    });
-                    if (resArea.ok) {
-                        const newArea = await resArea.json();
-                        areaId = newArea.id_area;
-                        areasLocal.push({ id_area: areaId, nombre: nombreArea, max_horas_dia: maxHoras });
-                    } else {
+                    await createArea({ nombre: nombreArea, max_horas_dia: maxHoras });
+                    const areasActualizadas = await listAreas();
+                    const newArea = areasActualizadas.find(a => norm(a.nombre) === norm(nombreArea));
+                    if (!newArea) {
                         errores++;
                         erroresDetalle.push(`Error creando área "${nombreArea}"`);
                         continue;
                     }
+                    areaId = newArea.id;
+                    areasLocal.push(newArea);
                 }
 
                 // 2. Crear el curso (verificar si ya existe)
@@ -417,24 +415,20 @@ export default function AreasManager() {
                     continue; // Ya existe, lo saltamos
                 }
 
-                const resCurso = await fetch(`${API_BASE}/cursos`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        nombre_curso: nombreCurso,
-                        id_area: areaId,
-                        requiere_espacio_unico: false
-                    })
+                await createCurso({
+                    nombre_curso: nombreCurso,
+                    id_area: areaId,
+                    requiere_espacio_unico: false,
                 });
-
-                if (resCurso.ok) {
-                    const newCurso = await resCurso.json();
-                    cursosList.push(newCurso);
-                    creados++;
-                } else {
+                const cursosActualizados = await listCursos();
+                const newCurso = cursosActualizados.find(c => norm(c.nombre_curso) === norm(nombreCurso));
+                if (!newCurso) {
                     errores++;
                     erroresDetalle.push(`Error creando curso "${nombreCurso}"`);
+                    continue;
                 }
+                cursosList.push(newCurso);
+                creados++;
             } catch (err) {
                 errores++;
                 erroresDetalle.push(`Error procesando "${nombreCurso}": ${err.message}`);
@@ -452,14 +446,12 @@ export default function AreasManager() {
         const erroresDetalle = [];
 
         // Cargar relaciones existentes para no duplicar
-        const resProfesores = await fetch(`${API_BASE}/profesores`);
-        const profesoresExistentes = resProfesores.ok ? await resProfesores.json() : [];
-        const resPC = await fetch(`${API_BASE}/profesor-curso`);
-        const profCursosExistentes = resPC.ok ? await resPC.json() : [];
-        const resPS = await fetch(`${API_BASE}/profesor-sedes`);
-        const profSedesExistentes = resPS.ok ? await resPS.json() : [];
-        const resGP = await fetch(`${API_BASE}/grado-profesor`);
-        const gradoProfExistentes = resGP.ok ? await resGP.json() : [];
+        const [profesoresExistentes, profCursosExistentes, profSedesExistentes, gradoProfExistentes] = await Promise.all([
+            listProfesores(),
+            listProfesorCursos(),
+            listSedeProfesores(),
+            listGradoProfesores(),
+        ]);
 
         for (const row of data) {
             const nombreProf = String(row['Nombre Completo del Docente'] || '').trim();
@@ -471,7 +463,7 @@ export default function AreasManager() {
 
             const sedesTexto = String(row['Sedes (separar con coma)'] || '').trim();
             const gradosTexto = String(row['Grados (separar con coma)'] || '').trim();
-            const cursosTexto = String(row['Cursos que Dicta (separar con coma)'] || '').trim();
+            const cursosTexto = String(row['Cursos que Dicta (separar con coma)'] || row['Cursos (separar con coma)'] || '').trim();
 
             try {
                 // ── PASO 1: Crear perfil del profesor (si no existe) ──
@@ -480,20 +472,17 @@ export default function AreasManager() {
                 let fueCreado = false;
 
                 if (profExistente) {
-                    profId = profExistente.id_profesor;
+                    profId = profExistente.id;
                 } else {
-                    const resProf = await fetch(`${API_BASE}/profesores`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ nombre_profesor: nombreProf, horas_minimas: 0 })
-                    });
-                    if (!resProf.ok) {
+                    await createProfesor({ nombre_profesor: nombreProf, horas_minimas: 1 });
+                    const profesoresActualizados = await listProfesores();
+                    const newProf = profesoresActualizados.find(p => norm(p.nombre_profesor) === norm(nombreProf));
+                    if (!newProf) {
                         errores++;
                         erroresDetalle.push(`Error creando docente "${nombreProf}"`);
                         continue;
                     }
-                    const newProf = await resProf.json();
-                    profId = newProf.id_profesor;
+                    profId = newProf.id;
                     profesoresExistentes.push(newProf);
                     fueCreado = true;
                 }
@@ -508,17 +497,11 @@ export default function AreasManager() {
                             continue;
                         }
                         // Verificar si ya tiene esta sede asignada
-                        const yaAsignada = profSedesExistentes.some(ps => ps.id_profesor === profId && ps.id_sede === sedeMatch.id_sede);
+                        const yaAsignada = profSedesExistentes.some(ps => ps.id_profesor === profId && ps.id_sede === sedeMatch.id);
                         if (!yaAsignada) {
-                            const res = await fetch(`${API_BASE}/profesor-sedes`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ id_profesor: profId, id_sede: sedeMatch.id_sede })
-                            });
-                            if (res.ok) {
-                                const newRel = await res.json();
-                                profSedesExistentes.push(newRel);
-                            }
+                            const newRel = { id_profesor: profId, id_sede: sedeMatch.id };
+                            await createSedeProfesor(newRel);
+                            profSedesExistentes.push(newRel);
                         }
                     }
                 }
@@ -536,17 +519,11 @@ export default function AreasManager() {
                             erroresDetalle.push(`Docente "${nombreProf}": Grado "${gradoNombre}" no encontrado en el sistema.`);
                             continue;
                         }
-                        const yaAsignado = gradoProfExistentes.some(gp => gp.id_profesor === profId && gp.id_grado === gradoMatch.id_grado);
+                        const yaAsignado = gradoProfExistentes.some(gp => gp.id_profesor === profId && gp.id_grado === gradoMatch.id);
                         if (!yaAsignado) {
-                            const res = await fetch(`${API_BASE}/grado-profesor`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ id_profesor: profId, id_grado: gradoMatch.id_grado })
-                            });
-                            if (res.ok) {
-                                const newRel = await res.json();
-                                gradoProfExistentes.push(newRel);
-                            }
+                            const newRel = { id_profesor: profId, id_grado: gradoMatch.id };
+                            await createGradoProfesor(newRel);
+                            gradoProfExistentes.push(newRel);
                         }
                     }
                 }
@@ -560,17 +537,11 @@ export default function AreasManager() {
                             erroresDetalle.push(`Docente "${nombreProf}": Curso "${cursoNombre}" no encontrado. Verifica que esté en la hoja de Áreas y Cursos.`);
                             continue;
                         }
-                        const yaAsignado = profCursosExistentes.some(pc => pc.id_profesor === profId && pc.id_curso === cursoMatch.id_curso);
+                        const yaAsignado = profCursosExistentes.some(pc => pc.id_profesor === profId && pc.id_curso === cursoMatch.id);
                         if (!yaAsignado) {
-                            const res = await fetch(`${API_BASE}/profesor-curso`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ id_profesor: profId, id_curso: cursoMatch.id_curso })
-                            });
-                            if (res.ok) {
-                                const newRel = await res.json();
-                                profCursosExistentes.push(newRel);
-                            }
+                            const newRel = { id_profesor: profId, id_curso: cursoMatch.id };
+                            await createProfesorCurso(newRel);
+                            profCursosExistentes.push(newRel);
                         }
                     }
                 }
@@ -594,14 +565,11 @@ export default function AreasManager() {
         // Cargar datos del sistema para los catálogos
         let sedesList = [], gradosList = [], cursosList = [];
         try {
-            const [resSedes, resGrados, resCursos] = await Promise.all([
-                fetch(`${API_BASE}/sedes`).catch(() => ({ ok: false })),
-                fetch(`${API_BASE}/grados`).catch(() => ({ ok: false })),
-                fetch(`${API_BASE}/cursos`).catch(() => ({ ok: false })),
+            [sedesList, gradosList, cursosList] = await Promise.all([
+                listSedes(),
+                listGrados(),
+                listCursos(),
             ]);
-            sedesList = resSedes.ok ? await resSedes.json() : [];
-            gradosList = resGrados.ok ? await resGrados.json() : [];
-            cursosList = resCursos.ok ? await resCursos.json() : [];
         } catch (e) { /* silencioso */ }
 
         const wb = XLSX.utils.book_new();
@@ -693,8 +661,7 @@ export default function AreasManager() {
         let resumenDocentes = { creados: 0, actualizados: 0, errores: 0, erroresDetalle: [] };
 
         // Cargar datos frescos del sistema
-        const resCursos = await fetch(`${API_BASE}/cursos`);
-        const cursosList = resCursos.ok ? await resCursos.json() : [];
+        const cursosList = await listCursos();
         const areasLocal = [...areas];
 
         // ── Procesar Hoja 1: Áreas y Cursos ──
@@ -714,16 +681,13 @@ export default function AreasManager() {
         const hoja2Name = workbook.SheetNames.find(n => norm(n).includes('docente') || norm(n).includes('profesor'));
         if (hoja2Name && workbook.Sheets[hoja2Name]) {
             // Cargar sedes y grados para validación
-            const [resSedes, resGrados] = await Promise.all([
-                fetch(`${API_BASE}/sedes`).catch(() => ({ ok: false })),
-                fetch(`${API_BASE}/grados`).catch(() => ({ ok: false })),
+            const [sedesList, gradosList] = await Promise.all([
+                listSedes(),
+                listGrados(),
             ]);
-            const sedesList = resSedes.ok ? await resSedes.json() : [];
-            const gradosList = resGrados.ok ? await resGrados.json() : [];
 
             // Refrescar cursos después de crear los de la hoja 1
-            const resCursosRefresh = await fetch(`${API_BASE}/cursos`);
-            const cursosRefreshed = resCursosRefresh.ok ? await resCursosRefresh.json() : cursosList;
+            const cursosRefreshed = await listCursos();
 
             const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[hoja2Name], { defval: '' });
             const validData = jsonData.filter(row => {
@@ -783,15 +747,18 @@ export default function AreasManager() {
                     onAddClick={abrirModalNueva}
                     addButtonText="Añadir Nueva Área"
                     svgImage="/areas.svg"
+                    hideAddButton={!canAdd}
                 >
-                    <ExcelImportPanel
-                        templateColumns={areasExcelColumns}
-                        templateFileName="plantilla_importacion_completa.xlsx"
-                        onImport={() => { }}
-                        title="Importar Áreas, Cursos y Docentes"
-                        onCustomTemplate={generarPlantillaPersonalizada}
-                        onCustomImport={handleCustomImport}
-                    />
+                    {canImport && (
+                        <ExcelImportPanel
+                            templateColumns={areasExcelColumns}
+                            templateFileName="plantilla_importacion_completa.xlsx"
+                            onImport={() => { }}
+                            title="Importar Áreas, Cursos y Docentes"
+                            onCustomTemplate={generarPlantillaPersonalizada}
+                            onCustomImport={handleCustomImport}
+                        />
+                    )}
                 </ModuleSidebar>
 
                 {/* ===== RIGHT CONTENT (3/4) ===== */}
@@ -842,7 +809,7 @@ export default function AreasManager() {
                                         </div>
 
                                         <div className="flex items-center gap-3 justify-end flex-shrink-0">
-                                            <button
+                                            {canDelete && <button
                                                 onClick={() => { setIsSelectionMode(!isSelectionMode); if (isSelectionMode) setSelectedIds([]); }}
                                                 className={`h-14 text-[12px] font-bold transition-all cursor-pointer px-5 rounded-[14px] flex items-center justify-center gap-2 border whitespace-nowrap
                                                     ${isSelectionMode
@@ -854,7 +821,7 @@ export default function AreasManager() {
                                                     {isSelectionMode && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>}
                                                 </div>
                                                 {isSelectionMode ? 'Cancelar' : 'Seleccionar'}
-                                            </button>
+                                            </button>}
                                             {isSelectionMode && (
                                                 <button
                                                     onClick={() => selectedIds.length > 0 && openDeleteModal(selectedIds)}
@@ -893,14 +860,16 @@ export default function AreasManager() {
                                         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-6 gap-y-10 animate-fade-in">
                                             {filteredAreas.map((area, index) => (
                                                 <AreaFolderCard
-                                                    key={area.id_area}
+                                                    key={area.id}
                                                     area={area}
                                                     index={index}
                                                     onEdit={abrirModalEdicion}
                                                     onDelete={eliminarArea}
-                                                    isSelected={selectedIds.includes(area.id_area)}
+                                                    isSelected={selectedIds.includes(area.id)}
                                                     onToggleSelect={handleToggleSelect}
                                                     isSelectionMode={isSelectionMode}
+                                                    canEdit={canEdit}
+                                                    canDelete={canDelete}
                                                 />
                                             ))}
                                         </div>

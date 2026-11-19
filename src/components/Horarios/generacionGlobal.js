@@ -1,263 +1,190 @@
-/**
- * Estado global de generación de horarios.
- * Persiste en `window` para que sobreviva al desmontaje de componentes React
- * cuando el usuario navega entre páginas de Astro.
- */
-
-const API_BASE = 'http://localhost:8000/api';
+import { getSession, hasPermission, SESSION_EVENT } from '../../lib/auth/session';
+import { startHorario, getHorarioProgress, generationAssignments } from '../../services/horarios';
 
 const GENERATION_STEPS = [
-    { id: 'init', label: 'Preparando el espacio de trabajo...' },
-    { id: 'validating', label: 'Revisando cursos, profesores y aulas...' },
-    { id: 'modeling', label: 'Armando el rompecabezas...' },
-    { id: 'solving', label: 'Buscando las mejores combinaciones...' },
-    { id: 'done', label: '¡Casi listo! Finalizando detalles...' }
+    { id: 'init', label: 'Preparando la generación…' },
+    { id: 'validating', label: 'Leyendo los datos del colegio…' },
+    { id: 'modeling', label: 'Construyendo el horario…' },
+    { id: 'solving', label: 'Buscando una solución…' },
+    { id: 'done', label: 'Guardando el resultado…' },
 ];
 const LOADING_MESSAGES = GENERATION_STEPS.map(step => step.label);
-const STEP_VISIBLE_TIME = 600;
-const FINAL_STEP_VISIBLE_TIME = 800;
+const POLL_MS = 3000;
+const PREFIX = 'horarix.generation.v2:';
+const blank = () => ({ status: null, taskId: null, loadingStep: 0, progressStep: 'init', progressPercent: 0,
+    progressMessage: LOADING_MESSAGES[0], errorMsg: null, asignaciones: null, canResume: false, startedAt: 0 });
+const makeRoot = () => ({ scope: null, state: blank(), listeners: new Set(), running: false, token: 0 });
+const serverRoot = makeRoot();
 
-const _defaultState = {
-    status: null,
-    loadingStep: 0,
-    progressStep: 'init',
-    progressPercent: 0,
-    progressMessage: GENERATION_STEPS[0].label,
-    errorMsg: null,
-    asignaciones: null,
-    intervalId: null,
-    listeners: new Set(),
-};
-
-function getState() {
-    if (typeof window === 'undefined') return _defaultState;
-    if (!window.__edusync_generacion) {
-        let stored = null;
-        try {
-            const item = sessionStorage.getItem('__edusync_generacion');
-            if (item) stored = JSON.parse(item);
-        } catch (e) { console.error(e); }
-
-        window.__edusync_generacion = stored ? { ...stored, intervalId: null, listeners: new Set() } : {
-            status: null,        // null | 'generating' | 'success' | 'error'
-            loadingStep: 0,
-            progressStep: 'init',
-            progressPercent: 0,
-            progressMessage: GENERATION_STEPS[0].label,
-            errorMsg: null,
-            asignaciones: null,
-            intervalId: null,
-            listeners: new Set(),
-        };
-    }
-    return window.__edusync_generacion;
+function sessionScope() {
+    const session = getSession();
+    return session ? JSON.stringify([session.user.schema_name, session.user.id]) : null;
 }
 
-function notify() {
-    const state = getState();
-    try {
-        const toStore = { ...state };
-        delete toStore.listeners;
-        delete toStore.intervalId;
-        sessionStorage.setItem('__edusync_generacion', JSON.stringify(toStore));
-    } catch (e) { console.error(e); }
+function getRoot() {
+    if (typeof window === 'undefined') return serverRoot;
+    if (!window.__horarix_generation_v2) {
+        window.__horarix_generation_v2 = makeRoot();
+        window.addEventListener(SESSION_EVENT, () => {
+            const root = getRoot();
+            notify(root);
+            resume(root);
+        });
+    }
+    const root = window.__horarix_generation_v2;
+    const scope = sessionScope();
+    if (root.scope !== scope) {
+        root.token += 1;
+        root.running = false;
+        root.scope = scope;
+        root.state = blank();
+        if (scope) {
+            try {
+                const saved = JSON.parse(window.sessionStorage.getItem(PREFIX + scope) || 'null');
+                if (saved && typeof saved.taskId === 'string') root.state = { ...blank(), ...saved };
+            } catch { /* A corrupt or unavailable cache must not block the page. */ }
+        }
+    }
+    return root;
+}
 
-    state.listeners.forEach(fn => {
-        try { fn({ ...state }); } catch (e) { console.error(e); }
+function notify(root) {
+    if (root !== getRoot()) return;
+    try {
+        if (root.scope) window.sessionStorage.setItem(PREFIX + root.scope, JSON.stringify(root.state));
+    } catch { /* Persistence is optional. */ }
+    root.listeners.forEach(listener => {
+        try { listener({ ...root.state }); } catch (error) { console.error(error); }
     });
 }
 
-const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+function emitDone(success) {
+    window.dispatchEvent(new CustomEvent('edusync_generacion_done', { detail: { success } }));
+    if (success) window.dispatchEvent(new Event('horarix_data_updated'));
+}
 
-const waitForPaint = () => new Promise(resolve => {
-    if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
-        resolve();
+async function follow(root) {
+    if (root.running || !root.state.taskId || !hasPermission('horarios:horario:view')) return;
+    root.running = true;
+    const token = root.token;
+    const scope = root.scope;
+    const current = () => token === root.token && scope === sessionScope();
+    let failures = 0;
+    try {
+        while (current()) {
+            if (Date.now() - root.state.startedAt > 30 * 60_000) {
+                throw Object.assign(new Error('Se agotó el tiempo de seguimiento. Puedes reanudar la consulta de esta tarea.'), { resumable: true });
+            }
+            let progress;
+            try {
+                progress = await getHorarioProgress(root.state.taskId);
+                failures = 0;
+            } catch (error) {
+                if (!current()) return;
+                if (error.status === 429) {
+                    root.state.progressMessage = 'Límite temporal de consultas. El seguimiento se reanudará automáticamente.';
+                    notify(root);
+                    await wait(Math.max(POLL_MS, (error.retryAfter || 60) * 1000));
+                    continue;
+                }
+                if ((!error.status || error.status >= 500) && ++failures < 5) {
+                    root.state.progressMessage = 'No se pudo consultar el progreso. Reintentando…';
+                    notify(root);
+                    await wait(POLL_MS * failures);
+                    continue;
+                }
+                error.resumable = !error.status || error.status >= 500;
+                throw error;
+            }
+            if (!current()) return;
+            if (progress.status === 'done') {
+                root.state.asignaciones = generationAssignments(progress.resultado);
+                Object.assign(root.state, { status: 'success', progressPercent: 100, loadingStep: 4,
+                    progressStep: 'done', progressMessage: 'Horario generado.', canResume: false });
+                notify(root);
+                emitDone(true);
+                return;
+            }
+            if (progress.status === 'error') throw new Error(progress.message || 'El motor no pudo generar el horario.');
+            if (progress.status === 'not_found') throw new Error('La tarea no existe o expiró. Vuelve a iniciar la generación.');
+            if (!['starting', 'running'].includes(progress.status)) throw new Error('El servidor devolvió un estado de generación desconocido.');
+            const step = ({ extracting: 1, preprocessing: 2, modeling: 2, solving: 3, metrics: 3, saving: 4 })[progress.step] ?? 0;
+            Object.assign(root.state, { loadingStep: step, progressStep: GENERATION_STEPS[step].id,
+                progressPercent: Math.max(0, Math.min(100, Number(progress.percent) || 0)),
+                progressMessage: progress.message || LOADING_MESSAGES[step] });
+            notify(root);
+            await wait(POLL_MS);
+        }
+    } catch (error) {
+        if (!current()) return;
+        Object.assign(root.state, { status: 'error', errorMsg: error.message, canResume: Boolean(error.resumable) });
+        notify(root);
+        emitDone(false);
+    } finally {
+        if (token === root.token) root.running = false;
+    }
+}
+
+function resume(root) {
+    if (root.state.status === 'generating' && root.state.taskId) void follow(root);
+}
+
+export function subscribe(listener) {
+    const root = getRoot();
+    root.listeners.add(listener);
+    listener({ ...root.state });
+    resume(root);
+    return () => root.listeners.delete(listener);
+}
+
+export function isGenerating() { return getRoot().state.status === 'generating'; }
+export function getGeneracionState() { return { ...getRoot().state }; }
+export function clearResult() {
+    const root = getRoot();
+    if (root.state.status === 'generating') return;
+    root.token += 1;
+    root.running = false;
+    root.state = blank();
+    notify(root);
+}
+
+export async function startGeneracion() {
+    const root = getRoot();
+    if (root.running) return;
+    if (!hasPermission('horarios:horario:add') || !hasPermission('horarios:horario:view')) {
+        root.state.status = 'error';
+        root.state.errorMsg = 'No tienes permiso para generar y consultar horarios.';
+        notify(root);
         return;
     }
-
-    window.requestAnimationFrame(() => {
-        window.requestAnimationFrame(resolve);
-    });
-});
-
-async function revealStepsUntil(state, targetIndex, targetPercent, visibleTime = STEP_VISIBLE_TIME) {
-    const safeTarget = Math.max(0, Math.min(GENERATION_STEPS.length - 1, targetIndex));
-    
-    // Si estamos atrasados en la secuencia de textos, avanzamos uno por uno
-    while (state.loadingStep < safeTarget) {
-        state.loadingStep += 1;
-        const visibleStep = GENERATION_STEPS[state.loadingStep];
-        state.progressStep = visibleStep.id;
-        state.progressMessage = visibleStep.label;
-        
-        // Asignar un porcentaje falso progresivo mientras alcanza el objetivo real
-        // para que se vea como una secuencia suave
-        const fakePercent = Math.min(targetPercent, (state.loadingStep / (GENERATION_STEPS.length - 1)) * 100);
-        state.progressPercent = Math.max(state.progressPercent, Math.floor(fakePercent));
-        
-        notify();
-        await waitForPaint();
-        await wait(visibleTime);
+    if (root.state.taskId && (root.state.status === 'generating' || root.state.canResume)) {
+        Object.assign(root.state, { status: 'generating', errorMsg: null, startedAt: Date.now() });
+        notify(root);
+        await follow(root);
+        return;
     }
-    
-    // Al final, actualizamos al porcentaje real
-    state.progressPercent = Math.max(0, Math.min(100, targetPercent));
-    notify();
-}
-
-/** Suscribirse a cambios de estado. Devuelve función para desuscribirse. */
-export function subscribe(listener) {
-    const state = getState();
-    state.listeners.add(listener);
-    // Notificar inmediatamente con estado actual
-    listener({ ...state });
-    return () => state.listeners.delete(listener);
-}
-
-/** ¿Está generando ahora mismo? */
-export function isGenerating() {
-    return getState().status === 'generating';
-}
-
-/** Obtener estado actual sin suscribirse */
-export function getGeneracionState() {
-    return { ...getState() };
-}
-
-/** Limpiar el resultado (cuando el usuario ya vio la notificación o entró a horarios) */
-export function clearResult() {
-    const state = getState();
-    state.status = null;
-    state.loadingStep = 0;
-    state.progressStep = 'init';
-    state.progressPercent = 0;
-    state.progressMessage = GENERATION_STEPS[0].label;
-    state.errorMsg = null;
-    state.asignaciones = null;
-    notify();
-}
-
-/** Iniciar la generación de horarios */
-export async function startGeneracion() {
-    const state = getState();
-
-    // Si ya está generando, no hacer nada
-    if (state.status === 'generating') return;
-
-    state.status = 'generating';
-    state.loadingStep = 0;
-    state.progressStep = 'init';
-    state.progressPercent = 0;
-    state.progressMessage = GENERATION_STEPS[0].label;
-    state.errorMsg = null;
-    state.asignaciones = null;
-    notify();
-
+    root.token += 1;
+    const token = root.token;
+    const scope = root.scope;
+    root.running = true;
+    root.state = { ...blank(), status: 'generating', startedAt: Date.now() };
+    notify(root);
     try {
-        let data = null;
-        const startRes = await fetch(`${API_BASE}/generar-horario/start`, { method: 'POST' });
-
-        if (startRes.ok) {
-            const startData = await startRes.json();
-            if (!startData.task_id) throw new Error('El servidor no devolvió el identificador de la generación.');
-
-            let intentos = 0;
-            while (intentos < 1800) {
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                const progressRes = await fetch(`${API_BASE}/horario-progress/${startData.task_id}`);
-                if (!progressRes.ok) throw new Error('No se pudo consultar el progreso de la generación.');
-
-                const progress = await progressRes.json();
-                if (progress.status === 'starting' || progress.status === 'running') {
-                    const percent = Number(progress.percent) || 0;
-                    
-                    let mappedId = progress.step || 'init';
-                    if (mappedId === 'extracting') mappedId = 'validating';
-                    if (mappedId === 'preprocessing') mappedId = 'modeling';
-                    if (mappedId === 'metrics') mappedId = 'solving';
-                    if (mappedId === 'saving') mappedId = 'done';
-                    
-                    const reportedIndex = GENERATION_STEPS.findIndex(step => step.id === mappedId);
-                    
-                    if (reportedIndex >= 0) {
-                        await revealStepsUntil(state, reportedIndex, percent);
-                    } else {
-                        state.progressPercent = Math.max(0, Math.min(100, percent));
-                        notify();
-                    }
-                    
-                    state.progressStep = mappedId;
-                    state.progressMessage = GENERATION_STEPS[state.loadingStep]?.label;
-                    notify();
-                } else if (progress.status === 'done') {
-                    data = { status: 'success', resultado: progress.resultado };
-                    break;
-                } else if (progress.status === 'error') {
-                    data = {
-                        status: 'error',
-                        errores: Array.isArray(progress.errors)
-                            ? progress.errors
-                            : [progress.message || 'El motor no pudo generar el horario.']
-                    };
-                    break;
-                } else if (progress.status === 'not_found') {
-                    throw new Error('La tarea de generación ya no está disponible en el servidor.');
-                }
-                intentos++;
-            }
-
-            if (!data) throw new Error('La generación superó el tiempo máximo de espera.');
-        } else if (startRes.status === 404 || startRes.status === 405) {
-            // Compatibilidad con versiones anteriores del backend.
-            const legacyRes = await fetch(`${API_BASE}/generar-horario`, { method: 'POST' });
-            if (!legacyRes.ok) throw new Error(`El servidor respondió con estado ${legacyRes.status}.`);
-            data = await legacyRes.json();
-        } else {
-            let detail = '';
-            try {
-                const body = await startRes.json();
-                detail = body?.detail || body?.message || '';
-            } catch {
-                // La respuesta puede no contener JSON.
-            }
-            throw new Error(detail || `No se pudo iniciar la generación (${startRes.status}).`);
-        }
-
-        if (data.status === 'error' || data.errores) {
-            state.errorMsg = Array.isArray(data.errores)
-                ? data.errores
-                : [data.errores || 'Error desconocido al generar el horario.'];
-            state.status = 'error';
-            notify();
-            window.dispatchEvent(new CustomEvent('edusync_generacion_done', { detail: { success: false, error: 'Validación fallida' } }));
-            return;
-        }
-
-        const asignaciones = data.resultado?.asignaciones || data.asignaciones;
-        if (!Array.isArray(asignaciones) || asignaciones.length === 0) {
-            const estado = data.resultado?.estado;
-            throw new Error(estado
-                ? `El motor terminó con estado ${estado}, pero no generó asignaciones.`
-                : 'La respuesta del servidor no contiene asignaciones.');
-        }
-
-        // El motor ya terminó: cerrar los estados finales sin añadir una espera artificial exagerada.
-        await revealStepsUntil(state, LOADING_MESSAGES.length - 1, 100, FINAL_STEP_VISIBLE_TIME);
-        state.progressStep = 'done';
-        state.progressPercent = 100;
-        state.progressMessage = GENERATION_STEPS[GENERATION_STEPS.length - 1].label;
-        state.asignaciones = asignaciones;
-        state.status = 'success';
-        notify();
-        window.dispatchEvent(new CustomEvent('edusync_generacion_done', { detail: { success: true } }));
+        const result = await startHorario();
+        if (scope !== sessionScope() || token !== root.token) return;
+        if (!result.task_id) throw new Error('El servidor no devolvió el identificador de la tarea.');
+        root.state.taskId = result.task_id;
+        notify(root);
     } catch (error) {
-        clearInterval(state.intervalId);
-        state.intervalId = null;
-        state.errorMsg = `Hubo un error de conexión o validación: ${error.message}`;
-        state.status = 'error';
-        notify();
-        window.dispatchEvent(new CustomEvent('edusync_generacion_done', { detail: { success: false, error: state.errorMsg } }));
+        if (scope !== sessionScope() || token !== root.token) return;
+        Object.assign(root.state, { status: 'error', errorMsg: error.message });
+        notify(root);
+        emitDone(false);
+    } finally {
+        if (token === root.token) root.running = false;
     }
+    if (token === root.token && scope === sessionScope() && root.state.taskId) await follow(root);
 }
 
 export { LOADING_MESSAGES, GENERATION_STEPS };

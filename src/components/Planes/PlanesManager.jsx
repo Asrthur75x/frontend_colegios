@@ -1,9 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import ModuleSidebar from '../Shared/ModuleSidebar';
+import { hasPermission } from '../../lib/auth/session';
+import {
+    createPlanEstudio,
+    deletePlanEstudio,
+    listBloquesReservados,
+    listCursos,
+    listGradoDiaConfig,
+    listGrados,
+    listPlanesEstudio,
+    updatePlanEstudio,
+} from '../../services/planes';
 
-const API_BASE = 'http://localhost:8000/api';
-
-const PlanCard = ({ plan, curso, cursoIndex, onEdit, onDelete, maxHorasGrado }) => {
+const PlanCard = ({ plan, curso, cursoIndex, onDelete, maxHorasGrado, canDelete }) => {
     const colors = [
         { bg: '#1e293b', text: '#f1f5f9' }, // Slate oscuro
         { bg: '#a855f7', text: '#ffffff' }, // Morado
@@ -60,16 +69,16 @@ const PlanCard = ({ plan, curso, cursoIndex, onEdit, onDelete, maxHorasGrado }) 
 
                 </div>
 
-                <div className="flex pt-2 mt-auto">
+                {canDelete && <div className="flex pt-2 mt-auto">
                     <div className="flex gap-2">
                         <button
-                            onClick={() => onDelete(plan.id_plan)}
+                            onClick={() => onDelete(plan.id)}
                             className="cursor-pointer flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold border border-red-500 text-red-500 hover:bg-red-50 rounded-full">
                             <svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                             Eliminar
                         </button>
                     </div>
-                </div>
+                </div>}
 
             </div>
         </div >
@@ -77,6 +86,11 @@ const PlanCard = ({ plan, curso, cursoIndex, onEdit, onDelete, maxHorasGrado }) 
 };
 
 export default function PlanesManager() {
+    const canAdd = hasPermission('horarios:plan_estudio:add');
+    const canEdit = hasPermission('horarios:plan_estudio:edit');
+    const canDelete = hasPermission('horarios:plan_estudio:delete');
+    const canManageMalla = canAdd && canEdit && canDelete;
+    const canClone = canAdd && canDelete;
     const [currentView, setCurrentView] = useState('list');
     const [planes, setPlanes] = useState([]);
     const [cursos, setCursos] = useState([]);
@@ -117,36 +131,32 @@ export default function PlanesManager() {
     const [eliminando, setEliminando] = useState(false);
     const [deleteError, setDeleteError] = useState(null);
 
-    const fetchDatos = async (signal) => {
+    const fetchDatos = async () => {
         try {
             setLoading(true);
-            const [resPlanes, resCursos, resGrados, resConfig, resReservas] = await Promise.all([
-                fetch(`${API_BASE}/planes`, { signal }).catch(() => ({ ok: false, json: () => [] })),
-                fetch(`${API_BASE}/cursos`, { signal }).catch(() => ({ ok: false, json: () => [] })),
-                fetch(`${API_BASE}/grados`, { signal }).catch(() => ({ ok: false, json: () => [] })),
-                fetch(`${API_BASE}/grado-dia-config`, { signal }).catch(() => ({ ok: false, json: () => [] })),
-                fetch(`${API_BASE}/bloque-reservado`, { signal }).catch(() => ({ ok: false, json: () => [] })),
+            const [planesData, cursosData, gradosData, configData, reservasData] = await Promise.all([
+                listPlanesEstudio(),
+                listCursos(),
+                listGrados(),
+                listGradoDiaConfig(),
+                listBloquesReservados(),
             ]);
-
-            if (resPlanes.ok) setPlanes(await resPlanes.json());
-            if (resCursos.ok) setCursos(await resCursos.json());
-            if (resGrados.ok) setGrados(await resGrados.json());
-            if (resConfig.ok) setGradoDiaConfig(await resConfig.json());
-            if (resReservas.ok) setBloquesReservados(await resReservas.json());
+            setPlanes(planesData);
+            setCursos(cursosData);
+            setGrados(gradosData);
+            setGradoDiaConfig(configData);
+            setBloquesReservados(reservasData);
 
             setError(null);
         } catch (err) {
-            if (err.name === 'AbortError') return;
-            setError(err.message);
+            setError(err instanceof Error ? err.message : 'No se pudieron cargar los planes de estudio');
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
-        const controller = new AbortController();
-        fetchDatos(controller.signal);
-        return () => controller.abort();
+        fetchDatos();
     }, []);
 
     const getMaxSlotsForGrado = (id_grado) => {
@@ -188,6 +198,7 @@ export default function PlanesManager() {
     };
 
     const handleOpenVaciarMallaModal = (id_grado) => {
+        if (!canDelete) return;
         setGradoToDelete(id_grado);
         setIsGradoDeleteModalOpen(true);
     };
@@ -198,47 +209,43 @@ export default function PlanesManager() {
         try {
             const planesDelGrado = planes.filter(p => p.id_grado === gradoToDelete);
             for (const plan of planesDelGrado) {
-                await fetch(`${API_BASE}/planes/${plan.id_plan}`, { method: 'DELETE' });
+                await deletePlanEstudio(plan.id);
             }
             setPlanes(planes.filter(p => p.id_grado !== gradoToDelete));
             window.dispatchEvent(new CustomEvent('edusync_data_updated'));
             setIsGradoDeleteModalOpen(false);
             setGradoToDelete(null);
-            showToast("Malla eliminada correctamente");
-        } catch {
-            showToast("Error al vaciar la malla");
+            showToast("Malla eliminada correctamente", "success");
+        } catch (err) {
+            showToast(err instanceof Error ? err.message : "Error al vaciar la malla");
         } finally {
             setEliminando(false);
         }
     };
 
     const copiarMallaGrado = async (id_grado_destino, id_grado_origen) => {
-        if (!id_grado_origen || !id_grado_destino) return;
+        if (!canClone || !id_grado_origen || !id_grado_destino) return;
 
         try {
             setGuardando(true);
             // 1. Delete all existing planes in destino
             const planesDestino = planes.filter(p => p.id_grado === id_grado_destino);
             for (const plan of planesDestino) {
-                await fetch(`${API_BASE}/planes/${plan.id_plan}`, { method: 'DELETE' });
+                await deletePlanEstudio(plan.id);
             }
 
             // 2. Add planes from origen to destino
             const planesOrigen = planes.filter(p => p.id_grado === parseInt(id_grado_origen));
             for (const plan of planesOrigen) {
-                await fetch(`${API_BASE}/planes`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        id_grado: id_grado_destino,
-                        id_curso: plan.id_curso,
-                        horas_semanales: plan.horas_semanales
-                    })
+                await createPlanEstudio({
+                    id_grado: id_grado_destino,
+                    id_curso: plan.id_curso,
+                    horas_semanales: plan.horas_semanales,
                 });
             }
 
             // 3. Refresh
-            await fetchDatos(new AbortController().signal);
+            await fetchDatos();
             window.dispatchEvent(new CustomEvent('edusync_data_updated'));
 
             showToast("Malla clonada correctamente", "success");
@@ -246,14 +253,15 @@ export default function PlanesManager() {
             setCloneDestino("");
             setShowClone(false);
 
-        } catch {
-            showToast("Error al copiar la malla");
+        } catch (err) {
+            showToast(err instanceof Error ? err.message : "Error al copiar la malla");
         } finally {
             setGuardando(false);
         }
     };
 
     const abrirModalEdicionMalla = (id_grado = null) => {
+        if (!canManageMalla) return;
         setIsEditing(false);
         setEditId(null);
         setFormStep(id_grado ? 2 : 1);
@@ -273,8 +281,9 @@ export default function PlanesManager() {
     };
 
     const abrirModalEdicion = (plan) => {
+        if (!canEdit) return;
         setIsEditing(true);
-        setEditId(plan.id_plan);
+        setEditId(plan.id);
         setNuevoPlan({
             id_grado: plan.id_grado || '',
             id_curso: plan.id_curso || '',
@@ -284,7 +293,8 @@ export default function PlanesManager() {
     };
 
     const eliminarPlan = (id) => {
-        const planObj = planes.find(p => p.id_plan === id);
+        if (!canDelete) return;
+        const planObj = planes.find(p => p.id === id);
         setPlanToDelete(planObj);
         setIsDeleteModalOpen(true);
     };
@@ -294,18 +304,14 @@ export default function PlanesManager() {
         setEliminando(true);
         setDeleteError(null);
         try {
-            const res = await fetch(`${API_BASE}/planes/${planToDelete.id_plan}`, { method: 'DELETE' });
-            if (!res.ok) {
-                const errorData = await res.json().catch(() => ({}));
-                throw new Error(errorData.detail || 'Error al eliminar');
-            }
-            setPlanes(planes.filter(p => p.id_plan !== planToDelete.id_plan));
+            await deletePlanEstudio(planToDelete.id);
+            setPlanes(planes.filter(p => p.id !== planToDelete.id));
             window.dispatchEvent(new CustomEvent('edusync_data_updated'));
             setIsDeleteModalOpen(false);
             setPlanToDelete(null);
             showToast("Plan de estudio eliminado", "success");
         } catch (err) {
-            setDeleteError(err.message);
+            setDeleteError(err instanceof Error ? err.message : 'Error al eliminar');
         } finally {
             setEliminando(false);
         }
@@ -326,7 +332,7 @@ export default function PlanesManager() {
         let usedSlots = getUsedSlotsForGrado(idGradoInt);
 
         if (isEditing) {
-            const planActual = planes.find(p => p.id_plan === editId);
+            const planActual = planes.find(p => p.id === editId);
             if (planActual) {
                 usedSlots -= planActual.horas_semanales;
             }
@@ -351,31 +357,23 @@ export default function PlanesManager() {
 
         try {
             if (isEditing) {
-                await fetch(`${API_BASE}/planes/${editId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
+                await updatePlanEstudio(editId, payload);
             } else {
-                await fetch(`${API_BASE}/planes`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
+                await createPlanEstudio(payload);
             }
             await fetchDatos();
             window.dispatchEvent(new CustomEvent('edusync_data_updated'));
             setCurrentView('list');
         } catch (err) {
-            showToast(`Error: ${err.message}`);
+            showToast(`Error: ${err instanceof Error ? err.message : 'No se pudo guardar el plan'}`);
         } finally {
             setGuardando(false);
         }
     };
 
     const planesPorGrado = grados.map(grado => {
-        const planesGrado = planes.filter(p => p.id_grado === grado.id_grado);
-        const slotsMaximos = getMaxSlotsForGrado(grado.id_grado);
+        const planesGrado = planes.filter(p => p.id_grado === grado.id);
+        const slotsMaximos = getMaxSlotsForGrado(grado.id);
         const slotsUsados = planesGrado.reduce((sum, p) => sum + p.horas_semanales, 0);
 
         return {
@@ -415,6 +413,7 @@ export default function PlanesManager() {
                     description="Configura la malla curricular y asigna la carga horaria para cada curso según el grado."
                     onAddClick={() => abrirModalEdicionMalla()}
                     addButtonText="Añadir a la Malla"
+                    hideAddButton={!canManageMalla}
                     svgImage="/class.svg"
                     stats={[
                         { label: 'Dimensiones', value: `${grados.length} Grados`, subtext: `${cursos.length} cursos registrados` },
@@ -424,6 +423,12 @@ export default function PlanesManager() {
 
                 {/* ===== RIGHT CONTENT (3/4) ===== */}
                 <main className="md:w-3/4 flex flex-col gap-5">
+                    {error && (
+                        <div className="bg-amber-50 border border-amber-200 text-amber-800 px-6 py-4 rounded-2xl flex items-center gap-3">
+                            <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+                            <p className="text-sm font-medium">{error}</p>
+                        </div>
+                    )}
                     {loading ? (
                         <div className="flex justify-center py-12">
                             <div className="w-8 h-8 border-4 border-brand-primary/30 border-t-brand-primary rounded-full animate-spin"></div>
@@ -451,11 +456,11 @@ export default function PlanesManager() {
                                     {planesPorGrado.map(g => {
                                         const isOver = g.slotsUsados > g.slotsMaximos;
                                         const isFull = g.slotsUsados === g.slotsMaximos && g.slotsMaximos > 0;
-                                        const isActive = gradoFiltro === g.id_grado;
+                                        const isActive = gradoFiltro === g.id;
                                         return (
                                             <button
-                                                key={g.id_grado}
-                                                onClick={() => setGradoFiltro(isActive ? null : g.id_grado)}
+                                                key={g.id}
+                                                onClick={() => setGradoFiltro(isActive ? null : g.id)}
                                                 style={isActive
                                                     ? { backgroundColor: 'var(--color-brand-primary)', color: '#ffffff', borderColor: 'var(--color-brand-primary)' }
                                                     : { backgroundColor: '#ffffff', color: '#0f172a', borderColor: '#94a3b8' }
@@ -477,9 +482,9 @@ export default function PlanesManager() {
                                 </div>
                             ) : (
                                 planesPorGrado
-                                    .filter(g => gradoFiltro === null || g.id_grado === gradoFiltro)
+                                    .filter(g => gradoFiltro === null || g.id === gradoFiltro)
                                     .map((grado) => (
-                                        <div key={grado.id_grado} id={`grado-${grado.id_grado}`} className="bg-slate-50 rounded-3xl p-6 sm:p-8 border border-slate-100">
+                                        <div key={grado.id} id={`grado-${grado.id}`} className="bg-slate-50 rounded-3xl p-6 sm:p-8 border border-slate-100">
 
                                             {/* Encabezado del Grado — Banner informativo */}
                                             <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6 pb-5 border-b border-slate-200/70">
@@ -500,16 +505,16 @@ export default function PlanesManager() {
                                                             )}
                                                         </h3>
                                                         <div className="flex items-center gap-2 mt-2">
-                                                            <button
-                                                                onClick={() => abrirModalEdicionMalla(grado.id_grado)}
+                                                            {canManageMalla && <button
+                                                                onClick={() => abrirModalEdicionMalla(grado.id)}
                                                                 className="cursor-pointer text-[11px] font-bold text-brand-primary rounded-full border hover:bg-[var(--color-brand-primary)]/10  transition-colors px-3 py-1 flex items-center gap-1"
                                                             >
                                                                 <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                                                                 Editar Malla
-                                                            </button>
-                                                            {grado.planes.length > 0 && (
+                                                            </button>}
+                                                            {canDelete && grado.planes.length > 0 && (
                                                                 <button
-                                                                    onClick={() => handleOpenVaciarMallaModal(grado.id_grado)}
+                                                                    onClick={() => handleOpenVaciarMallaModal(grado.id)}
                                                                     className="cursor-pointer text-[11px] font-bold text-red-500  hover:bg-red-50 rounded-full border border-red-500 transition-colors px-3 py-1 flex items-center gap-1"
                                                                 >
                                                                     <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
@@ -562,17 +567,17 @@ export default function PlanesManager() {
                                                 ) : (
                                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
                                                         {grado.planes.map((plan, i) => {
-                                                            const cursoIndex = cursos.findIndex(c => c.id_curso === plan.id_curso);
+                                                            const cursoIndex = cursos.findIndex(c => c.id === plan.id_curso);
                                                             const curso = cursos[cursoIndex >= 0 ? cursoIndex : 0];
                                                             return (
                                                                 <PlanCard
-                                                                    key={plan.id_plan || `temp-${i}`}
+                                                                    key={plan.id || `temp-${i}`}
                                                                     plan={plan}
                                                                     curso={curso}
                                                                     cursoIndex={cursoIndex >= 0 ? cursoIndex : i}
                                                                     maxHorasGrado={grado.slotsMaximos}
-                                                                    onEdit={abrirModalEdicion}
                                                                     onDelete={eliminarPlan}
+                                                                    canDelete={canDelete}
                                                                 />
                                                             );
                                                         })}
@@ -626,7 +631,7 @@ export default function PlanesManager() {
                                                     <p className="text-slate-500 mt-1 text-sm font-medium">Elige a qué grado deseas configurarle la malla curricular</p>
                                                 </div>
 
-                                                <div className="relative">
+                                                {canClone && <div className="relative">
                                                     <button
                                                         onClick={() => setShowClone(!showClone)}
                                                         className={`flex items-center gap-2 px-4 py-2.5 text-sm font-bold rounded-xl transition-all shadow-sm cursor-pointer border border-[var(--color-brand-primary)] ${showClone ? 'bg-[var(--color-brand-primary)] text-white' : 'bg-indigo-50 text-[var(--color-brand-primary)] hover:bg-indigo-100'}`}
@@ -656,7 +661,7 @@ export default function PlanesManager() {
                                                                         className="w-full px-3 py-2.5 rounded-lg border-2 border-slate-200 bg-slate-50 outline-none text-xs font-bold focus:border-[var(--color-brand-primary)] focus:bg-white text-slate-700 transition-all cursor-pointer"
                                                                     >
                                                                         <option value="">Seleccione Origen...</option>
-                                                                        {grados.filter(g => planesPorGrado.find(p => p.id_grado === g.id_grado)?.planes.length > 0).map(g => <option key={g.id_grado} value={g.id_grado}>Grado {g.numero}</option>)}
+                                                                        {grados.filter(g => planesPorGrado.find(p => p.id === g.id)?.planes.length > 0).map(g => <option key={g.id} value={g.id}>Grado {g.numero}</option>)}
                                                                     </select>
                                                                 </div>
                                                                 <div>
@@ -667,7 +672,7 @@ export default function PlanesManager() {
                                                                         className="w-full px-3 py-2.5 rounded-lg border-2 border-slate-200 bg-slate-50 outline-none text-xs font-bold focus:border-[var(--color-brand-primary)] focus:bg-white text-slate-700 transition-all cursor-pointer"
                                                                     >
                                                                         <option value="">Seleccione Destino...</option>
-                                                                        {grados.map(g => <option key={g.id_grado} value={g.id_grado}>Grado {g.numero}</option>)}
+                                                                        {grados.map(g => <option key={g.id} value={g.id}>Grado {g.numero}</option>)}
                                                                     </select>
                                                                 </div>
                                                             </div>
@@ -681,23 +686,23 @@ export default function PlanesManager() {
                                                             </button>
                                                         </div>
                                                     )}
-                                                </div>
+                                                </div>}
                                             </div>
 
                                             <div className="flex flex-wrap justify-center gap-5 px-4 mb-4">
                                                 {grados.map(g => {
-                                                    const isSelected = modalGradoId === g.id_grado;
-                                                    const slotsMaximos = getMaxSlotsForGrado(g.id_grado);
-                                                    const planesGrado = planes.filter(p => p.id_grado === g.id_grado);
+                                                    const isSelected = modalGradoId === g.id;
+                                                    const slotsMaximos = getMaxSlotsForGrado(g.id);
+                                                    const planesGrado = planes.filter(p => p.id_grado === g.id);
                                                     const slotsUsados = planesGrado.reduce((sum, p) => sum + p.horas_semanales, 0);
                                                     const isCompleted = slotsMaximos > 0 && slotsUsados === slotsMaximos;
 
                                                     return (
                                                         <button
-                                                            key={g.id_grado}
+                                                            key={g.id}
                                                             type="button"
                                                             onClick={() => {
-                                                                setModalGradoId(g.id_grado);
+                                                                setModalGradoId(g.id);
                                                                 const seleccionActual = {};
                                                                 planesGrado.forEach(p => {
                                                                     seleccionActual[p.id_curso] = p.horas_semanales;
@@ -763,26 +768,26 @@ export default function PlanesManager() {
                                                     const planExistente = planesActuales.find(p => p.id_curso === parseInt(id_curso));
                                                     if (planExistente) {
                                                         if (planExistente.horas_semanales !== parseInt(horas)) {
-                                                            await fetch(`${API_BASE}/planes/${planExistente.id_plan}`, {
-                                                                method: 'PUT',
-                                                                headers: { 'Content-Type': 'application/json' },
-                                                                body: JSON.stringify({ id_grado: modalGradoId, id_curso: parseInt(id_curso), horas_semanales: parseInt(horas) || 1 })
+                                                            await updatePlanEstudio(planExistente.id, {
+                                                                id_grado: modalGradoId,
+                                                                id_curso: parseInt(id_curso),
+                                                                horas_semanales: parseInt(horas) || 1,
                                                             });
                                                         }
                                                     } else {
-                                                        await fetch(`${API_BASE}/planes`, {
-                                                            method: 'POST',
-                                                            headers: { 'Content-Type': 'application/json' },
-                                                            body: JSON.stringify({ id_grado: modalGradoId, id_curso: parseInt(id_curso), horas_semanales: parseInt(horas) || 1 })
+                                                        await createPlanEstudio({
+                                                            id_grado: modalGradoId,
+                                                            id_curso: parseInt(id_curso),
+                                                            horas_semanales: parseInt(horas) || 1,
                                                         });
                                                     }
                                                 }
                                                 for (const plan of planesActuales) {
                                                     if (seleccion[plan.id_curso] === undefined) {
-                                                        await fetch(`${API_BASE}/planes/${plan.id_plan}`, { method: 'DELETE' });
+                                                        await deletePlanEstudio(plan.id);
                                                     }
                                                 }
-                                                await fetchDatos(new AbortController().signal);
+                                                await fetchDatos();
                                                 window.dispatchEvent(new CustomEvent('edusync_data_updated'));
                                                 setGuardadoExitoso(true);
                                                 setTimeout(() => {
@@ -791,6 +796,7 @@ export default function PlanesManager() {
                                                 }, 1000);
                                             } catch (err) {
                                                 console.error("Error al guardar la malla", err);
+                                                showToast(err instanceof Error ? err.message : 'No se pudo guardar la malla');
                                             }
                                             finally { setGuardando(false); }
                                         };
@@ -800,7 +806,7 @@ export default function PlanesManager() {
                                                 <div className="flex justify-between items-center mb-6">
                                                     <div>
                                                         <h3 className="text-2xl font-black text-slate-800">Malla Curricular</h3>
-                                                        <p className="text-slate-500 mt-1 text-sm font-medium">Asigna los cursos y horas para el Grado {grados.find(g => g.id_grado === modalGradoId)?.numero}</p>
+                                                        <p className="text-slate-500 mt-1 text-sm font-medium">Asigna los cursos y horas para el Grado {grados.find(g => g.id === modalGradoId)?.numero}</p>
                                                     </div>
                                                 </div>
 
@@ -835,7 +841,7 @@ export default function PlanesManager() {
 
                                                 <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                                                     {cursos.map((c, index) => {
-                                                        const isSel = seleccion[c.id_curso] !== undefined;
+                                                        const isSel = seleccion[c.id] !== undefined;
                                                         const colors = [
                                                             { bg: '#1e293b', text: '#f1f5f9' }, // Slate oscuro
                                                             { bg: '#a855f7', text: '#ffffff' }, // Morado
@@ -853,13 +859,13 @@ export default function PlanesManager() {
                                                         const cColor = colors[index % colors.length];
                                                         return (
                                                             <div
-                                                                key={c.id_curso}
+                                                                key={c.id}
                                                                 className={`p-4 rounded-[20px] border-2 transition-all flex flex-col gap-3 cursor-pointer ${isSel ? 'shadow-md -translate-y-0.5' : 'hover:-translate-y-0.5 hover:shadow-sm bg-white'}`}
                                                                 style={{
                                                                     borderColor: cColor.bg,
                                                                     backgroundColor: isSel ? cColor.bg + '1A' : '#ffffff'
                                                                 }}
-                                                                onClick={() => toggleCurso(c.id_curso)}
+                                                                onClick={() => toggleCurso(c.id)}
                                                             >
                                                                 <div className="flex items-start justify-between gap-2">
                                                                     <div className="flex-1">
@@ -882,20 +888,20 @@ export default function PlanesManager() {
                                                                         <div className="flex-1 flex items-center bg-white border border-slate-200 rounded-lg overflow-hidden">
                                                                             <button
                                                                                 type="button"
-                                                                                onClick={(e) => { e.stopPropagation(); setSeleccion({ ...seleccion, [c.id_curso]: Math.max(1, (seleccion[c.id_curso] || 1) - 1) }) }}
+                                                                                onClick={(e) => { e.stopPropagation(); setSeleccion({ ...seleccion, [c.id]: Math.max(1, (seleccion[c.id] || 1) - 1) }) }}
                                                                                 className="w-8 h-8 flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:text-brand-primary cursor-pointer transition-colors"
                                                                             >
                                                                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                                                                             </button>
                                                                             <div className="flex-1 text-center font-black text-sm text-slate-800 border-x border-slate-100 bg-slate-50/50 flex items-center justify-center h-8">
-                                                                                {seleccion[c.id_curso] || 1}
+                                                                                {seleccion[c.id] || 1}
                                                                             </div>
                                                                             <button
                                                                                 type="button"
                                                                                 onClick={(e) => {
                                                                                     e.stopPropagation();
                                                                                     if (maxSlots > 0 && totalTras >= maxSlots) return;
-                                                                                    setSeleccion({ ...seleccion, [c.id_curso]: Math.min(40, (seleccion[c.id_curso] || 1) + 1) });
+                                                                                    setSeleccion({ ...seleccion, [c.id]: Math.min(40, (seleccion[c.id] || 1) + 1) });
                                                                                 }}
                                                                                 disabled={maxSlots > 0 && totalTras >= maxSlots}
                                                                                 className={`w-8 h-8 flex items-center justify-center transition-colors ${maxSlots > 0 && totalTras >= maxSlots ? 'text-slate-300 cursor-not-allowed' : 'text-slate-500 hover:bg-slate-50 hover:text-brand-primary cursor-pointer'}`}
@@ -968,14 +974,14 @@ export default function PlanesManager() {
                                 <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Grado Escolar</label>
                                 <select required value={nuevoPlan.id_grado} onChange={e => setNuevoPlan({ ...nuevoPlan, id_grado: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none text-sm font-medium">
                                     <option value="" disabled>-- Selecciona un grado --</option>
-                                    {grados.map(g => <option key={g.id_grado} value={g.id_grado}>Grado {g.numero}</option>)}
+                                    {grados.map(g => <option key={g.id} value={g.id}>Grado {g.numero}</option>)}
                                 </select>
                             </div>
                             <div className="space-y-1">
                                 <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Curso</label>
                                 <select required value={nuevoPlan.id_curso} onChange={e => setNuevoPlan({ ...nuevoPlan, id_curso: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none text-sm font-medium">
                                     <option value="" disabled>-- Selecciona el curso --</option>
-                                    {cursos.map(c => <option key={c.id_curso} value={c.id_curso}>{c.nombre_curso}</option>)}
+                                    {cursos.map(c => <option key={c.id} value={c.id}>{c.nombre_curso}</option>)}
                                 </select>
                             </div>
                             <div className="space-y-1">

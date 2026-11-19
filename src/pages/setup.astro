@@ -9,24 +9,15 @@ import "../styles/global.css";
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>Configuración | Horarix</title>
-	</head>
-	<body class="bg-white font-sans antialiased h-screen w-screen overflow-hidden">
-		<script is:inline>
-			if (!window.__fetchIntercepted) {
-				window.__fetchIntercepted = true;
-				const originalFetch = window.fetch;
-				window.fetch = function(...args) {
-					if (typeof args[0] === 'string') {
-						if (args[0].startsWith('http://127.0.0.1:8000/api')) {
-							args[0] = args[0].replace('http://127.0.0.1:8000/api', '/api');
-						} else if (args[0].startsWith('http://localhost:8000/api')) {
-							args[0] = args[0].replace('http://localhost:8000/api', '/api');
-						}
-					}
-					return originalFetch.apply(this, args);
-				};
+		<script>
+			import { hasUsableSession } from "../lib/auth/session";
+
+			if (!hasUsableSession()) {
+				window.location.replace("/login");
 			}
 		</script>
+	</head>
+	<body class="bg-white font-sans antialiased h-screen w-screen overflow-hidden">
 		<SetupWizard client:load />
 	</body>
 </html>
