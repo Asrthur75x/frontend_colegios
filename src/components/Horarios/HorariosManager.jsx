@@ -1117,6 +1117,9 @@ export default function HorariosManager({ isEditPage = false }) {
         }
 
         const target = overlappingDest[0];
+        if (target.curso_id === sourceRaw.curso_id && target.profesor_id === sourceRaw.profesor_id) {
+            return { kind: 'blocked', reason: 'Mismo curso y profesor — no es necesario intercambiar' };
+        }
         const targetStart = target.slot_inicio + 1;
         const targetHoras = target.horas || 1;
         const destSlotIgnore = {
