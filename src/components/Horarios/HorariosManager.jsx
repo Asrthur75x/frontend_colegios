@@ -747,6 +747,21 @@ export default function HorariosManager({ isEditPage = false }) {
         return c ? c.nombre_curso : idStr;
     };
 
+    const getCursoEditLabel = (idStr) => {
+        const fullName = getCurso(idStr);
+        if (!fullName || fullName.length <= 18) return fullName;
+        const parenAcronym = fullName.match(/\(([A-ZÁÉÍÓÚÑ0-9]{2,8})\)/);
+        if (parenAcronym) return parenAcronym[1];
+        const stopWords = new Set(['y', 'e', 'de', 'del', 'la', 'las', 'el', 'los', 'en', 'para', 'con', 'a', 'al', 'por']);
+        const initials = fullName
+            .replace(/\([^)]*\)/g, '')
+            .split(/[\s,/-]+/)
+            .filter(w => w && !stopWords.has(w.toLowerCase()))
+            .map(w => w[0].toUpperCase())
+            .join('');
+        return initials.length >= 2 ? initials : fullName;
+    };
+
     const getProfesor = (idStr) => {
         const id = parseInt(idStr.replace('PROF_', ''));
         const p = profesores.find(x => x.id_profesor === id);
@@ -1955,8 +1970,8 @@ export default function HorariosManager({ isEditPage = false }) {
                                                                                         onDragStart={isEditMode ? (e) => handleDragStart(e, a) : undefined}
                                                                                         onDragEnd={isEditMode ? handleDragEnd : undefined}
                                                                                         onClick={isEditMode ? handleCardClick : undefined}
-                                                                                        title={moveStatus?.reason || (isEditMode ? 'Clic o arrastra para mover' : undefined)}
-                                                                                        className={`group rounded-2xl p-3 flex flex-col items-center justify-center text-center transition-all duration-200 border-2 relative z-10
+                                                                                        title={moveStatus?.reason || (isEditMode ? `${getCurso(a.curso_id)} — Clic o arrastra para mover` : undefined)}
+                                                                                        className={`group rounded-2xl p-3 flex flex-col items-center justify-center text-center transition-all duration-200 border-2 relative z-10 overflow-hidden
                                                                                         ${isEditMode && !activeMoveSource ? 'animate-jiggle cursor-grab hover:shadow-lg hover:scale-[1.02] shadow-sm' : ''}
                                                                                         ${isOrigin ? 'ring-4 ring-[var(--color-brand-primary)] scale-[1.02] shadow-xl z-20 cursor-pointer' : ''}
                                                                                         ${isSwapTarget ? 'ring-2 ring-amber-400 hover:ring-4 hover:ring-amber-500 cursor-pointer shadow-md hover:scale-[1.02]' : ''}
@@ -1984,16 +1999,16 @@ export default function HorariosManager({ isEditPage = false }) {
                                                                                             </span>
                                                                                         )}
 
-                                                                                        <div>
+                                                                                        <div className="w-full min-w-0">
                                                                                             {span > 1 && (
                                                                                                 <span className="inline-block mb-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border" style={{ borderColor: col.solid, color: col.solid, backgroundColor: 'transparent' }}>
                                                                                                     {span} horas
                                                                                                 </span>
                                                                                             )}
-                                                                                            <p className="text-[18px] font-black leading-snug" style={{ color: col.text }}>
-                                                                                                {getCurso(a.curso_id)}
+                                                                                            <p className={`text-[18px] font-black leading-snug ${isEditMode ? 'truncate' : ''}`} style={{ color: col.text }}>
+                                                                                                {isEditMode ? getCursoEditLabel(a.curso_id) : getCurso(a.curso_id)}
                                                                                             </p>
-                                                                                            <p className="text-[11px] font-semibold mt-2" style={{ color: col.text, opacity: 0.75 }}>
+                                                                                            <p className={`text-[11px] font-semibold mt-2 ${isEditMode ? 'truncate' : ''}`} style={{ color: col.text, opacity: 0.75 }}>
                                                                                                 <span className="font-black" style={{ opacity: 1 }}>Profesor: </span>{getProfesor(a.profesor_id)}
                                                                                             </p>
                                                                                         </div>
