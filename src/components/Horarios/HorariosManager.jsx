@@ -152,6 +152,7 @@ export default function HorariosManager({ isEditPage = false }) {
     const [isEditMode, setIsEditMode] = useState(false);
     const [dragData, setDragData] = useState(null);
     const [selectedEditBlock, setSelectedEditBlock] = useState(null);
+    const [blockedReason, setBlockedReason] = useState(null);
     const [dropTarget, setDropTarget] = useState(null);
     const [moveConflicts, setMoveConflicts] = useState(null);
     const [swapConfirm, setSwapConfirm] = useState(null);
@@ -164,14 +165,21 @@ export default function HorariosManager({ isEditPage = false }) {
 
     useEffect(() => {
         setSelectedEditBlock(null);
+        setBlockedReason(null);
         setDragData(null);
         setDropTarget(null);
     }, [selectedSeccion, isEditMode]);
 
     useEffect(() => {
-        if (!selectedEditBlock) return;
+        if (!selectedEditBlock) {
+            setBlockedReason(null);
+            return;
+        }
         const onKeyDown = (e) => {
-            if (e.key === 'Escape') setSelectedEditBlock(null);
+            if (e.key === 'Escape') {
+                setSelectedEditBlock(null);
+                setBlockedReason(null);
+            }
         };
         window.addEventListener('keydown', onKeyDown);
         return () => window.removeEventListener('keydown', onKeyDown);
@@ -933,17 +941,32 @@ export default function HorariosManager({ isEditPage = false }) {
         return gr ? `${gr.numero}° ${sec.nombre}` : sec.nombre;
     };
 
-    const findTeacherConflict = (profIdStr, targetDiaNorm, targetTurnoNorm, startBlock, duration, ignoreRawList) => {
+    const isSameSlot = (a, secIdStr, diaNorm, slotInicio) => (
+        a
+        && String(a.seccion_id) === String(secIdStr)
+        && normalize(a.dia) === diaNorm
+        && Number(a.slot_inicio) === Number(slotInicio)
+    );
+
+    const findTeacherConflict = (profIdStr, targetDiaNorm, targetTurnoNorm, startBlock, duration, ignoredSlots) => {
         const endBlock = startBlock + duration - 1;
         for (const a of asignaciones) {
-            if (ignoreRawList.includes(a)) continue;
             if (a.profesor_id !== profIdStr) continue;
             if (normalize(a.dia) !== targetDiaNorm) continue;
             if (normalize(a.turno || 'Mañana') !== targetTurnoNorm) continue;
-            const aStart = a.slot_inicio + 1;
-            const aEnd = a.slot_inicio + (a.horas || 1);
-            if (aStart <= endBlock && aEnd >= startBlock) {
-                return a;
+            const aHoras = a.horas || 1;
+            for (let i = 0; i < aHoras; i++) {
+                const blockNum = a.slot_inicio + 1 + i;
+                if (blockNum < startBlock || blockNum > endBlock) continue;
+                const isIgnored = ignoredSlots.some(ign =>
+                    String(a.seccion_id) === String(ign.seccion_id)
+                    && targetDiaNorm === ign.diaNorm
+                    && blockNum >= ign.startBlock
+                    && blockNum <= ign.endBlock
+                );
+                if (!isIgnored) {
+                    return a;
+                }
             }
         }
         return null;
@@ -961,10 +984,7 @@ export default function HorariosManager({ isEditPage = false }) {
     const getSlotMoveStatus = (diaDest, bNum, destAsig = null) => {
         if (!activeMoveSource) return null;
         const sourceRaw = activeMoveSource.raw;
-        if (destAsig && destAsig === sourceRaw) {
-            return { kind: 'origin', reason: 'Bloque seleccionado (clic para cancelar)' };
-        }
-
+        const sourceSecId = `SEC_${activeMoveSource.seccion_id}`;
         const origStart = activeMoveSource.slot_inicio_origen + 1;
         const origHoras = activeMoveSource.horas_origen || 1;
         const destStart = bNum;
@@ -973,8 +993,11 @@ export default function HorariosManager({ isEditPage = false }) {
         const diaDestNorm = normalize(diaDest.nombre_dia);
         const turnoNorm = normalize(activeMoveSource.turno_origen || 'Mañana');
 
-        if (diaOrigNorm === diaDestNorm && destStart === origStart) {
-            return { kind: 'origin', reason: 'Posición actual del bloque' };
+        if (
+            (destAsig && isSameSlot(destAsig, sourceSecId, diaOrigNorm, activeMoveSource.slot_inicio_origen))
+            || (diaOrigNorm === diaDestNorm && destStart === origStart)
+        ) {
+            return { kind: 'origin', reason: 'Bloque seleccionado (clic para cancelar)' };
         }
 
         const maxDest = getDayBlockLimit(diaDest.id_dia);
@@ -986,8 +1009,15 @@ export default function HorariosManager({ isEditPage = false }) {
             return { kind: 'blocked', reason: 'Choca con un bloque reservado' };
         }
 
+        const origSlotIgnore = {
+            seccion_id: sourceSecId,
+            diaNorm: diaOrigNorm,
+            startBlock: origStart,
+            endBlock: origStart + origHoras - 1,
+        };
+
         const overlappingDest = filteredAsignaciones.filter(x => {
-            if (x === sourceRaw) return false;
+            if (isSameSlot(x, sourceSecId, diaOrigNorm, activeMoveSource.slot_inicio_origen)) return false;
             if (normalize(x.dia) !== diaDestNorm) return false;
             const xStart = x.slot_inicio + 1;
             const xEnd = x.slot_inicio + (x.horas || 1);
@@ -1001,7 +1031,7 @@ export default function HorariosManager({ isEditPage = false }) {
                 turnoNorm,
                 destStart,
                 destHoras,
-                [sourceRaw]
+                [origSlotIgnore]
             );
             if (profConflict) {
                 return {
@@ -1013,11 +1043,18 @@ export default function HorariosManager({ isEditPage = false }) {
         }
 
         if (overlappingDest.length > 1) {
-            return { kind: 'blocked', reason: 'Se superpone con múltiples materias a la vez' };
+            return { kind: 'blocked', reason: 'Se superpone con múltiples bloques a la vez' };
         }
 
         const target = overlappingDest[0];
+        const targetStart = target.slot_inicio + 1;
         const targetHoras = target.horas || 1;
+        const destSlotIgnore = {
+            seccion_id: target.seccion_id,
+            diaNorm: diaDestNorm,
+            startBlock: targetStart,
+            endBlock: targetStart + targetHoras - 1,
+        };
         const diaOrigObj = dias.find(d => normalize(d.nombre_dia) === diaOrigNorm);
 
         if (diaOrigObj) {
@@ -1031,7 +1068,8 @@ export default function HorariosManager({ isEditPage = false }) {
         }
 
         const origOverlap = filteredAsignaciones.find(x => {
-            if (x === sourceRaw || x === target) return false;
+            if (isSameSlot(x, sourceSecId, diaOrigNorm, activeMoveSource.slot_inicio_origen)) return false;
+            if (isSameSlot(x, target.seccion_id, diaDestNorm, target.slot_inicio)) return false;
             if (normalize(x.dia) !== diaOrigNorm) return false;
             const xStart = x.slot_inicio + 1;
             const xEnd = x.slot_inicio + (x.horas || 1);
@@ -1047,7 +1085,7 @@ export default function HorariosManager({ isEditPage = false }) {
             turnoNorm,
             destStart,
             destHoras,
-            [sourceRaw, target]
+            [origSlotIgnore, destSlotIgnore]
         );
         if (profOrigConflict) {
             return {
@@ -1062,7 +1100,7 @@ export default function HorariosManager({ isEditPage = false }) {
             turnoNorm,
             origStart,
             origHoras,
-            [sourceRaw, target]
+            [origSlotIgnore, destSlotIgnore]
         );
         if (profTargetConflict) {
             return {
@@ -1668,28 +1706,43 @@ export default function HorariosManager({ isEditPage = false }) {
                                                     : 'bg-slate-50 border-slate-200 text-slate-600'
                                                 }`}>
                                                     {activeMoveSource ? (
-                                                        <>
-                                                            <div className="flex flex-wrap items-center gap-2 text-[12px] font-bold">
-                                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[var(--color-brand-primary)] text-white text-[11px] font-black">
-                                                                    Moviendo
-                                                                </span>
-                                                                <span className="font-black text-slate-800">{getCurso(activeMoveSource.raw.curso_id)}</span>
-                                                                <span className="text-slate-500 font-semibold">({getProfesor(activeMoveSource.raw.profesor_id)})</span>
-                                                                <span className="hidden sm:inline text-slate-300">•</span>
-                                                                <span className="inline-flex items-center gap-1 text-emerald-700"><span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>Mover</span>
-                                                                <span className="inline-flex items-center gap-1 text-amber-700"><span className="w-2.5 h-2.5 rounded-full bg-amber-400"></span>Intercambiar ↔</span>
-                                                                <span className="inline-flex items-center gap-1 text-slate-500"><span className="w-2.5 h-2.5 rounded-full bg-slate-400 opacity-50"></span>No disponible</span>
+                                                        <div className="w-full flex flex-col gap-2">
+                                                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                                                <div className="flex flex-wrap items-center gap-2 text-[12px] font-bold">
+                                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[var(--color-brand-primary)] text-white text-[11px] font-black">
+                                                                        Moviendo
+                                                                    </span>
+                                                                    <span className="font-black text-slate-800">{getCurso(activeMoveSource.raw.curso_id)}</span>
+                                                                    <span className="text-slate-500 font-semibold">({getProfesor(activeMoveSource.raw.profesor_id)})</span>
+                                                                    <span className="hidden sm:inline text-slate-300">•</span>
+                                                                    <span className="inline-flex items-center gap-1 text-emerald-700"><span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>Mover</span>
+                                                                    <span className="inline-flex items-center gap-1 text-amber-700"><span className="w-2.5 h-2.5 rounded-full bg-amber-400"></span>Intercambiar ↔</span>
+                                                                    <span className="inline-flex items-center gap-1 text-slate-500"><span className="w-2.5 h-2.5 rounded-full bg-slate-400 opacity-50"></span>No disponible</span>
+                                                                </div>
+                                                                {selectedEditBlock && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => { setSelectedEditBlock(null); setBlockedReason(null); }}
+                                                                        className="px-3 py-1.5 rounded-lg bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-100 text-[11px] font-black transition-colors cursor-pointer"
+                                                                    >
+                                                                        Cancelar selección (Esc)
+                                                                    </button>
+                                                                )}
                                                             </div>
-                                                            {selectedEditBlock && (
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => setSelectedEditBlock(null)}
-                                                                    className="px-3 py-1.5 rounded-lg bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-100 text-[11px] font-black transition-colors cursor-pointer"
-                                                                >
-                                                                    Cancelar selección (Esc)
-                                                                </button>
+                                                            {blockedReason && (
+                                                                <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-red-50 border border-red-200 text-red-700 text-[12px] font-bold">
+                                                                    <span>No se puede mover ahí: {blockedReason}</span>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setBlockedReason(null)}
+                                                                        className="p-1 rounded-lg hover:bg-red-100 text-red-600 cursor-pointer shrink-0"
+                                                                        title="Cerrar aviso"
+                                                                    >
+                                                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                                                    </button>
+                                                                </div>
                                                             )}
-                                                        </>
+                                                        </div>
                                                     ) : (
                                                         <p className="text-[12px] font-semibold">
                                                             <span className="font-black text-slate-800">Modo edición activo:</span> haz clic o arrastra una materia para ver qué bloques están disponibles y cuáles bloqueados.
@@ -1849,7 +1902,12 @@ export default function HorariosManager({ isEditPage = false }) {
                                                                             const a = renderAsignacion.a;
                                                                             const col = getColor(a.curso_id);
                                                                             const span = renderAsignacion.span;
-                                                                            const isDragging = isEditMode && dragData && dragData.raw === a;
+                                                                            const isDragging = isEditMode && dragData && isSameSlot(
+                                                                                a,
+                                                                                `SEC_${dragData.seccion_id}`,
+                                                                                normalize(dragData.dia_origen),
+                                                                                dragData.slot_inicio_origen
+                                                                            );
                                                                             const moveStatus = getSlotMoveStatus(dia, bNum, a);
                                                                             const isOrigin = moveStatus?.kind === 'origin';
                                                                             const isBlocked = moveStatus?.kind === 'blocked';
@@ -1858,19 +1916,22 @@ export default function HorariosManager({ isEditPage = false }) {
                                                                             const handleCardClick = () => {
                                                                                 if (!isEditMode) return;
                                                                                 if (!activeMoveSource) {
+                                                                                    setBlockedReason(null);
                                                                                     setSelectedEditBlock(buildMoveData(a));
                                                                                     return;
                                                                                 }
                                                                                 if (isOrigin) {
                                                                                     setSelectedEditBlock(null);
+                                                                                    setBlockedReason(null);
                                                                                     return;
                                                                                 }
                                                                                 if (isSwapTarget) {
+                                                                                    setBlockedReason(null);
                                                                                     void executeMove(activeMoveSource, dia, bNum);
                                                                                     return;
                                                                                 }
                                                                                 if (isBlocked && moveStatus?.reason) {
-                                                                                    showToast(moveStatus.reason, 'error');
+                                                                                    setBlockedReason(moveStatus.reason);
                                                                                 }
                                                                             };
 
@@ -1882,9 +1943,10 @@ export default function HorariosManager({ isEditPage = false }) {
                                                                                         if (isBlocked) {
                                                                                             e.preventDefault();
                                                                                             setDropTarget(null);
-                                                                                            if (moveStatus?.reason) showToast(moveStatus.reason, 'error');
+                                                                                            if (moveStatus?.reason) setBlockedReason(moveStatus.reason);
                                                                                             return;
                                                                                         }
+                                                                                        setBlockedReason(null);
                                                                                         void handleDrop(e, dia, bNum);
                                                                                     } : undefined}
                                                                                 >
@@ -1952,18 +2014,20 @@ export default function HorariosManager({ isEditPage = false }) {
                                                                                         if (isBlocked) {
                                                                                             e.preventDefault();
                                                                                             setDropTarget(null);
-                                                                                            if (moveStatus?.reason) showToast(moveStatus.reason, 'error');
+                                                                                            if (moveStatus?.reason) setBlockedReason(moveStatus.reason);
                                                                                             return;
                                                                                         }
+                                                                                        setBlockedReason(null);
                                                                                         void handleDrop(e, dia, bNum);
                                                                                     } : undefined}
                                                                                 >
                                                                                     <div
                                                                                         onClick={isEditMode && activeMoveSource ? () => {
                                                                                             if (isFreeTarget) {
+                                                                                                setBlockedReason(null);
                                                                                                 void executeMove(activeMoveSource, dia, bNum);
                                                                                             } else if (isBlocked && moveStatus?.reason) {
-                                                                                                showToast(moveStatus.reason, 'error');
+                                                                                                setBlockedReason(moveStatus.reason);
                                                                                             }
                                                                                         } : undefined}
                                                                                         title={moveStatus?.reason || undefined}
