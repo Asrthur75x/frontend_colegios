@@ -14,8 +14,8 @@ const ModuleSidebar = ({
     children,
 }) => {
     return (
-        <aside className="md:w-1/4 flex-shrink-0 -mt-8">
-            <div className="sticky top-8 flex flex-col gap-5">
+        <aside className="md:w-1/4 flex-shrink-0">
+            <div className="sticky top-6 flex flex-col gap-5">
 
                 {/* Blue Header Card */}
                 <div className="bg-[var(--color-brand-primary)]/10 rounded-[24px] p-6 shadow-md relative overflow-hidden border border-[var(--color-brand-primary)]/70 flex flex-col gap-2">

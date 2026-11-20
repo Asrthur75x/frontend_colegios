@@ -38,8 +38,9 @@ const bodyBg = "#f8fafc";
 		<!-- Contenedor principal a pantalla completa -->
 		<div
 			class={`flex flex-col overflow-y-scroll overflow-x-hidden ${isHorariosRoute ? "h-[calc(100vh-8rem)] mt-32" : "h-[calc(100vh-5rem)] mt-20"}`}
+			style={isHorariosRoute ? "margin-top: 8rem; height: calc(100vh - 8rem);" : "margin-top: 5rem; height: calc(100vh - 5rem);"}
 		>
-			<main class="p-8 flex-1 w-full max-w-screen-2xl mx-auto">
+			<main class="px-8 pb-8 pt-6 flex-1 w-full max-w-screen-2xl mx-auto">
 				<slot />
 			</main>
 		</div>
