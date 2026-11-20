@@ -151,6 +151,7 @@ export default function HorariosManager({ isEditPage = false }) {
     // Drag & Drop edit mode
     const [isEditMode, setIsEditMode] = useState(false);
     const [dragData, setDragData] = useState(null);
+    const [selectedEditBlock, setSelectedEditBlock] = useState(null);
     const [dropTarget, setDropTarget] = useState(null);
     const [moveConflicts, setMoveConflicts] = useState(null);
     const [swapConfirm, setSwapConfirm] = useState(null);
@@ -160,6 +161,21 @@ export default function HorariosManager({ isEditPage = false }) {
     const [saveVersionModalOpen, setSaveVersionModalOpen] = useState(false);
     const [versionName, setVersionName] = useState('');
     const [versionDesc, setVersionDesc] = useState('');
+
+    useEffect(() => {
+        setSelectedEditBlock(null);
+        setDragData(null);
+        setDropTarget(null);
+    }, [selectedSeccion, isEditMode]);
+
+    useEffect(() => {
+        if (!selectedEditBlock) return;
+        const onKeyDown = (e) => {
+            if (e.key === 'Escape') setSelectedEditBlock(null);
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [selectedEditBlock]);
 
     // UI States
     const [activeView] = useState('horario'); // Estadísticas ocultas temporalmente.
@@ -524,13 +540,12 @@ export default function HorariosManager({ isEditPage = false }) {
         catch (err) { setMoveConflicts({ conflicts: [err.message], warnings: [] }); }
     };
 
-    const handleDragStart = (e, asignacion) => {
-        if (!isEditMode) return;
+    const buildMoveData = (asignacion) => {
         const cursoIdRaw = String(asignacion.curso_id ?? '');
         const resolvedCursoId = cursoIdRaw === 'TUT1'
             ? (cursos.find(c => c.nombre_curso?.includes('Tutoría'))?.id_curso ?? 0)
             : parseInt(cursoIdRaw.replace('CUR_', ''), 10);
-        const data = {
+        return {
             seccion_id: parseInt(String(asignacion.seccion_id).replace('SEC_', ''), 10),
             curso_id: Number.isNaN(resolvedCursoId) ? 0 : resolvedCursoId,
             profesor_id: parseInt(String(asignacion.profesor_id).replace('PROF_', ''), 10),
@@ -540,6 +555,12 @@ export default function HorariosManager({ isEditPage = false }) {
             turno_origen: asignacion.turno || 'Mañana',
             raw: asignacion
         };
+    };
+
+    const handleDragStart = (e, asignacion) => {
+        if (!isEditMode) return;
+        const data = buildMoveData(asignacion);
+        setSelectedEditBlock(null);
         setDragData(data);
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', JSON.stringify(data));
@@ -548,42 +569,46 @@ export default function HorariosManager({ isEditPage = false }) {
 
     const handleDragEnd = (e) => {
         e.currentTarget.style.opacity = '1';
+        setDragData(null);
         setDropTarget(null);
     };
 
-    const handleDragOver = (e, diaId, bloqueNum) => {
+    const handleDragOver = (e, diaId, bloqueNum, isBlocked = false) => {
         e.preventDefault();
+        if (isBlocked) {
+            e.dataTransfer.dropEffect = 'none';
+            setDropTarget(null);
+            return;
+        }
         e.dataTransfer.dropEffect = 'move';
         setDropTarget({ diaId, bloqueNum });
     };
 
     const handleDragLeave = () => { setDropTarget(null); };
 
-    const handleDrop = async (e, dia, bloqueNum) => {
-        e.preventDefault();
-        setDropTarget(null);
-        if (!dragData) return;
+    const executeMove = async (source, dia, bloqueNum) => {
+        if (!source) return;
 
-        const diaOrigenObj = dias.find(d => normalize(d.nombre_dia) === normalize(dragData.dia_origen));
+        const diaOrigenObj = dias.find(d => normalize(d.nombre_dia) === normalize(source.dia_origen));
         const diaDestinoObj = dia;
         if (!diaOrigenObj) return;
 
-        const turnosSeccion = seccionTurnos.filter(st => st.id_seccion === dragData.seccion_id).map(st => st.id_turno);
-        const idTurno = turnos.find(t => normalize(t.nombre) === normalize(dragData.turno_origen))?.id_turno
+        const turnosSeccion = seccionTurnos.filter(st => st.id_seccion === source.seccion_id).map(st => st.id_turno);
+        const idTurno = turnos.find(t => normalize(t.nombre) === normalize(source.turno_origen))?.id_turno
             ?? (turnosSeccion.length > 0 ? turnosSeccion[0] : (turnos.length > 0 ? turnos[0].id_turno : 1));
 
         const payload = {
-            seccion_id: dragData.seccion_id,
-            curso_id: dragData.curso_id,
-            profesor_id: dragData.profesor_id,
+            seccion_id: source.seccion_id,
+            curso_id: source.curso_id,
+            profesor_id: source.profesor_id,
             dia_origen_id: diaOrigenObj.id_dia,
             turno_origen_id: idTurno,
-            slot_inicio_origen: dragData.slot_inicio_origen,
-            horas_origen: dragData.horas_origen,
+            slot_inicio_origen: source.slot_inicio_origen,
+            horas_origen: source.horas_origen,
             dia_destino_id: diaDestinoObj.id_dia,
             turno_destino_id: idTurno,
             slot_inicio_destino: bloqueNum - 1,
-            horas_destino: dragData.horas_origen
+            horas_destino: source.horas_origen
         };
 
         try {
@@ -592,12 +617,14 @@ export default function HorariosManager({ isEditPage = false }) {
             if (!valData.valid) {
                 setMoveConflicts({ conflicts: valData.conflicts || [], warnings: valData.warnings || [] });
                 setDragData(null);
+                setSelectedEditBlock(null);
                 return;
             }
 
             if (valData.is_swap && valData.swap_info) {
                 setSwapConfirm({ payload, swapInfo: valData.swap_info, warnings: valData.warnings || [] });
                 setDragData(null);
+                setSelectedEditBlock(null);
                 return;
             }
 
@@ -617,6 +644,14 @@ export default function HorariosManager({ isEditPage = false }) {
             setMoveConflicts({ conflicts: [err?.message || 'Error al mover el bloque'], warnings: [] });
         }
         setDragData(null);
+        setSelectedEditBlock(null);
+    };
+
+    const handleDrop = async (e, dia, bloqueNum) => {
+        e.preventDefault();
+        setDropTarget(null);
+        if (!dragData) return;
+        await executeMove(dragData, dia, bloqueNum);
     };
 
     const confirmSwap = async () => {
@@ -881,6 +916,166 @@ export default function HorariosManager({ isEditPage = false }) {
             }
         });
     }
+
+    const activeMoveSource = isEditMode ? (dragData || selectedEditBlock) : null;
+
+    const getDayBlockLimit = (diaId) => {
+        if (!secActual) return blockNumbers.length;
+        const cfg = configGradoDia.find(c => c.id_grado === secActual.id_grado && c.id_dia === diaId);
+        return cfg?.bloques_dia || blockNumbers.length;
+    };
+
+    const getSeccionLabel = (secIdStr) => {
+        const idNum = parseInt(String(secIdStr).replace('SEC_', ''), 10);
+        const sec = secciones.find(s => s.id_seccion === idNum);
+        if (!sec) return String(secIdStr);
+        const gr = grados.find(g => g.id_grado === sec.id_grado);
+        return gr ? `${gr.numero}° ${sec.nombre}` : sec.nombre;
+    };
+
+    const findTeacherConflict = (profIdStr, targetDiaNorm, targetTurnoNorm, startBlock, duration, ignoreRawList) => {
+        const endBlock = startBlock + duration - 1;
+        for (const a of asignaciones) {
+            if (ignoreRawList.includes(a)) continue;
+            if (a.profesor_id !== profIdStr) continue;
+            if (normalize(a.dia) !== targetDiaNorm) continue;
+            if (normalize(a.turno || 'Mañana') !== targetTurnoNorm) continue;
+            const aStart = a.slot_inicio + 1;
+            const aEnd = a.slot_inicio + (a.horas || 1);
+            if (aStart <= endBlock && aEnd >= startBlock) {
+                return a;
+            }
+        }
+        return null;
+    };
+
+    const hasReservedInRange = (diaId, startBlock, duration) => {
+        const endBlock = startBlock + duration - 1;
+        return reservacionesSeccion.some(r =>
+            r.id_dia === diaId
+            && r.slot_inicio <= endBlock
+            && (r.slot_inicio + r.horas - 1) >= startBlock
+        );
+    };
+
+    const getSlotMoveStatus = (diaDest, bNum, destAsig = null) => {
+        if (!activeMoveSource) return null;
+        const sourceRaw = activeMoveSource.raw;
+        if (destAsig && destAsig === sourceRaw) {
+            return { kind: 'origin', reason: 'Bloque seleccionado (clic para cancelar)' };
+        }
+
+        const origStart = activeMoveSource.slot_inicio_origen + 1;
+        const origHoras = activeMoveSource.horas_origen || 1;
+        const destStart = bNum;
+        const destHoras = origHoras;
+        const diaOrigNorm = normalize(activeMoveSource.dia_origen);
+        const diaDestNorm = normalize(diaDest.nombre_dia);
+        const turnoNorm = normalize(activeMoveSource.turno_origen || 'Mañana');
+
+        if (diaOrigNorm === diaDestNorm && destStart === origStart) {
+            return { kind: 'origin', reason: 'Posición actual del bloque' };
+        }
+
+        const maxDest = getDayBlockLimit(diaDest.id_dia);
+        if (destStart + destHoras - 1 > maxDest) {
+            return { kind: 'blocked', reason: `No caben las ${destHoras}h del bloque al final de ${diaDest.nombre_dia}` };
+        }
+
+        if (hasReservedInRange(diaDest.id_dia, destStart, destHoras)) {
+            return { kind: 'blocked', reason: 'Choca con un bloque reservado' };
+        }
+
+        const overlappingDest = filteredAsignaciones.filter(x => {
+            if (x === sourceRaw) return false;
+            if (normalize(x.dia) !== diaDestNorm) return false;
+            const xStart = x.slot_inicio + 1;
+            const xEnd = x.slot_inicio + (x.horas || 1);
+            return xStart <= (destStart + destHoras - 1) && xEnd >= destStart;
+        });
+
+        if (overlappingDest.length === 0) {
+            const profConflict = findTeacherConflict(
+                sourceRaw.profesor_id,
+                diaDestNorm,
+                turnoNorm,
+                destStart,
+                destHoras,
+                [sourceRaw]
+            );
+            if (profConflict) {
+                return {
+                    kind: 'blocked',
+                    reason: `${getProfesor(sourceRaw.profesor_id)} ya dicta ${getCurso(profConflict.curso_id)} en ${getSeccionLabel(profConflict.seccion_id)}`,
+                };
+            }
+            return { kind: 'free', reason: `Mover ${getCurso(sourceRaw.curso_id)} aquí` };
+        }
+
+        if (overlappingDest.length > 1) {
+            return { kind: 'blocked', reason: 'Se superpone con múltiples materias a la vez' };
+        }
+
+        const target = overlappingDest[0];
+        const targetHoras = target.horas || 1;
+        const diaOrigObj = dias.find(d => normalize(d.nombre_dia) === diaOrigNorm);
+
+        if (diaOrigObj) {
+            const maxOrig = getDayBlockLimit(diaOrigObj.id_dia);
+            if (origStart + targetHoras - 1 > maxOrig) {
+                return { kind: 'blocked', reason: `${getCurso(target.curso_id)} (${targetHoras}h) no cabe en ${activeMoveSource.dia_origen}` };
+            }
+            if (hasReservedInRange(diaOrigObj.id_dia, origStart, targetHoras)) {
+                return { kind: 'blocked', reason: 'El intercambio chocaría con un bloque reservado en origen' };
+            }
+        }
+
+        const origOverlap = filteredAsignaciones.find(x => {
+            if (x === sourceRaw || x === target) return false;
+            if (normalize(x.dia) !== diaOrigNorm) return false;
+            const xStart = x.slot_inicio + 1;
+            const xEnd = x.slot_inicio + (x.horas || 1);
+            return xStart <= (origStart + targetHoras - 1) && xEnd >= origStart;
+        });
+        if (origOverlap) {
+            return { kind: 'blocked', reason: `${getCurso(target.curso_id)} se superpondría con ${getCurso(origOverlap.curso_id)} en origen` };
+        }
+
+        const profOrigConflict = findTeacherConflict(
+            sourceRaw.profesor_id,
+            diaDestNorm,
+            turnoNorm,
+            destStart,
+            destHoras,
+            [sourceRaw, target]
+        );
+        if (profOrigConflict) {
+            return {
+                kind: 'blocked',
+                reason: `${getProfesor(sourceRaw.profesor_id)} ya dicta ${getCurso(profOrigConflict.curso_id)} en ${getSeccionLabel(profOrigConflict.seccion_id)}`,
+            };
+        }
+
+        const profTargetConflict = findTeacherConflict(
+            target.profesor_id,
+            diaOrigNorm,
+            turnoNorm,
+            origStart,
+            origHoras,
+            [sourceRaw, target]
+        );
+        if (profTargetConflict) {
+            return {
+                kind: 'blocked',
+                reason: `${getProfesor(target.profesor_id)} ya dicta ${getCurso(profTargetConflict.curso_id)} en ${getSeccionLabel(profTargetConflict.seccion_id)} (${activeMoveSource.dia_origen})`,
+            };
+        }
+
+        return {
+            kind: 'swap',
+            reason: `Intercambiar ${getCurso(sourceRaw.curso_id)} ↔ ${getCurso(target.curso_id)}`,
+        };
+    };
 
     const editSidebarActions = isEditPage ? (
         <div>
@@ -1467,6 +1662,42 @@ export default function HorariosManager({ isEditPage = false }) {
                                     {/* Tabla de Horario */}
                                     {selectedSeccion ? (
                                         <div className="flex flex-col gap-4 w-full">
+                                            {isEditMode && (
+                                                <div className={`rounded-2xl border px-4 py-3 flex flex-wrap items-center justify-between gap-3 transition-all ${activeMoveSource
+                                                    ? 'bg-indigo-50/90 border-indigo-200 text-indigo-900'
+                                                    : 'bg-slate-50 border-slate-200 text-slate-600'
+                                                }`}>
+                                                    {activeMoveSource ? (
+                                                        <>
+                                                            <div className="flex flex-wrap items-center gap-2 text-[12px] font-bold">
+                                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[var(--color-brand-primary)] text-white text-[11px] font-black">
+                                                                    Moviendo
+                                                                </span>
+                                                                <span className="font-black text-slate-800">{getCurso(activeMoveSource.raw.curso_id)}</span>
+                                                                <span className="text-slate-500 font-semibold">({getProfesor(activeMoveSource.raw.profesor_id)})</span>
+                                                                <span className="hidden sm:inline text-slate-300">•</span>
+                                                                <span className="inline-flex items-center gap-1 text-emerald-700"><span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>Mover</span>
+                                                                <span className="inline-flex items-center gap-1 text-amber-700"><span className="w-2.5 h-2.5 rounded-full bg-amber-400"></span>Intercambiar ↔</span>
+                                                                <span className="inline-flex items-center gap-1 text-slate-500"><span className="w-2.5 h-2.5 rounded-full bg-slate-400 opacity-50"></span>No disponible</span>
+                                                            </div>
+                                                            {selectedEditBlock && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setSelectedEditBlock(null)}
+                                                                    className="px-3 py-1.5 rounded-lg bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-100 text-[11px] font-black transition-colors cursor-pointer"
+                                                                >
+                                                                    Cancelar selección (Esc)
+                                                                </button>
+                                                            )}
+                                                        </>
+                                                    ) : (
+                                                        <p className="text-[12px] font-semibold">
+                                                            <span className="font-black text-slate-800">Modo edición activo:</span> haz clic o arrastra una materia para ver qué bloques están disponibles y cuáles bloqueados.
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            )}
+
                                             <div id="horario-table-container" className="bg-white rounded-[24px] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-x-auto p-6 w-full">
                                                 <table className="w-full border-collapse min-w-[600px] table-fixed">
                                                     <thead>
@@ -1561,7 +1792,9 @@ export default function HorariosManager({ isEditPage = false }) {
                                                                             const reservaActiva = renderReserva.a;
                                                                             return (
                                                                                 <td key={dia.id_dia} rowSpan={span} className="py-1 px-1" style={{ verticalAlign: 'middle' }}>
-                                                                                    <div className={`rounded-2xl p-3 flex flex-col items-center justify-center text-center shadow-sm border-2 overflow-hidden relative`}
+                                                                                    <div
+                                                                                        title={activeMoveSource ? 'Bloque reservado — no se puede mover aquí' : reservaActiva.nombre}
+                                                                                        className={`rounded-2xl p-3 flex flex-col items-center justify-center text-center shadow-sm border-2 overflow-hidden relative transition-all duration-200 ${activeMoveSource ? 'opacity-25 grayscale brightness-75 cursor-not-allowed' : ''}`}
                                                                                         style={{ backgroundColor: '#fffbeb', borderColor: '#f59e0b', height: `calc(${span} * 100px - 8px)` }}>
 
                                                                                         <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'repeating-linear-gradient(45deg, #f59e0b 25%, transparent 25%, transparent 75%, #f59e0b 75%, #f59e0b), repeating-linear-gradient(45deg, #f59e0b 25%, transparent 25%, transparent 75%, #f59e0b 75%, #f59e0b)', backgroundPosition: '0 0, 10px 10px', backgroundSize: '20px 20px' }}></div>
@@ -1617,27 +1850,76 @@ export default function HorariosManager({ isEditPage = false }) {
                                                                             const col = getColor(a.curso_id);
                                                                             const span = renderAsignacion.span;
                                                                             const isDragging = isEditMode && dragData && dragData.raw === a;
+                                                                            const moveStatus = getSlotMoveStatus(dia, bNum, a);
+                                                                            const isOrigin = moveStatus?.kind === 'origin';
+                                                                            const isBlocked = moveStatus?.kind === 'blocked';
+                                                                            const isSwapTarget = moveStatus?.kind === 'swap';
+
+                                                                            const handleCardClick = () => {
+                                                                                if (!isEditMode) return;
+                                                                                if (!activeMoveSource) {
+                                                                                    setSelectedEditBlock(buildMoveData(a));
+                                                                                    return;
+                                                                                }
+                                                                                if (isOrigin) {
+                                                                                    setSelectedEditBlock(null);
+                                                                                    return;
+                                                                                }
+                                                                                if (isSwapTarget) {
+                                                                                    void executeMove(activeMoveSource, dia, bNum);
+                                                                                    return;
+                                                                                }
+                                                                                if (isBlocked && moveStatus?.reason) {
+                                                                                    showToast(moveStatus.reason, 'error');
+                                                                                }
+                                                                            };
 
                                                                             return (
                                                                                 <td key={dia.id_dia} rowSpan={span} className="py-1 px-1" style={{ verticalAlign: 'middle' }}
-                                                                                    onDragOver={isEditMode ? (e) => handleDragOver(e, dia.id_dia, bNum) : undefined}
+                                                                                    onDragOver={isEditMode ? (e) => handleDragOver(e, dia.id_dia, bNum, isBlocked) : undefined}
                                                                                     onDragLeave={isEditMode ? handleDragLeave : undefined}
-                                                                                    onDrop={isEditMode ? (e) => handleDrop(e, dia, bNum) : undefined}
+                                                                                    onDrop={isEditMode ? (e) => {
+                                                                                        if (isBlocked) {
+                                                                                            e.preventDefault();
+                                                                                            setDropTarget(null);
+                                                                                            if (moveStatus?.reason) showToast(moveStatus.reason, 'error');
+                                                                                            return;
+                                                                                        }
+                                                                                        void handleDrop(e, dia, bNum);
+                                                                                    } : undefined}
                                                                                 >
                                                                                     <div
-                                                                                        draggable={isEditMode}
+                                                                                        draggable={isEditMode && !isBlocked}
                                                                                         onDragStart={isEditMode ? (e) => handleDragStart(e, a) : undefined}
                                                                                         onDragEnd={isEditMode ? handleDragEnd : undefined}
-                                                                                        className={`group rounded-2xl p-3 flex flex-col items-center justify-center text-center transition-all duration-200 border-2 relative z-10 
-                                                                                        ${isEditMode ? 'animate-jiggle cursor-grab hover:shadow-lg hover:scale-[1.02]' : ''} 
-                                                                                        ${isDragging ? 'opacity-50 scale-95 shadow-inner' : 'shadow-sm'}
+                                                                                        onClick={isEditMode ? handleCardClick : undefined}
+                                                                                        title={moveStatus?.reason || (isEditMode ? 'Clic o arrastra para mover' : undefined)}
+                                                                                        className={`group rounded-2xl p-3 flex flex-col items-center justify-center text-center transition-all duration-200 border-2 relative z-10
+                                                                                        ${isEditMode && !activeMoveSource ? 'animate-jiggle cursor-grab hover:shadow-lg hover:scale-[1.02] shadow-sm' : ''}
+                                                                                        ${isOrigin ? 'ring-4 ring-[var(--color-brand-primary)] scale-[1.02] shadow-xl z-20 cursor-pointer' : ''}
+                                                                                        ${isSwapTarget ? 'ring-2 ring-amber-400 hover:ring-4 hover:ring-amber-500 cursor-pointer shadow-md hover:scale-[1.02]' : ''}
+                                                                                        ${isBlocked ? 'opacity-25 grayscale brightness-75 cursor-not-allowed shadow-none' : ''}
+                                                                                        ${isDragging ? 'opacity-50 scale-95 shadow-inner' : ''}
+                                                                                        ${!isEditMode ? 'shadow-sm' : ''}
                                                                                     `}
-                                                                                        style={{ backgroundColor: col.pastel, borderColor: col.solid, height: `calc(${span} * 100px - 8px)` }}>
+                                                                                        style={{ backgroundColor: col.pastel, borderColor: isSwapTarget ? '#f59e0b' : col.solid, height: `calc(${span} * 100px - 8px)` }}>
 
-                                                                                        {isEditMode && (
+                                                                                        {isEditMode && !activeMoveSource && (
                                                                                             <div className="absolute top-2 right-2 opacity-60 text-slate-600 transition-opacity">
                                                                                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 9h8M8 15h8" /></svg>
                                                                                             </div>
+                                                                                        )}
+
+                                                                                        {isOrigin && (
+                                                                                            <span className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-[var(--color-brand-primary)] text-white text-[9px] font-black uppercase tracking-wider shadow-sm">
+                                                                                                Origen
+                                                                                            </span>
+                                                                                        )}
+
+                                                                                        {isSwapTarget && (
+                                                                                            <span className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-black shadow-sm flex items-center gap-0.5">
+                                                                                                ↔
+                                                                                            </span>
                                                                                         )}
 
                                                                                         <div>
@@ -1657,21 +1939,48 @@ export default function HorariosManager({ isEditPage = false }) {
                                                                                 </td>
                                                                             );
                                                                         } else {
-                                                                            const isDropHere = isEditMode && dropTarget && dropTarget.diaId === dia.id_dia && dropTarget.bloqueNum === bNum;
+                                                                            const moveStatus = getSlotMoveStatus(dia, bNum, null);
+                                                                            const isBlocked = moveStatus?.kind === 'blocked';
+                                                                            const isFreeTarget = moveStatus?.kind === 'free';
+                                                                            const isDropHere = isEditMode && !isBlocked && dropTarget && dropTarget.diaId === dia.id_dia && dropTarget.bloqueNum === bNum;
+
                                                                             return (
                                                                                 <td key={dia.id_dia} className="py-1 px-1" style={{ verticalAlign: 'middle' }}
-                                                                                    onDragOver={isEditMode ? (e) => handleDragOver(e, dia.id_dia, bNum) : undefined}
+                                                                                    onDragOver={isEditMode ? (e) => handleDragOver(e, dia.id_dia, bNum, isBlocked) : undefined}
                                                                                     onDragLeave={isEditMode ? handleDragLeave : undefined}
-                                                                                    onDrop={isEditMode ? (e) => handleDrop(e, dia, bNum) : undefined}
+                                                                                    onDrop={isEditMode ? (e) => {
+                                                                                        if (isBlocked) {
+                                                                                            e.preventDefault();
+                                                                                            setDropTarget(null);
+                                                                                            if (moveStatus?.reason) showToast(moveStatus.reason, 'error');
+                                                                                            return;
+                                                                                        }
+                                                                                        void handleDrop(e, dia, bNum);
+                                                                                    } : undefined}
                                                                                 >
-                                                                                    <div className={`rounded-xl flex items-center justify-center transition-all duration-200 ${isDropHere
-                                                                                        ? 'bg-violet-100 border-2 border-dashed border-[var(--color-brand-primary)] scale-105 shadow-md'
-                                                                                        : isEditMode
-                                                                                            ? 'bg-slate-50/80 border-2 border-dashed border-slate-200 hover:border-violet-300 hover:bg-violet-50/50'
-                                                                                            : 'bg-slate-50 border border-dashed border-slate-200'
+                                                                                    <div
+                                                                                        onClick={isEditMode && activeMoveSource ? () => {
+                                                                                            if (isFreeTarget) {
+                                                                                                void executeMove(activeMoveSource, dia, bNum);
+                                                                                            } else if (isBlocked && moveStatus?.reason) {
+                                                                                                showToast(moveStatus.reason, 'error');
+                                                                                            }
+                                                                                        } : undefined}
+                                                                                        title={moveStatus?.reason || undefined}
+                                                                                        className={`rounded-xl flex flex-col items-center justify-center transition-all duration-200 ${isDropHere
+                                                                                            ? 'bg-emerald-100 border-2 border-dashed border-emerald-500 scale-105 shadow-md'
+                                                                                            : isFreeTarget
+                                                                                                ? 'bg-emerald-50/90 border-2 border-dashed border-emerald-400 hover:bg-emerald-100 hover:border-emerald-500 cursor-pointer'
+                                                                                                : isBlocked
+                                                                                                    ? 'bg-slate-200/70 border border-slate-300/60 opacity-35 cursor-not-allowed'
+                                                                                                    : isEditMode
+                                                                                                        ? 'bg-slate-50/80 border-2 border-dashed border-slate-200 hover:border-violet-300 hover:bg-violet-50/50'
+                                                                                                        : 'bg-slate-50 border border-dashed border-slate-200'
                                                                                         }`} style={{ height: 'calc(100px - 8px)' }}>
                                                                                         {isDropHere ? (
-                                                                                            <svg className="w-5 h-5 text-[var(--color-brand-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m0 0l-4-4m4 4l4-4" /></svg>
+                                                                                            <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m0 0l-4-4m4 4l4-4" /></svg>
+                                                                                        ) : isFreeTarget ? (
+                                                                                            <span className="text-[11px] font-black text-emerald-700">Mover aquí</span>
                                                                                         ) : (
                                                                                             <div className="w-1 h-1 rounded-full bg-slate-300" />
                                                                                         )}
