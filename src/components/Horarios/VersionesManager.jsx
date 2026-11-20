@@ -192,6 +192,19 @@ export default function VersionesManager() {
         setEditingId(null);
     };
 
+    const handleToggleOfficial = async (snap) => {
+        const nextVal = !snap.is_official;
+        setLoadingAction(snap.id_snapshot);
+        try {
+            await updateSnapshot(snap.id_snapshot, { is_official: nextVal });
+            showToast(nextVal ? `"${snap.nombre}" marcada como Oficial / Publicada` : 'Marca de Oficial retirada');
+            await fetchSnapshots();
+        } catch (e) {
+            showToast(e?.message || 'No se pudo actualizar el estado Oficial', 'error');
+        }
+        setLoadingAction(null);
+    };
+
     const handleCreateVersion = async (e) => {
         e.preventDefault();
         setIsCreatingVersion(true);
@@ -652,7 +665,8 @@ export default function VersionesManager() {
     const filteredSnapshots = React.useMemo(() => {
         return snapshots.filter(snap => {
             if (searchTerm && !snap.nombre.toLowerCase().includes(searchTerm.toLowerCase()) && !(snap.descripcion || '').toLowerCase().includes(searchTerm.toLowerCase())) return false;
-            if (filterEstado !== 'ALL' && snap.estado !== filterEstado) return false;
+            if (filterEstado === 'OFICIAL' && !snap.is_official) return false;
+            if (filterEstado !== 'ALL' && filterEstado !== 'OFICIAL' && snap.estado !== filterEstado) return false;
             if (filterDate) {
                 const d = parseSnapshotDate(snap.created_at);
                 if (Number.isNaN(d.getTime())) return false;
@@ -662,6 +676,8 @@ export default function VersionesManager() {
             return true;
         });
     }, [snapshots, searchTerm, filterEstado, filterDate]);
+
+    const officialSnapshot = React.useMemo(() => snapshots.find(s => s.is_official) || null, [snapshots]);
 
     const groupedFamilies = React.useMemo(() => {
         if (!filteredSnapshots || filteredSnapshots.length === 0) return [];
@@ -711,6 +727,7 @@ export default function VersionesManager() {
                         svgImage="/profe.svg"
                         stats={[
                             { label: 'Total Versiones', value: snapshots.length.toString(), subtext: 'Guardadas' },
+                            { label: 'Versión Oficial', value: officialSnapshot ? `v${officialSnapshot.version || officialSnapshot.id_snapshot}` : '—', subtext: officialSnapshot ? officialSnapshot.nombre : 'Sin marcar' },
                             { label: 'Última Versión', value: snapshots.length > 0 ? timeAgo(snapshots[0].created_at) : '—' }
                         ]}
                     />
@@ -766,6 +783,7 @@ export default function VersionesManager() {
                                         className="py-2.5 px-3 bg-slate-50 border border-slate-200 rounded-xl text-[13px] font-semibold text-slate-600 outline-none focus:bg-white focus:border-[var(--color-brand-primary)] cursor-pointer transition-all"
                                     >
                                         <option value="ALL">Todos los estados</option>
+                                        <option value="OFICIAL">Solo Oficial / Publicada</option>
                                         <option value="OPTIMAL">Óptimos</option>
                                         <option value="FEASIBLE">Factibles</option>
                                         <option value="EDITADO">Editados</option>
@@ -831,10 +849,16 @@ export default function VersionesManager() {
 
                                     {/* Content */}
                                     <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-3 mb-2 flex-wrap">
+                                        <div className="flex items-center gap-2.5 mb-2 flex-wrap">
                                             {isActive && (
                                                 <span className="bg-[var(--color-brand-primary)] text-white text-[11px] font-black px-2.5 py-1 rounded-lg uppercase tracking-wider shadow-sm">
                                                     Activa
+                                                </span>
+                                            )}
+                                            {snap.is_official && (
+                                                <span className="inline-flex items-center gap-1 bg-emerald-600 text-white text-[11px] font-black px-2.5 py-1 rounded-lg uppercase tracking-wider shadow-sm">
+                                                    <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
+                                                    Oficial / Publicada
                                                 </span>
                                             )}
                                             <span className={`text-[11px] font-bold px-2.5 py-1 rounded-lg uppercase tracking-wider ${snap.estado === 'OPTIMAL'
@@ -921,13 +945,29 @@ export default function VersionesManager() {
                                     </div>
 
                                     {/* Actions */}
-                                    <div className="flex items-center gap-2 flex-shrink-0 pt-1">
-                                        {/* Edit name */}
+                                    <div className="flex items-center gap-2 flex-wrap justify-end flex-shrink-0 pt-1">
+                                        {/* Marcar como Oficial / Publicada */}
+                                        {canEditHorario && !isEditing && (
+                                            <button
+                                                onClick={() => handleToggleOfficial(snap)}
+                                                disabled={loadingAction === snap.id_snapshot}
+                                                className={`h-9 px-3 rounded-xl flex items-center gap-1.5 text-[12px] font-bold transition-all cursor-pointer border disabled:opacity-50 ${snap.is_official
+                                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200'
+                                                }`}
+                                                title={snap.is_official ? 'Quitar marca de Oficial' : 'Marcar esta versión como Oficial / Publicada'}
+                                            >
+                                                <svg viewBox="0 0 24 24" width="14" height="14" fill={snap.is_official ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
+                                                {snap.is_official ? 'Oficial' : 'Marcar Oficial'}
+                                            </button>
+                                        )}
+
+                                        {/* Edit name & note */}
                                         {!isEditing && (
                                             <button
                                                 onClick={() => { setEditingId(snap.id_snapshot); setEditName(snap.nombre); setEditDesc(snap.descripcion || ''); }}
                                                 className="h-9 px-3 rounded-xl flex items-center gap-1.5 text-[12px] font-bold text-slate-600 bg-slate-50 hover:bg-slate-100 transition-all cursor-pointer border border-slate-200"
-                                                title="Renombrar"
+                                                title="Renombrar o editar nota"
                                             >
                                                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                                                 Editar

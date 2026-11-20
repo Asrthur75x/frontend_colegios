@@ -18,14 +18,15 @@ export const adaptSnapshot = (s: S['GetSnapshotListItem']) => ({
     ...s,
     id_snapshot: s.id,
     es_editada: s.is_edited,
+    is_official: Boolean((s as { is_official?: boolean }).is_official),
     created_at: s.created_time,
 });
 export const listSnapshots = () =>
     executeRequest<S['GetSnapshotListItem'][]>(() => apiClient.GET('/api/v1/snapshot'));
 export const getSnapshot = (pk: number) =>
     executeRequest<S['GetSnapshotDetail']>(() => apiClient.GET('/api/v1/snapshot/{pk}', { params: { path: { pk } } }));
-export const updateSnapshot = (pk: number, body: S['UpdateSnapshotParam']) =>
-    executeRequest<unknown>(() => apiClient.PUT('/api/v1/snapshot/{pk}', { params: { path: { pk } }, body }));
+export const updateSnapshot = (pk: number, body: S['UpdateSnapshotParam'] & { is_official?: boolean | null }) =>
+    executeRequest<unknown>(() => apiClient.PUT('/api/v1/snapshot/{pk}', { params: { path: { pk } }, body: body as S['UpdateSnapshotParam'] }));
 export const deleteSnapshot = (pk: number) =>
     executeRequest<unknown>(() => apiClient.DELETE('/api/v1/snapshot/{pk}', { params: { path: { pk } } }));
 export const restoreSnapshot = (pk: number) =>

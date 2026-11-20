@@ -12,8 +12,10 @@ import { hasPermission } from '../../lib/auth/session';
 import {
     getHorarioData,
     getHorarioActivo,
+    getHorarioMetricas,
     listHorarioBloques,
     adaptBloques,
+    adaptSnapshot,
     validateHorarioMove,
     applyHorarioMove,
     saveHorarioEdits,
@@ -159,6 +161,8 @@ export default function HorariosManager({ isEditPage = false }) {
     const [originalAsignaciones, setOriginalAsignaciones] = useState(null);
     const [isSavingEdits, setIsSavingEdits] = useState(false);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+    const [pendingChangesCount, setPendingChangesCount] = useState(0);
+    const [activeSnapshot, setActiveSnapshot] = useState(null);
     const [saveVersionModalOpen, setSaveVersionModalOpen] = useState(false);
     const [versionName, setVersionName] = useState('');
     const [versionDesc, setVersionDesc] = useState('');
@@ -169,6 +173,28 @@ export default function HorariosManager({ isEditPage = false }) {
         setDragData(null);
         setDropTarget(null);
     }, [selectedSeccion, isEditMode]);
+
+    // Alerta al intentar cerrar/recargar o salir de la página con cambios sin guardar
+    useEffect(() => {
+        if (!isEditMode || pendingChangesCount === 0) return;
+        const handleBeforeUnload = (e) => {
+            e.preventDefault();
+            e.returnValue = '';
+        };
+        const handleAstroNav = (e) => {
+            const label = pendingChangesCount === 1 ? '1 cambio pendiente' : `${pendingChangesCount} cambios pendientes`;
+            const leave = window.confirm(`Tienes ${label} sin guardar como versión. ¿Seguro que deseas salir?`);
+            if (!leave) {
+                e.preventDefault();
+            }
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        document.addEventListener('astro:before-preparation', handleAstroNav);
+        return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+            document.removeEventListener('astro:before-preparation', handleAstroNav);
+        };
+    }, [isEditMode, pendingChangesCount]);
 
     useEffect(() => {
         if (!selectedEditBlock) {
@@ -202,6 +228,26 @@ export default function HorariosManager({ isEditPage = false }) {
 
     const loadingMessages = LOADING_MESSAGES;
 
+    const refreshVersionStatus = async () => {
+        try {
+            const [snaps, metricas] = await Promise.all([
+                hasPermission('horarios:snapshot:view') ? listSnapshots().catch(() => []) : Promise.resolve([]),
+                getHorarioMetricas().catch(() => null),
+            ]);
+            if (Array.isArray(snaps) && snaps.length > 0) {
+                const adapted = snaps.map(adaptSnapshot);
+                setActiveSnapshot(adapted.find(s => s.is_active) || adapted[0] || null);
+            } else {
+                setActiveSnapshot(null);
+            }
+            if (metricas) {
+                setMetricasMotor(metricas);
+            }
+        } catch (err) {
+            console.error('Error loading active version status:', err);
+        }
+    };
+
     useEffect(() => {
         if (!canView) return;
         return subscribe(gen => {
@@ -215,6 +261,7 @@ export default function HorariosManager({ isEditPage = false }) {
                 setErrorMsg(null);
                 setStatus('ready');
                 clearResult();
+                void refreshVersionStatus();
             } else if (gen.status === 'error') {
                 setErrorMsg(gen.errorMsg);
                 setStatus('empty');
@@ -246,6 +293,7 @@ export default function HorariosManager({ isEditPage = false }) {
                 setAsignaciones(data.horario.asignaciones);
                 setStatus(data.horario.asignaciones.length ? 'ready' : 'empty');
             }
+            void refreshVersionStatus();
         }).catch(err => { if (active) setLoadError(err.message); });
         return () => { active = false; };
     }, [canView, reload]);
@@ -537,6 +585,7 @@ export default function HorariosManager({ isEditPage = false }) {
         if (!isEditMode) {
             setOriginalAsignaciones([...asignaciones]);
             setHasUnsavedChanges(false);
+            setPendingChangesCount(0);
             setIsEditMode(true);
         } else {
             handleCancelEdit();
@@ -642,6 +691,7 @@ export default function HorariosManager({ isEditPage = false }) {
 
             const applied = await applyHorarioMove({ ...payload, is_swap: false, swap_info: null });
             setHasUnsavedChanges(true);
+            setPendingChangesCount(c => c + 1);
             if (Array.isArray(applied?.asignaciones)) {
                 setAsignaciones(applied.asignaciones);
             } else {
@@ -671,6 +721,7 @@ export default function HorariosManager({ isEditPage = false }) {
                 swap_info: swapConfirm.swapInfo,
             });
             setHasUnsavedChanges(true);
+            setPendingChangesCount(c => c + 1);
             if (Array.isArray(applied?.asignaciones)) {
                 setAsignaciones(applied.asignaciones);
             } else {
@@ -712,9 +763,11 @@ export default function HorariosManager({ isEditPage = false }) {
             setOriginalAsignaciones(null);
             setIsEditMode(false);
             setHasUnsavedChanges(false);
+            setPendingChangesCount(0);
             if (Array.isArray(res.snapshot?.asignaciones)) {
                 setAsignaciones(res.snapshot.asignaciones);
             }
+            void refreshVersionStatus();
             showToast(`Versión "${trimmedName || res.snapshot?.nombre || 'nueva'}" guardada correctamente`);
         } catch (err) {
             console.error(err);
@@ -738,7 +791,9 @@ export default function HorariosManager({ isEditPage = false }) {
         setOriginalAsignaciones(null);
         setIsEditMode(false);
         setHasUnsavedChanges(false);
+        setPendingChangesCount(0);
         await reloadAsignaciones();
+        void refreshVersionStatus();
     };
 
     const getCurso = (idStr) => {
@@ -1482,7 +1537,14 @@ export default function HorariosManager({ isEditPage = false }) {
                                                             return (
                                                                 <button
                                                                     key={sec.id_seccion}
-                                                                    onClick={() => setSelectedSeccion(`SEC_${sec.id_seccion}`)}
+                                                                    onClick={() => {
+                                                                        const nextSec = `SEC_${sec.id_seccion}`;
+                                                                        if (isEditMode && pendingChangesCount > 0 && nextSec !== selectedSeccion) {
+                                                                            const label = pendingChangesCount === 1 ? '1 cambio sin guardar' : `${pendingChangesCount} cambios sin guardar`;
+                                                                            showToast(`Tienes ${label}. Recuerda guardar versión al terminar.`, 'success');
+                                                                        }
+                                                                        setSelectedSeccion(nextSec);
+                                                                    }}
                                                                     className={`col-span-1 min-w-0 px-1 py-2 rounded-lg border text-[10px] font-black transition-all cursor-pointer ${alturaTarjeta} ${isSelected
                                                                         ? 'bg-brand-primary border-brand-primary text-white shadow-sm'
                                                                         : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-white hover:border-brand-primary/40'}`}
@@ -1620,6 +1682,59 @@ export default function HorariosManager({ isEditPage = false }) {
 
                                 {/* CONTENIDO DEL HORARIO */}
                                 <div className={`w-full flex flex-col gap-4 ${isEditPage && editPanelView !== 'schedule' ? 'hidden' : ''}`}>
+                                    {/* Barra discreta de estado de la versión activa */}
+                                    {(() => {
+                                        const totalHorasAsignadas = asignaciones.reduce((acc, item) => acc + (Number(item.horas) || 1), 0);
+                                        const totalOcupados = metricasMotor?.resumen_slots?.total_ocupados ?? totalHorasAsignadas;
+                                        const totalDisponibles = metricasMotor?.resumen_slots?.total_disponibles ?? null;
+                                        const sinAsignar = totalDisponibles != null
+                                            ? Math.max(0, totalDisponibles - totalOcupados)
+                                            : (metricasMotor?.resumen_slots?.total_huecos ?? 0);
+                                        if (!activeSnapshot && totalHorasAsignadas === 0) return null;
+                                        return (
+                                            <div className="bg-white/90 border border-slate-200/80 rounded-2xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-[12px] shadow-xs">
+                                                <div className="flex flex-wrap items-center gap-2 text-slate-600 font-semibold">
+                                                    <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                                                    <span className="text-slate-400 font-bold">Versión actual:</span>
+                                                    <span className="font-black text-slate-800">
+                                                        {activeSnapshot
+                                                            ? `v${activeSnapshot.version || activeSnapshot.id_snapshot} · ${activeSnapshot.nombre}`
+                                                            : 'Horario activo'}
+                                                    </span>
+                                                    {activeSnapshot?.is_official && (
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-black uppercase tracking-wider">
+                                                            ★ Oficial
+                                                        </span>
+                                                    )}
+                                                    <span className="text-slate-300">·</span>
+                                                    <span className="font-bold text-slate-700">
+                                                        {totalDisponibles != null
+                                                            ? `${totalOcupados}/${totalDisponibles} horas`
+                                                            : `${totalHorasAsignadas} horas asignadas`}
+                                                    </span>
+                                                    {sinAsignar > 0 && (
+                                                        <>
+                                                            <span className="text-slate-300">·</span>
+                                                            <a
+                                                                href="/horarios/diagnostico"
+                                                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 text-[11px] font-black transition-colors"
+                                                                title="Revisar por qué quedaron horas sin asignar"
+                                                            >
+                                                                {sinAsignar} sin asignar · Ver diagnóstico →
+                                                            </a>
+                                                        </>
+                                                    )}
+                                                </div>
+                                                <a
+                                                    href="/horarios/versiones"
+                                                    className="text-[11px] font-black text-[var(--color-brand-primary)] hover:underline shrink-0"
+                                                >
+                                                    Ver historial →
+                                                </a>
+                                            </div>
+                                        );
+                                    })()}
+
                                     {selectedSeccion && (() => {
                                         const seccion = secciones.find(sec => `SEC_${sec.id_seccion}` === selectedSeccion);
                                         if (!seccion) return null;
@@ -1663,6 +1778,12 @@ export default function HorariosManager({ isEditPage = false }) {
                                                             </>
                                                         ) : (
                                                             <>
+                                                                {pendingChangesCount > 0 && (
+                                                                    <span className="h-[42px] px-3 inline-flex items-center gap-1.5 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 font-black text-[12px]">
+                                                                        <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                                                                        {pendingChangesCount} {pendingChangesCount === 1 ? 'cambio pendiente' : 'cambios pendientes'}
+                                                                    </span>
+                                                                )}
                                                                 <button
                                                                     onClick={handleCancelEdit}
                                                                     title="Cancelar los cambios y restaurar"
@@ -1859,7 +1980,12 @@ export default function HorariosManager({ isEditPage = false }) {
                                                                             const span = renderReserva.span;
                                                                             const reservaActiva = renderReserva.a;
                                                                             return (
-                                                                                <td key={dia.id_dia} rowSpan={span} className="py-1 px-1" style={{ verticalAlign: 'middle' }}>
+                                                                                <td key={dia.id_dia} rowSpan={span} className="py-1 px-1 relative group/cell" style={{ verticalAlign: 'middle' }}>
+                                                                                    {activeMoveSource && (
+                                                                                        <div className="pointer-events-none opacity-0 group-hover/cell:opacity-100 transition-opacity duration-150 absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 z-50 w-max max-w-[220px] px-2.5 py-1.5 rounded-xl bg-slate-900 text-white text-[11px] font-bold leading-snug shadow-xl text-center">
+                                                                                            Bloque reservado ({reservaActiva.nombre}) — no se puede mover aquí
+                                                                                        </div>
+                                                                                    )}
                                                                                     <div
                                                                                         title={activeMoveSource ? 'Bloque reservado — no se puede mover aquí' : reservaActiva.nombre}
                                                                                         className={`rounded-2xl p-3 flex flex-col items-center justify-center text-center shadow-sm border-2 overflow-hidden relative transition-all duration-200 ${activeMoveSource ? 'opacity-25 grayscale brightness-75 cursor-not-allowed' : ''}`}
@@ -1951,7 +2077,7 @@ export default function HorariosManager({ isEditPage = false }) {
                                                                             };
 
                                                                             return (
-                                                                                <td key={dia.id_dia} rowSpan={span} className="py-1 px-1" style={{ verticalAlign: 'middle' }}
+                                                                                <td key={dia.id_dia} rowSpan={span} className="py-1 px-1 relative group/cell" style={{ verticalAlign: 'middle' }}
                                                                                     onDragOver={isEditMode ? (e) => handleDragOver(e, dia.id_dia, bNum, isBlocked) : undefined}
                                                                                     onDragLeave={isEditMode ? handleDragLeave : undefined}
                                                                                     onDrop={isEditMode ? (e) => {
@@ -1965,6 +2091,11 @@ export default function HorariosManager({ isEditPage = false }) {
                                                                                         void handleDrop(e, dia, bNum);
                                                                                     } : undefined}
                                                                                 >
+                                                                                    {isBlocked && moveStatus?.reason && (
+                                                                                        <div className="pointer-events-none opacity-0 group-hover/cell:opacity-100 transition-opacity duration-150 absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 z-50 w-max max-w-[230px] px-2.5 py-1.5 rounded-xl bg-slate-900 text-white text-[11px] font-bold leading-snug shadow-xl text-center">
+                                                                                            {moveStatus.reason}
+                                                                                        </div>
+                                                                                    )}
                                                                                     <div
                                                                                         draggable={isEditMode && !isBlocked}
                                                                                         onDragStart={isEditMode ? (e) => handleDragStart(e, a) : undefined}
@@ -2022,7 +2153,7 @@ export default function HorariosManager({ isEditPage = false }) {
                                                                             const isDropHere = isEditMode && !isBlocked && dropTarget && dropTarget.diaId === dia.id_dia && dropTarget.bloqueNum === bNum;
 
                                                                             return (
-                                                                                <td key={dia.id_dia} className="py-1 px-1" style={{ verticalAlign: 'middle' }}
+                                                                                <td key={dia.id_dia} className="py-1 px-1 relative group/cell" style={{ verticalAlign: 'middle' }}
                                                                                     onDragOver={isEditMode ? (e) => handleDragOver(e, dia.id_dia, bNum, isBlocked) : undefined}
                                                                                     onDragLeave={isEditMode ? handleDragLeave : undefined}
                                                                                     onDrop={isEditMode ? (e) => {
@@ -2036,6 +2167,11 @@ export default function HorariosManager({ isEditPage = false }) {
                                                                                         void handleDrop(e, dia, bNum);
                                                                                     } : undefined}
                                                                                 >
+                                                                                    {isBlocked && moveStatus?.reason && (
+                                                                                        <div className="pointer-events-none opacity-0 group-hover/cell:opacity-100 transition-opacity duration-150 absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 z-50 w-max max-w-[230px] px-2.5 py-1.5 rounded-xl bg-slate-900 text-white text-[11px] font-bold leading-snug shadow-xl text-center">
+                                                                                            {moveStatus.reason}
+                                                                                        </div>
+                                                                                    )}
                                                                                     <div
                                                                                         onClick={isEditMode && activeMoveSource ? () => {
                                                                                             if (isFreeTarget) {

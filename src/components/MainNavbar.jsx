@@ -12,14 +12,8 @@ export default function MainNavbar({ currentPath = '' }) {
     // Usamos realPath en lugar de currentPath para que funcione con astro persist
     const [realPath, setRealPath] = useState(typeof window !== 'undefined' ? window.location.pathname : currentPath);
 
-    // State for the expanded module (inline)
-    const [activeDropdown, setActiveDropdown] = useState(() => {
-        const path = typeof window !== 'undefined' ? window.location.pathname : currentPath;
-        if (path.startsWith('/areas') || path.startsWith('/cursos') || path.startsWith('/reservas') || path.startsWith('/planes')) return 'academico';
-        if (path.startsWith('/profesores') || path.startsWith('/carga-academica') || path.startsWith('/tutorias')) return 'docentes';
-        if (path.startsWith('/horarios')) return 'horarios';
-        return null;
-    });
+    // State for popover dropdown (Académico / Docentes) — sin expandir ni empujar la barra principal
+    const [activeDropdown, setActiveDropdown] = useState(null);
     const navRef = useRef(null);
 
     // Escuchar cambios de ruta en Astro ViewTransitions
@@ -27,16 +21,31 @@ export default function MainNavbar({ currentPath = '' }) {
         const handlePathChange = () => {
             const path = window.location.pathname;
             setRealPath(path);
-            if (path.startsWith('/areas') || path.startsWith('/cursos') || path.startsWith('/reservas') || path.startsWith('/planes')) setActiveDropdown('academico');
-            else if (path.startsWith('/profesores') || path.startsWith('/carga-academica') || path.startsWith('/tutorias')) setActiveDropdown('docentes');
-            else if (path.startsWith('/horarios')) setActiveDropdown('horarios');
-            else setActiveDropdown(null);
+            setActiveDropdown(null);
         };
         document.addEventListener('astro:page-load', handlePathChange);
         window.addEventListener('popstate', handlePathChange);
         return () => {
             document.removeEventListener('astro:page-load', handlePathChange);
             window.removeEventListener('popstate', handlePathChange);
+        };
+    }, []);
+
+    // Cerrar popover al hacer clic fuera o presionar Escape
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (navRef.current && !navRef.current.contains(e.target)) {
+                setActiveDropdown(null);
+            }
+        };
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') setActiveDropdown(null);
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('keydown', handleKeyDown);
         };
     }, []);
 
@@ -116,16 +125,21 @@ export default function MainNavbar({ currentPath = '' }) {
         {
             id: 'horarios',
             label: 'Horarios',
-            path: null,
+            path: '/horarios/editar',
+            matchPrefix: '/horarios',
             icon: <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>,
-            dropdownItems: [
-                { label: 'Generación', path: '/horarios', icon: <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 10V3L4 14h7v7l9-11h-7z" /></svg> },
-                { label: 'Edición', path: '/horarios/editar', icon: <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg> },
-                { label: 'Profesores', path: '/horarios/profesores', icon: <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg> },
-                { label: 'Historial', path: '/horarios/versiones', icon: <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 4v6h6" /><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" /><path d="M12 7v5l4 2" /></svg> }
-            ]
         }
     ];
+
+    const horariosTabs = [
+        { label: 'Generar', path: '/horarios', exact: true, icon: <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M13 10V3L4 14h7v7l9-11h-7z" /></svg> },
+        { label: 'Ver / Editar', path: '/horarios/editar', icon: <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg> },
+        { label: 'Por Profesor', path: '/horarios/profesores', icon: <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg> },
+        { label: 'Diagnóstico', path: '/horarios/diagnostico', icon: <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg> },
+        { label: 'Historial', path: '/horarios/versiones', icon: <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M1 4v6h6" /><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" /><path d="M12 7v5l4 2" /></svg> },
+    ];
+
+    const isHorariosSection = realPath.startsWith('/horarios');
 
     const handleNavClick = (item) => {
         if (item.path) {
@@ -142,9 +156,10 @@ export default function MainNavbar({ currentPath = '' }) {
     };
 
     return (
-        <header className="fixed top-0 left-0 w-full bg-white/95 backdrop-blur-sm z-50 flex items-center justify-between px-6 h-20 transition-all duration-300">
+        <>
+        <header className="fixed top-0 left-0 w-full bg-white/95 backdrop-blur-sm border-b border-slate-100 z-50 flex items-center justify-between px-4 sm:px-6 h-20 transition-all duration-300">
             {/* Logo Section */}
-            <a href="/dashboard" className="flex items-center gap-2 cursor-pointer group">
+            <a href="/dashboard" className="flex items-center gap-2 cursor-pointer group shrink-0">
                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 group-hover:scale-105 transition-transform origin-left">
                     <defs>
                         <linearGradient id="grad-logo-nav" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -155,95 +170,90 @@ export default function MainNavbar({ currentPath = '' }) {
                     <path d="M12 2L2 7l10 5 10-5-10-5z" fill="url(#grad-logo-nav)" />
                     <path d="M2 17l10 5 10-5M2 12l10 5 10-5" stroke="url(#grad-logo-nav)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-                <span className="font-black text-xl text-[var(--color-brand-dark)] tracking-tight">Horarix</span>
+                <span className="font-black text-xl text-[var(--color-brand-dark)] tracking-tight hidden sm:inline">Horarix</span>
             </a>
 
-            {/* Center Navigation Icons (Inline Expand) */}
-            <nav ref={navRef} className="flex items-center gap-2 transition-all duration-500 ease-out">
+            {/* Center Navigation (Quieta, sin saltos ni expansiones laterales) */}
+            <nav ref={navRef} className="flex items-center gap-1 sm:gap-2">
                 {navItems.map((item) => {
-                    const isExpanded = activeDropdown === item.id;
+                    const isOpen = activeDropdown === item.id;
                     const isChildActive = item.dropdownItems?.some(child => realPath.startsWith(child.path) || realPath === child.path);
-                    const isMainActive = realPath === item.path;
+                    const isMainActive = item.matchPrefix
+                        ? realPath.startsWith(item.matchPrefix)
+                        : realPath === item.path;
                     const isActive = isMainActive || isChildActive;
 
-                    if (isExpanded && item.dropdownItems) {
-                        // RENDERIZADO EXPANDIDO EN LÍNEA (PASTILLA HORIZONTAL OSCURA)
+                    if (item.path) {
                         return (
-                            <div key={item.id} className="flex items-center bg-[var(--color-brand-dark)] rounded-full p-1 shadow-lg animate-[fadeIn_0.3s_ease-out_forwards] gap-1.5">
-                                {/* Botón Principal Activo (Solo Icono) */}
-                                <button
-                                    onClick={() => handleNavClick(item)}
-                                    className="flex items-center justify-center w-10 h-10 rounded-full bg-white text-[var(--color-brand-dark)] shadow-sm transition-transform cursor-pointer hover:scale-105 shrink-0"
-                                    title={`Cerrar ${item.label}`}
-                                >
-                                    {item.icon}
-                                </button>
-
-                                {/* Sub-enlaces en línea */}
-                                <div className="flex items-center gap-1.5 pl-0.5 pr-2">
-                                    {(() => {
-                                        const activeChild = item.dropdownItems
-                                            .slice()
-                                            .sort((a, b) => b.path.length - a.path.length)
-                                            .find(child => realPath === child.path || realPath.startsWith(child.path + '/'));
-
-                                        return item.dropdownItems.map((child, idx) => {
-                                            const isSubActive = activeChild && activeChild.path === child.path;
-                                            return (
-                                                <a
-                                                    key={idx}
-                                                    href={child.locked ? '#' : child.path}
-                                                    onClick={e => { if (child.locked) e.preventDefault(); }}
-                                                    className={`relative group flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300 text-[13px] font-bold ${child.locked
-                                                            ? 'opacity-50 cursor-not-allowed bg-transparent text-white/40'
-                                                            : isSubActive
-                                                                ? 'bg-white/20 text-white shadow-md border border-white/10'
-                                                                : 'text-white/70 hover:bg-white/10 hover:text-white cursor-pointer'
-                                                        }`}
-                                                >
-                                                    {child.icon}
-                                                    <span>{child.label}</span>
-
-                                                    {/* Tooltip de Bloqueo */}
-                                                    {child.locked && (
-                                                        <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 bg-white text-[var(--color-brand-dark)] text-[11px] font-bold px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-xl pointer-events-none z-50">
-                                                            🔒 {child.lockMsg}
-                                                        </div>
-                                                    )}
-                                                </a>
-                                            );
-                                        });
-                                    })()}
-                                </div>
-                            </div>
+                            <a
+                                key={item.id}
+                                href={item.path}
+                                className={`flex items-center justify-center gap-2 px-3.5 sm:px-5 py-2.5 rounded-full transition-all duration-200 font-bold text-[13px] sm:text-[14px] cursor-pointer whitespace-nowrap ${isActive
+                                        ? 'bg-[var(--color-brand-dark)] text-white shadow-md'
+                                        : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'
+                                    }`}
+                            >
+                                {item.icon}
+                                <span>{item.label}</span>
+                            </a>
                         );
                     }
 
-                    // RENDERIZADO NORMAL (BOTONES SUELTOS)
-                    return item.path ? (
-                        <a
-                            key={item.id}
-                            href={item.path}
-                            className={`flex items-center justify-center gap-2 px-5 py-2.5 rounded-full transition-all duration-300 font-bold text-[14px] cursor-pointer ${isActive
-                                    ? 'bg-[var(--color-brand-dark)] text-white shadow-md'
-                                    : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'
-                                }`}
-                        >
-                            {item.icon}
-                            <span>{item.label}</span>
-                        </a>
-                    ) : (
-                        <button
-                            key={item.id}
-                            onClick={() => handleNavClick(item)}
-                            className={`flex items-center justify-center gap-2 px-5 py-2.5 rounded-full transition-all duration-300 font-bold text-[14px] cursor-pointer ${isActive
-                                    ? 'bg-[var(--color-brand-dark)] text-white shadow-md'
-                                    : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'
-                                }`}
-                        >
-                            {item.icon}
-                            <span>{item.label}</span>
-                        </button>
+                    return (
+                        <div key={item.id} className="relative">
+                            <button
+                                type="button"
+                                onClick={() => handleNavClick(item)}
+                                className={`flex items-center justify-center gap-1.5 sm:gap-2 px-3.5 sm:px-5 py-2.5 rounded-full transition-all duration-200 font-bold text-[13px] sm:text-[14px] cursor-pointer whitespace-nowrap ${isActive || isOpen
+                                        ? 'bg-[var(--color-brand-dark)] text-white shadow-md'
+                                        : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'
+                                    }`}
+                            >
+                                {item.icon}
+                                <span>{item.label}</span>
+                                <svg className={`w-3.5 h-3.5 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="6 9 12 15 18 9" />
+                                </svg>
+                            </button>
+
+                            {isOpen && item.dropdownItems && (
+                                <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2.5 min-w-[200px] bg-white rounded-2xl shadow-[0_12px_40px_rgba(15,23,42,0.12)] border border-slate-100 p-1.5 z-50">
+                                    {item.dropdownItems.map((child, idx) => {
+                                        const isSubActive = realPath === child.path || realPath.startsWith(child.path + '/');
+                                        return (
+                                            <a
+                                                key={idx}
+                                                href={child.locked ? '#' : child.path}
+                                                onClick={e => {
+                                                    if (child.locked) {
+                                                        e.preventDefault();
+                                                    } else {
+                                                        setActiveDropdown(null);
+                                                    }
+                                                }}
+                                                title={child.locked ? `Bloqueado: ${child.lockMsg}` : undefined}
+                                                className={`flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl text-[13px] font-bold transition-colors ${child.locked
+                                                        ? 'opacity-45 cursor-not-allowed text-slate-400'
+                                                        : isSubActive
+                                                            ? 'bg-[var(--color-brand-primary)]/10 text-[var(--color-brand-primary)]'
+                                                            : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 cursor-pointer'
+                                                    }`}
+                                            >
+                                                <span className="flex items-center gap-2.5">
+                                                    {child.icon}
+                                                    <span>{child.label}</span>
+                                                </span>
+                                                {child.locked && (
+                                                    <span className="text-[10px] font-black text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-md">
+                                                        🔒 {child.lockMsg}
+                                                    </span>
+                                                )}
+                                            </a>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
                     );
                 })}
             </nav>
@@ -273,5 +283,33 @@ export default function MainNavbar({ currentPath = '' }) {
                 </div>
             </div>
         </header>
+
+        {/* Sub-barra fija de pestañas para Horarios */}
+        {isHorariosSection && (
+            <div className="fixed top-20 left-0 w-full h-12 bg-white/95 backdrop-blur-sm border-b border-slate-200/80 z-40 flex items-center justify-center px-4">
+                <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto max-w-full py-1">
+                    {horariosTabs.map((tab) => {
+                        const normalizedPath = realPath.replace(/\/+$/, '') || '/';
+                        const isTabActive = tab.exact
+                            ? normalizedPath === tab.path
+                            : normalizedPath === tab.path || normalizedPath.startsWith(`${tab.path}/`);
+                        return (
+                            <a
+                                key={tab.path}
+                                href={tab.path}
+                                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[12.5px] font-black transition-all whitespace-nowrap border ${isTabActive
+                                        ? 'bg-[var(--color-brand-primary)]/10 text-[var(--color-brand-primary)] border-[var(--color-brand-primary)]/25 shadow-xs'
+                                        : 'text-slate-500 border-transparent hover:text-slate-800 hover:bg-slate-100/80'
+                                    }`}
+                            >
+                                {tab.icon}
+                                <span>{tab.label}</span>
+                            </a>
+                        );
+                    })}
+                </div>
+            </div>
+        )}
+        </>
     );
 }
