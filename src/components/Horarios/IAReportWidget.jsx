@@ -172,7 +172,7 @@ export default function IAReportWidget() {
                                 onClick={() => setIsOpen(false)}
                                 className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"
                             >
-                                <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                             </button>
                         </div>
 
@@ -185,7 +185,7 @@ export default function IAReportWidget() {
                                 </div>
                             ) : errorMsg ? (
                                 <div className="bg-red-50 text-red-600 p-4 rounded-xl flex items-start gap-3 border border-red-100">
-                                    <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+                                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
                                     <p className="text-sm font-medium pt-0.5">{errorMsg}</p>
                                 </div>
                             ) : !reportData ? (
@@ -266,7 +266,7 @@ export default function IAReportWidget() {
                                     {reportData.puntos_fuertes && reportData.puntos_fuertes.length > 0 && (
                                         <div className="bg-emerald-50/50 rounded-2xl p-5 border border-emerald-100">
                                             <h3 className="font-bold text-emerald-800 flex items-center gap-2 mb-3">
-                                                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
+                                                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
                                                 Puntos Fuertes
                                             </h3>
                                             <ul className="space-y-2">
@@ -284,7 +284,7 @@ export default function IAReportWidget() {
                                     {reportData.anomalias && reportData.anomalias.length > 0 && (
                                         <div className="bg-amber-50/50 rounded-2xl p-5 border border-amber-100">
                                             <h3 className="font-bold text-amber-800 flex items-center gap-2 mb-3">
-                                                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                                                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
                                                 Cosas a Mejorar
                                             </h3>
                                             <ul className="space-y-2">
@@ -302,7 +302,7 @@ export default function IAReportWidget() {
                                     {reportData.recomendaciones && reportData.recomendaciones.length > 0 && (
                                         <div className="bg-blue-50/50 rounded-2xl p-5 border border-blue-100">
                                             <h3 className="font-bold text-blue-800 flex items-center gap-2 mb-3">
-                                                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2v2" /><path d="M12 20v2" /><path d="M4.93 4.93l1.41 1.41" /><path d="M17.66 17.66l1.41 1.41" /><path d="M2 12h2" /><path d="M20 12h2" /><path d="M6.34 17.66l-1.41 1.41" /><path d="M19.07 4.93l-1.41 1.41" /></svg>
+                                                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2v2" /><path d="M12 20v2" /><path d="M4.93 4.93l1.41 1.41" /><path d="M17.66 17.66l1.41 1.41" /><path d="M2 12h2" /><path d="M20 12h2" /><path d="M6.34 17.66l-1.41 1.41" /><path d="M19.07 4.93l-1.41 1.41" /></svg>
                                                 Sugerencias
                                             </h3>
                                             <ul className="space-y-2">

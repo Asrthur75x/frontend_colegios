@@ -7,6 +7,40 @@ export const getHorarioProgress = (task_id: string) => executeRequest<S['Progres
 export const getHorarioActivo = () => executeRequest<S['HorarioCargarResult']>(() => apiClient.GET('/api/v1/horario/activo'));
 export const getHorarioMetricas = () => executeRequest<S['MetricasMotorDetail']>(() => apiClient.GET('/api/v1/horario/metricas'));
 export const listHorarioBloques = () => executeRequest<S['GetBloqueDetail'][]>(() => apiClient.GET('/api/v1/bloque'));
+export const validateHorarioMove = (body: S['MoveValidateParam']) =>
+    executeRequest<S['MoveValidateResult']>(() => apiClient.POST('/api/v1/horario/movimiento/validacion', { body }));
+export const applyHorarioMove = (body: S['MoveApplyParam']) =>
+    executeRequest<S['HorarioCargarResult']>(() => apiClient.POST('/api/v1/horario/movimiento', { body }));
+export const saveHorarioEdits = () =>
+    executeRequest<S['SaveEditsResult']>(() => apiClient.POST('/api/v1/horario/edicion'));
+
+export const adaptSnapshot = (s: S['GetSnapshotListItem']) => ({
+    ...s,
+    id_snapshot: s.id,
+    es_editada: s.is_edited,
+    created_at: s.created_time,
+});
+export const listSnapshots = () =>
+    executeRequest<S['GetSnapshotListItem'][]>(() => apiClient.GET('/api/v1/snapshot'));
+export const getSnapshot = (pk: number) =>
+    executeRequest<S['GetSnapshotDetail']>(() => apiClient.GET('/api/v1/snapshot/{pk}', { params: { path: { pk } } }));
+export const updateSnapshot = (pk: number, body: S['UpdateSnapshotParam']) =>
+    executeRequest<unknown>(() => apiClient.PUT('/api/v1/snapshot/{pk}', { params: { path: { pk } }, body }));
+export const deleteSnapshot = (pk: number) =>
+    executeRequest<unknown>(() => apiClient.DELETE('/api/v1/snapshot/{pk}', { params: { path: { pk } } }));
+export const restoreSnapshot = (pk: number) =>
+    executeRequest<S['SnapshotLoadResult']>(() => apiClient.POST('/api/v1/snapshot/{pk}/restauracion', { params: { path: { pk } } }));
+
+export const listTurnos = () =>
+    executeRead<S['GetTurnoDetail'][]>('/api/v1/turno', () => apiClient.GET('/api/v1/turno'));
+export const deleteBloque = (pk: number) =>
+    executeRequest<unknown>(() => apiClient.DELETE('/api/v1/bloque/{pk}', { params: { path: { pk } } }));
+export const createBloque = (body: S['CreateBloqueParam']) =>
+    executeRequest<unknown>(() => apiClient.POST('/api/v1/bloque', { body }));
+export const updateBloque = (pk: number, body: S['UpdateBloqueParam']) =>
+    executeRequest<unknown>(() => apiClient.PUT('/api/v1/bloque/{pk}', { params: { path: { pk } }, body }));
+export const configureTurnoTiempos = (id_turno: number, body: S['ConfigurarTiemposParam']) =>
+    executeRequest<unknown>(() => apiClient.POST('/api/v1/bloque/configuracion/{id_turno}', { params: { path: { id_turno } }, body }));
 
 // Preserve the existing table's view model while taking IDs from the current API.
 export function adaptHorarioData(data: {
@@ -55,6 +89,23 @@ export async function getHorarioData(canRead: (permission: string) => boolean) {
         getHorarioActivo(),
     ]);
     return { ...adaptHorarioData({ secciones, cursos, profesores, dias, bloques, grados, sedes, turnos, reservas }), configs, seccionTurnos, horario };
+}
+
+export async function getVersionesCatalogData(canRead: (permission: string) => boolean) {
+    const [secciones, cursos, profesores, dias, bloques, configs, grados, sedes, turnos, seccionTurnos, reservas] = await Promise.all([
+        executeRead<S['GetSeccionDetail'][]>('/api/v1/seccion', () => apiClient.GET('/api/v1/seccion')),
+        executeRead<S['GetCursoDetail'][]>('/api/v1/curso', () => apiClient.GET('/api/v1/curso')),
+        executeRead<S['GetProfesorDetail'][]>('/api/v1/profesor', () => apiClient.GET('/api/v1/profesor')),
+        executeRead<S['GetDiaDetail'][]>('/api/v1/dia', () => apiClient.GET('/api/v1/dia')),
+        canRead('horarios:bloque:view') ? listHorarioBloques() : [],
+        executeRead<S['GetGradoDiaConfigDetail'][]>('/api/v1/grado-dia-config', () => apiClient.GET('/api/v1/grado-dia-config')),
+        executeRead<S['GetGradoDetail'][]>('/api/v1/grado', () => apiClient.GET('/api/v1/grado')),
+        executeRead<S['GetSedeDetail'][]>('/api/v1/sede', () => apiClient.GET('/api/v1/sede')),
+        listTurnos(),
+        executeRead<S['GetSeccionTurnoDetail'][]>('/api/v1/seccion-turno', () => apiClient.GET('/api/v1/seccion-turno')),
+        canRead('horarios:bloque_reservado:view') ? executeRead<S['GetBloqueReservadoAnidadoDetail'][]>('/api/v1/bloque-reservado', () => apiClient.GET('/api/v1/bloque-reservado')) : [],
+    ]);
+    return { ...adaptHorarioData({ secciones, cursos, profesores, dias, bloques, grados, sedes, turnos, reservas }), configs, seccionTurnos };
 }
 
 export function generationAssignments(resultado: Record<string, unknown> | null | undefined) {

@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
-
-const API_BASE = 'http://localhost:8000/api';
+import {
+    listTurnos,
+    listHorarioBloques,
+    adaptBloques,
+    createBloque,
+    updateBloque,
+    configureTurnoTiempos,
+} from '../../services/horarios';
 
 export default function ConfiguracionTiemposModal({ isOpen, onClose, maxBloques, maxBloquesPorTurno = {}, onSave, inline = false, initialTurnoId = null, disabledTurnoIds = [] }) {
     const [turnos, setTurnos] = useState([]);
@@ -22,16 +28,13 @@ export default function ConfiguracionTiemposModal({ isOpen, onClose, maxBloques,
     const fetchData = async () => {
         setIsLoading(true);
         try {
-            const [turnosRes, bloquesRes] = await Promise.all([
-                fetch(`${API_BASE}/turnos`),
-                fetch(`${API_BASE}/bloques`)
+            const [turnosRaw, bloquesRaw] = await Promise.all([
+                listTurnos(),
+                listHorarioBloques(),
             ]);
-            
-            let turnosData = await turnosRes.json();
-            let bloquesData = await bloquesRes.json();
-            
-            if (!Array.isArray(turnosData)) turnosData = turnosData.data || [];
-            if (!Array.isArray(bloquesData)) bloquesData = bloquesData.data || [];
+
+            const turnosData = (turnosRaw || []).map(t => ({ ...t, id_turno: t.id }));
+            const bloquesData = adaptBloques(bloquesRaw || []);
             
             setTurnos(turnosData);
             
@@ -235,18 +238,14 @@ export default function ConfiguracionTiemposModal({ isOpen, onClose, maxBloques,
                         numero_bloque: bloque.numero_bloque,
                         hora_inicio: bloque.hora_inicio,
                         hora_final: bloque.hora_final,
-                        es_recreo: false,
+                        is_recess: false,
                         duracion_minutos: getDurationMinutes(bloque.hora_inicio, bloque.hora_final)
                     };
-                    const response = await fetch(
-                        bloque.id_bloque ? `${API_BASE}/bloques/${bloque.id_bloque}` : `${API_BASE}/bloques`,
-                        {
-                            method: bloque.id_bloque ? 'PUT' : 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(payload)
-                        }
-                    );
-                    if (!response.ok) throw new Error(`No se pudo guardar el bloque ${bloque.numero_bloque}.`);
+                    if (bloque.id_bloque) {
+                        await updateBloque(bloque.id_bloque, payload);
+                    } else {
+                        await createBloque(payload);
+                    }
                 }
 
                 for (const recreo of recreos) {
@@ -259,35 +258,23 @@ export default function ConfiguracionTiemposModal({ isOpen, onClose, maxBloques,
                         numero_bloque: null,
                         hora_inicio: horaInicio,
                         hora_final: addMinutesToTime(horaInicio, duracion),
-                        es_recreo: true,
+                        is_recess: true,
                         despues_de_bloque: despuesDeBloque,
                         duracion_minutos: duracion
                     };
-                    const response = await fetch(`${API_BASE}/bloques`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    if (!response.ok) throw new Error(`No se pudo guardar el recreo después del bloque ${despuesDeBloque}.`);
+                    await createBloque(payload);
                 }
             } else {
                 const conf = configs[selectedTurno];
                 if (!conf) return;
-                const payload = {
-                    horaInicio: conf.horaInicio || '08:00',
-                    duracionBloque: parseInt(conf.duracionBloque) || 45,
+                await configureTurnoTiempos(Number(selectedTurno), {
+                    hora_inicio: conf.horaInicio || '08:00',
+                    duracion_bloque: parseInt(conf.duracionBloque, 10) || 45,
                     recreos: conf.recreos.map(r => ({
-                        despuesDeBloque: parseInt(r.despuesDeBloque) || 1,
-                        duracion: parseInt(r.duracion) || 15
+                        despues_de_bloque: parseInt(r.despuesDeBloque, 10) || 1,
+                        duracion: parseInt(r.duracion, 10) || 15
                     }))
-                };
-
-                const response = await fetch(`${API_BASE}/configurar-tiempos/${selectedTurno}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
                 });
-                if (!response.ok) throw new Error('No se pudo guardar la configuración general.');
             }
             
             // Recargar datos y notificar

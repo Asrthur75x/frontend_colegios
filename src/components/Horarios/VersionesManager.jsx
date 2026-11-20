@@ -1,9 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { sileo } from 'sileo';
 import ModuleSidebar from '../Shared/ModuleSidebar';
+import { hasPermission } from '../../lib/auth/session';
+import {
+    listSnapshots,
+    adaptSnapshot,
+    getSnapshot,
+    updateSnapshot,
+    deleteSnapshot,
+    restoreSnapshot,
+    getVersionesCatalogData,
+    saveHorarioEdits,
+} from '../../services/horarios';
 
-const API = 'http://localhost:8000/api';
 const normalizeDay = (value = '') => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+const parseSnapshotDate = (dateStr) => {
+    if (!dateStr) return new Date(NaN);
+    const normalized = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(dateStr)
+        ? `${dateStr.replace(' ', 'T')}Z`
+        : dateStr;
+    return new Date(normalized);
+};
 
 export default function VersionesManager() {
     const [snapshots, setSnapshots] = useState([]);
@@ -14,6 +32,10 @@ export default function VersionesManager() {
     const [editDesc, setEditDesc] = useState('');
     const [confirmDelete, setConfirmDelete] = useState(null);
     const [confirmLoad, setConfirmLoad] = useState(null);
+    const [saveVersionOpen, setSaveVersionOpen] = useState(false);
+    const [newVersionName, setNewVersionName] = useState('');
+    const [newVersionDesc, setNewVersionDesc] = useState('');
+    const [isCreatingVersion, setIsCreatingVersion] = useState(false);
 
     // Filtros
     const [searchTerm, setSearchTerm] = useState('');
@@ -44,61 +66,52 @@ export default function VersionesManager() {
     const [compareResult, setCompareResult] = useState(null);
     const [loadingCompare, setLoadingCompare] = useState(false);
 
+    const canEditHorario = hasPermission('horarios:horario:edit');
+
     const fetchCatalogos = async () => {
         try {
-            const [rCursos, rSec, rProf, rDias, rBloq, rTurnos, rST, rGrados, rConfig, rReservas, rSedes] = await Promise.all([
-                fetch(`${API}/cursos`), fetch(`${API}/secciones`), fetch(`${API}/profesores`), 
-                fetch(`${API}/dias`), fetch(`${API}/bloques`), fetch(`${API}/turnos`), fetch(`${API}/seccion-turno`),
-                fetch(`${API}/grados`), fetch(`${API}/grado-dia-config`), fetch(`${API}/bloque-reservado`), fetch(`${API}/sedes`)
-            ]);
-            if (!rCursos.ok || !rSec.ok || !rProf.ok || !rDias.ok) return;
-            const [dCursos, dSec, dProf, dDias, dBloq, dTurnos, dST, dGrados, dConfig, dReservas, dSedes] = await Promise.all([
-                rCursos.json(), rSec.json(), rProf.json(), rDias.json(), rBloq.json(), rTurnos.json(), rST.json(),
-                rGrados.json(), rConfig.json(), rReservas.json(), rSedes.json()
-            ]);
-            
+            const data = await getVersionesCatalogData(hasPermission);
+
             const cMap = { 'TUT1': 'Tutoría', 'CUR_TUT1': 'Tutoría' };
-            dCursos.forEach(c => {
+            (data.cursos || []).forEach(c => {
                 const courseName = c.nombre_curso || c.nombre;
                 cMap[`CUR_${c.id_curso}`] = courseName;
                 cMap[c.id_curso] = courseName;
                 if (c.codigo) cMap[c.codigo] = courseName;
                 if (c.codigo_curso) cMap[c.codigo_curso] = courseName;
             });
-            const sMap = {}; 
-            dSec.forEach(s => {
+            const sMap = {};
+            (data.secciones || []).forEach(s => {
                 const sectionInfo = { nombre: s.nombre, id_grado: s.id_grado, id_sede: s.id_sede };
                 sMap[`SEC_${s.id_seccion}`] = sectionInfo;
                 sMap[s.id_seccion] = sectionInfo;
             });
-            const pMap = {}; 
-            dProf.forEach(p => { pMap[`PROF_${p.id_profesor}`] = p.nombre_profesor; pMap[p.id_profesor] = p.nombre_profesor; });
-            
-            setCatalogos({ cursos: cMap, secciones: sMap, profesores: pMap });
-            
-            const diasOrdenados = (dDias || []).sort((a, b) => {
-                const orden = { "Lunes": 1, "Martes": 2, "Miércoles": 3, "Jueves": 4, "Viernes": 5, "Sábado": 6, "Domingo": 7 };
-                return (orden[a.nombre_dia] || 99) - (orden[b.nombre_dia] || 99);
+            const pMap = {};
+            (data.profesores || []).forEach(p => {
+                pMap[`PROF_${p.id_profesor}`] = p.nombre_profesor;
+                pMap[p.id_profesor] = p.nombre_profesor;
             });
-            setDias(diasOrdenados);
-            setBloques(dBloq || []);
-            setTurnos(dTurnos || []);
-            setSeccionTurnos(dST || []);
-            setBloquesReservados(dReservas || []);
-            setSedes(dSedes || []);
-            setGrados(dGrados || []);
-            setGradoDiaConfig(dConfig || []);
+
+            setCatalogos({ cursos: cMap, secciones: sMap, profesores: pMap });
+            setDias(data.dias || []);
+            setBloques(data.bloques || []);
+            setTurnos(data.turnos || []);
+            setSeccionTurnos(data.seccionTurnos || []);
+            setBloquesReservados(data.reservas || []);
+            setSedes(data.sedes || []);
+            setGrados(data.grados || []);
+            setGradoDiaConfig(data.configs || []);
         } catch (e) { console.error('Error fetching catalogs for comparison', e); }
     };
 
     const fetchSnapshots = async () => {
         try {
-            const res = await fetch(`${API}/horario-snapshots`);
-            if (res.ok) {
-                const data = await res.json();
-                setSnapshots(Array.isArray(data) ? data : []);
-            }
-        } catch (e) { console.error(e); }
+            const data = await listSnapshots();
+            setSnapshots(Array.isArray(data) ? data.map(adaptSnapshot) : []);
+        } catch (e) {
+            console.error(e);
+            showToast(e?.message || 'Error al cargar las versiones', 'error');
+        }
         setLoading(false);
     };
 
@@ -140,14 +153,12 @@ export default function VersionesManager() {
     const handleLoad = async (id) => {
         setLoadingAction(id);
         try {
-            const res = await fetch(`${API}/horario-snapshots/${id}/load`, { method: 'POST' });
-            if (res.ok) {
-                showToast('Versión restaurada correctamente');
-                await fetchSnapshots();
-            } else {
-                showToast('Error al restaurar la versión', 'error');
-            }
-        } catch (e) { showToast('Error de conexión', 'error'); }
+            await restoreSnapshot(id);
+            showToast('Versión restaurada correctamente');
+            await fetchSnapshots();
+        } catch (e) {
+            showToast(e?.message || 'Error al restaurar la versión', 'error');
+        }
         setLoadingAction(null);
         setConfirmLoad(null);
     };
@@ -155,15 +166,12 @@ export default function VersionesManager() {
     const handleDelete = async (id) => {
         setLoadingAction(id);
         try {
-            const res = await fetch(`${API}/horario-snapshots/${id}`, { method: 'DELETE' });
-            if (res.ok) {
-                showToast('Versión eliminada');
-                await fetchSnapshots();
-            } else {
-                const d = await res.json().catch(() => ({}));
-                showToast(d.detail || 'No se pudo eliminar', 'error');
-            }
-        } catch (e) { showToast('Error de conexión', 'error'); }
+            await deleteSnapshot(id);
+            showToast('Versión eliminada');
+            await fetchSnapshots();
+        } catch (e) {
+            showToast(e?.message || 'No se pudo eliminar', 'error');
+        }
         setLoadingAction(null);
         setConfirmDelete(null);
     };
@@ -171,20 +179,46 @@ export default function VersionesManager() {
     const handleUpdate = async (id) => {
         setLoadingAction(id);
         try {
-            const res = await fetch(`${API}/horario-snapshots/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nombre: editName, descripcion: editDesc || null })
+            await updateSnapshot(id, {
+                nombre: editName.trim() || undefined,
+                descripcion: editDesc.trim() || null,
             });
-            if (res.ok) {
-                showToast('Nombre actualizado');
-                await fetchSnapshots();
-            } else {
-                showToast('Error al actualizar', 'error');
-            }
-        } catch (e) { showToast('Error de conexión', 'error'); }
+            showToast('Versión actualizada');
+            await fetchSnapshots();
+        } catch (e) {
+            showToast(e?.message || 'Error al actualizar', 'error');
+        }
         setLoadingAction(null);
         setEditingId(null);
+    };
+
+    const handleCreateVersion = async (e) => {
+        e.preventDefault();
+        setIsCreatingVersion(true);
+        try {
+            const res = await saveHorarioEdits();
+            if (!res?.success) {
+                throw new Error('No hay asignaciones activas para guardar como versión.');
+            }
+            const snapshotId = res.snapshot?.version;
+            const trimmedName = newVersionName.trim();
+            const trimmedDesc = newVersionDesc.trim();
+            if (snapshotId && (trimmedName || trimmedDesc)) {
+                await updateSnapshot(snapshotId, {
+                    nombre: trimmedName || undefined,
+                    descripcion: trimmedDesc || null,
+                });
+            }
+            showToast(`Versión "${trimmedName || res.snapshot?.nombre || 'nueva'}" guardada correctamente`);
+            setSaveVersionOpen(false);
+            setNewVersionName('');
+            setNewVersionDesc('');
+            await fetchSnapshots();
+        } catch (err) {
+            showToast(err?.message || 'Error al guardar la versión actual', 'error');
+        } finally {
+            setIsCreatingVersion(false);
+        }
     };
 
     const handleCompareClick = (snap) => {
@@ -204,13 +238,10 @@ export default function VersionesManager() {
         if (!compareBase || !compareTargetId || !compareSeccionId) return;
         setLoadingCompare(true);
         try {
-            const resBase = await fetch(`${API}/horario-snapshots/${compareBase.id_snapshot}`);
-            const resTarget = await fetch(`${API}/horario-snapshots/${compareTargetId}`);
-            
-            if (!resBase.ok || !resTarget.ok) throw new Error('Failed to fetch snapshot details');
-            
-            const dataBase = await resBase.json();
-            const dataTarget = await resTarget.json();
+            const [dataBase, dataTarget] = await Promise.all([
+                getSnapshot(compareBase.id_snapshot),
+                getSnapshot(Number(compareTargetId)),
+            ]);
 
             const asigBase = dataBase.json_data?.asignaciones?.filter(a => String(a.seccion_id).replace('SEC_', '') === String(compareSeccionId)) || [];
             const asigTarget = dataTarget.json_data?.asignaciones?.filter(a => String(a.seccion_id).replace('SEC_', '') === String(compareSeccionId)) || [];
@@ -570,7 +601,8 @@ export default function VersionesManager() {
     };
 
     const formatDate = (dateStr) => {
-        const d = new Date(dateStr);
+        const d = parseSnapshotDate(dateStr);
+        if (Number.isNaN(d.getTime())) return '—';
         const day = d.getDate().toString().padStart(2, '0');
         const month = (d.getMonth() + 1).toString().padStart(2, '0');
         const year = d.getFullYear();
@@ -588,7 +620,8 @@ export default function VersionesManager() {
 
     const timeAgo = (dateStr) => {
         const now = new Date();
-        const d = new Date(dateStr);
+        const d = parseSnapshotDate(dateStr);
+        if (Number.isNaN(d.getTime())) return '—';
         const diff = Math.floor((now - d) / 1000);
         if (diff < 60) return 'Hace un momento';
         if (diff < 3600) return `Hace ${Math.floor(diff / 60)} min`;
@@ -621,8 +654,10 @@ export default function VersionesManager() {
             if (searchTerm && !snap.nombre.toLowerCase().includes(searchTerm.toLowerCase()) && !(snap.descripcion || '').toLowerCase().includes(searchTerm.toLowerCase())) return false;
             if (filterEstado !== 'ALL' && snap.estado !== filterEstado) return false;
             if (filterDate) {
-                const snapDate = new Date(snap.created_at).toISOString().split('T')[0];
-                if (snapDate !== filterDate) return false;
+                const d = parseSnapshotDate(snap.created_at);
+                if (Number.isNaN(d.getTime())) return false;
+                const localYmd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                if (localYmd !== filterDate) return false;
             }
             return true;
         });
@@ -630,7 +665,7 @@ export default function VersionesManager() {
 
     const groupedFamilies = React.useMemo(() => {
         if (!filteredSnapshots || filteredSnapshots.length === 0) return [];
-        const sortedAsc = [...filteredSnapshots].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        const sortedAsc = [...filteredSnapshots].sort((a, b) => parseSnapshotDate(a.created_at) - parseSnapshotDate(b.created_at));
         const families = [];
         let currentFamily = null;
         
@@ -649,8 +684,8 @@ export default function VersionesManager() {
         });
         
         families.sort((a, b) => {
-            const dateA = new Date(a.parent.created_at);
-            const dateB = new Date(b.parent.created_at);
+            const dateA = parseSnapshotDate(a.parent.created_at);
+            const dateB = parseSnapshotDate(b.parent.created_at);
             return dateB - dateA;
         });
         
@@ -686,11 +721,24 @@ export default function VersionesManager() {
                     
                     {viewMode === 'list' ? (
                         <>
-                            <div className="px-2 flex items-center justify-between">
+                            <div className="px-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                 <div>
                                     <h2 className="text-slate-800 text-[20px] font-black">Versiones y Respaldos</h2>
-                                    <p className="text-slate-500 text-[14px] mt-0.5 font-medium">Historial de horarios generados.</p>
+                                    <p className="text-slate-500 text-[14px] mt-0.5 font-medium">Historial de horarios generados y editados.</p>
                                 </div>
+                                {canEditHorario && (
+                                    <button
+                                        onClick={() => {
+                                            setNewVersionName('');
+                                            setNewVersionDesc('');
+                                            setSaveVersionOpen(true);
+                                        }}
+                                        className="h-10 px-4 rounded-xl bg-[var(--color-brand-primary)] hover:bg-[var(--color-brand-dark)] text-white text-[12px] font-black flex items-center gap-2 shadow-sm transition-all cursor-pointer shrink-0 self-start sm:self-auto"
+                                    >
+                                        <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" /></svg>
+                                        Guardar versión actual
+                                    </button>
+                                )}
                             </div>
                             
                             {/* Filtros */}
@@ -720,6 +768,7 @@ export default function VersionesManager() {
                                         <option value="ALL">Todos los estados</option>
                                         <option value="OPTIMAL">Óptimos</option>
                                         <option value="FEASIBLE">Factibles</option>
+                                        <option value="EDITADO">Editados</option>
                                     </select>
                                 </div>
                             </div>
@@ -736,7 +785,7 @@ export default function VersionesManager() {
                                 <div className="flex-1 flex items-center justify-center">
                                     <div className="flex flex-col items-center gap-4 text-center max-w-sm">
                                         <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center">
-                                            <svg width="32" height="32" fill="none" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                                                 <path d="M12 8v4l3 3" /><circle cx="12" cy="12" r="10" />
                                             </svg>
                                         </div>
@@ -792,9 +841,17 @@ export default function VersionesManager() {
                                                 ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
                                                 : snap.estado === 'FEASIBLE'
                                                     ? 'bg-blue-50 text-blue-600 border border-blue-100'
-                                                    : 'bg-amber-50 text-amber-600 border border-amber-100'
+                                                    : snap.estado === 'EDITADO'
+                                                        ? 'bg-orange-50 text-orange-600 border border-orange-100'
+                                                        : 'bg-amber-50 text-amber-600 border border-amber-100'
                                                 }`}>
-                                                {snap.estado === 'OPTIMAL' ? 'Óptima' : snap.estado === 'FEASIBLE' ? 'Factible' : snap.estado}
+                                                {snap.estado === 'OPTIMAL'
+                                                    ? 'Óptima'
+                                                    : snap.estado === 'FEASIBLE'
+                                                        ? 'Factible'
+                                                        : snap.estado === 'EDITADO'
+                                                            ? 'Editado'
+                                                            : snap.estado}
                                             </span>
                                             {snap.es_editada && (
                                                 <span className="bg-orange-50 text-orange-500 text-[11px] font-bold px-2.5 py-1 rounded-lg border border-orange-100">
@@ -848,15 +905,15 @@ export default function VersionesManager() {
                                         {/* Stats row */}
                                         <div className="flex items-center gap-4 mt-3 flex-wrap">
                                             <div className="flex items-center gap-1.5 text-slate-400 text-[12px] font-semibold">
-                                                <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
+                                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
                                                 {formatDate(snap.created_at)}
                                             </div>
                                             <div className="flex items-center gap-1.5 text-slate-400 text-[12px] font-semibold">
-                                                <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>
+                                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>
                                                 {formatDuration(snap.tiempo_segundos)}
                                             </div>
                                             <div className="flex items-center gap-1.5 text-slate-400 text-[12px] font-semibold">
-                                                <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" /></svg>
+                                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" /></svg>
                                                 {snap.asignaciones_count} asignaciones
                                             </div>
 
@@ -872,7 +929,7 @@ export default function VersionesManager() {
                                                 className="h-9 px-3 rounded-xl flex items-center gap-1.5 text-[12px] font-bold text-slate-600 bg-slate-50 hover:bg-slate-100 transition-all cursor-pointer border border-slate-200"
                                                 title="Renombrar"
                                             >
-                                                <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                                                 Editar
                                             </button>
                                         )}
@@ -883,7 +940,7 @@ export default function VersionesManager() {
                                             className="h-9 px-3 rounded-xl flex items-center gap-1.5 text-[12px] font-bold text-slate-600 bg-slate-50 hover:bg-slate-100 transition-all cursor-pointer border border-slate-200"
                                             title="Comparar con otra versión"
                                         >
-                                            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5" /></svg>
+                                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5" /></svg>
                                             Comparar
                                         </button>
 
@@ -894,7 +951,7 @@ export default function VersionesManager() {
                                                 className="h-9 px-3.5 rounded-xl flex items-center gap-1.5 text-[12px] font-bold bg-[var(--color-brand-primary)]/10 text-[var(--color-brand-primary)] hover:bg-[var(--color-brand-primary)]/20 border border-[var(--color-brand-primary)]/15 transition-all cursor-pointer"
                                                 title="Restaurar como activa"
                                             >
-                                                <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M1 4v6h6" /><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" /></svg>
+                                                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M1 4v6h6" /><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" /></svg>
                                                 Restaurar
                                             </button>
                                         )}
@@ -906,7 +963,7 @@ export default function VersionesManager() {
                                                 className="h-9 px-3 rounded-xl flex items-center gap-1.5 text-[12px] font-bold text-rose-500 bg-rose-50 hover:bg-rose-100 transition-all cursor-pointer border border-rose-100"
                                                 title="Eliminar"
                                             >
-                                                <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+                                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
                                                 Eliminar
                                             </button>
                                         )}
@@ -927,7 +984,7 @@ export default function VersionesManager() {
             <div className="flex items-center justify-between pb-5 border-b border-slate-100">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center border border-slate-100">
-                        <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5" /></svg>
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5" /></svg>
                     </div>
                     <div>
                         <h2 className="text-xl font-black text-slate-800 tracking-tight">Comparar horarios</h2>
@@ -1009,7 +1066,7 @@ export default function VersionesManager() {
                     {loadingCompare ? (
                         <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                     ) : (
-                        <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg>
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg>
                     )}
                     COMPARAR
                 </button>
@@ -1035,7 +1092,7 @@ export default function VersionesManager() {
                 <div className="flex-1 flex items-center justify-center border-2 border-dashed border-slate-200 rounded-3xl bg-slate-50/50">
                     <div className="text-center">
                         <div className="w-16 h-16 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center mx-auto mb-4">
-                            <svg width="32" height="32" fill="none" stroke="#cbd5e1" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5" /></svg>
+                            <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="#cbd5e1" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5" /></svg>
                         </div>
                         <h3 className="text-slate-600 font-bold text-lg">Selecciona una sección</h3>
                         <p className="text-slate-400 text-sm mt-1">Elige la versión a comparar y la sección para generar el plano visual.</p>
@@ -1068,7 +1125,7 @@ export default function VersionesManager() {
                     <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl relative overflow-hidden" style={{ animation: 'scaleIn 0.2s ease-out' }}>
                         <div className="flex flex-col items-center text-center">
                             <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mb-4 text-rose-500">
-                                <svg width="32" height="32" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>
+                                <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>
                             </div>
                             <h3 className="text-xl font-black text-slate-800 mb-2">¿Eliminar versión?</h3>
                             <p className="text-sm text-slate-500 mb-6">Esta acción no se puede deshacer. Todos los datos de este horario se perderán permanentemente.</p>
@@ -1090,7 +1147,7 @@ export default function VersionesManager() {
                     <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl relative overflow-hidden" style={{ animation: 'scaleIn 0.2s ease-out' }}>
                         <div className="flex flex-col items-center text-center">
                             <div className="w-16 h-16 bg-[var(--color-brand-primary)]/10 rounded-full flex items-center justify-center mb-4 text-[var(--color-brand-primary)]">
-                                <svg width="32" height="32" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M1 4v6h6" /><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" /></svg>
+                                <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M1 4v6h6" /><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" /></svg>
                             </div>
                             <h3 className="text-xl font-black text-slate-800 mb-2">¿Restaurar versión?</h3>
                             <p className="text-sm text-slate-500 mb-6">Esta versión se convertirá en el horario activo actual, reemplazando al que está ahora mismo.</p>
@@ -1103,6 +1160,57 @@ export default function VersionesManager() {
                             </div>
                         </div>
                     </div>
+                </div>
+            )}
+
+            {/* Save Current Version Modal */}
+            {saveVersionOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
+                    <form onSubmit={handleCreateVersion} className="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl relative overflow-hidden" style={{ animation: 'scaleIn 0.2s ease-out' }}>
+                        <h3 className="text-xl font-black text-slate-800 mb-1">Guardar versión actual</h3>
+                        <p className="text-sm text-slate-500 mb-5">Crea un respaldo del horario activo actual para poder compararlo o restaurarlo luego.</p>
+
+                        <div className="flex flex-col gap-3 mb-6">
+                            <div>
+                                <label className="block text-[11px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Nombre (opcional)</label>
+                                <input
+                                    type="text"
+                                    value={newVersionName}
+                                    onChange={(e) => setNewVersionName(e.target.value)}
+                                    placeholder="Ej: Ajuste semana 1, Propuesta final..."
+                                    className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none focus:border-[var(--color-brand-primary)] focus:ring-2 focus:ring-[var(--color-brand-primary)]/20 transition-all"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[11px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Descripción (opcional)</label>
+                                <textarea
+                                    rows={3}
+                                    value={newVersionDesc}
+                                    onChange={(e) => setNewVersionDesc(e.target.value)}
+                                    placeholder="Notas sobre qué cambia en esta versión..."
+                                    className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-700 outline-none focus:border-[var(--color-brand-primary)] focus:ring-2 focus:ring-[var(--color-brand-primary)]/20 transition-all resize-none"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3 w-full">
+                            <button
+                                type="button"
+                                onClick={() => setSaveVersionOpen(false)}
+                                disabled={isCreatingVersion}
+                                className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold rounded-xl transition-colors cursor-pointer"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={isCreatingVersion}
+                                className="flex-1 py-3 bg-[var(--color-brand-primary)] hover:bg-[var(--color-brand-dark)] text-white text-sm font-bold rounded-xl transition-colors disabled:opacity-50 flex justify-center items-center gap-2 cursor-pointer"
+                            >
+                                {isCreatingVersion ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : 'Guardar versión'}
+                            </button>
+                        </div>
+                    </form>
                 </div>
             )}
         </div>

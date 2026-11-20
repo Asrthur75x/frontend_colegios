@@ -287,7 +287,7 @@ export default function BloquesReservadosManager() {
                             {reservas.length === 0 ? (
                                 <div className="bg-slate-50 border-2 border-slate-200 border-dashed rounded-[32px] p-16 text-center h-full flex flex-col items-center justify-center min-h-[400px]">
                                     <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm border border-slate-100">
-                                        <svg width="32" height="32" fill="none" stroke="#cbd5e1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                                        <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="#cbd5e1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
                                     </div>
                                     <h3 className="text-xl font-black text-slate-800">No hay bloques especiales</h3>
                                     <p className="text-slate-500 text-[14px] font-medium mt-3 max-w-md mx-auto">

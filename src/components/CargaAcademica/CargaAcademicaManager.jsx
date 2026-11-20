@@ -239,7 +239,7 @@ export default function CargaAcademicaManager() {
 
                     <div className="mt-auto bg-[var(--color-brand-light)] rounded-xl p-3.5 border border-[var(--color-brand-light)]/60 flex gap-3 items-start">
                         <div className="text-brand-primary bg-white p-1 rounded-lg shadow-sm border border-[var(--color-brand-light)] mt-0.5 flex-shrink-0">
-                            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>
                         </div>
                         <div>
                             <p className="text-[var(--color-brand-dark)] text-[12px] font-bold mb-0.5">Asignaciones</p>
@@ -262,7 +262,7 @@ export default function CargaAcademicaManager() {
                     <div className="flex items-center justify-between mb-8 bg-white py-2 px-4 rounded-[20px] border border-slate-100 shadow-sm h-16 w-full overflow-hidden">
                         <div className="flex-shrink-0 flex items-center gap-3 w-1/4">
                             <div className="w-10 h-10 bg-brand-primary/10 rounded-xl flex items-center justify-center text-brand-primary">
-                                <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
                             </div>
                             <h2 className="text-[20px] font-black text-slate-800 tracking-tight whitespace-nowrap">
                                 Docentes <span className="text-slate-400 text-[15px] font-bold ml-1">({filtered.length})</span>
@@ -324,7 +324,7 @@ export default function CargaAcademicaManager() {
                                 <div className="flex items-center justify-center gap-2 mt-12 mb-4">
                                     <button onClick={() => setCurrentPage(Math.max(visiblePage - 1, 1))} disabled={visiblePage === 1}
                                         className="w-10 h-10 rounded-xl flex items-center justify-center border border-slate-200 text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 hover:text-brand-primary transition-colors cursor-pointer">
-                                        <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+                                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
                                     </button>
                                     {[...Array(totalPages)].map((_, i) => (
                                         <button key={i + 1} onClick={() => setCurrentPage(i + 1)}
@@ -334,7 +334,7 @@ export default function CargaAcademicaManager() {
                                     ))}
                                     <button onClick={() => setCurrentPage(Math.min(visiblePage + 1, totalPages))} disabled={visiblePage === totalPages}
                                         className="w-10 h-10 rounded-xl flex items-center justify-center border border-slate-200 text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 hover:text-brand-primary transition-colors cursor-pointer">
-                                        <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
+                                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
                                     </button>
                                 </div>
                             )}
@@ -413,7 +413,7 @@ export default function CargaAcademicaManager() {
                                                                     {asig > 0 && <span className="ml-2 text-brand-primary font-bold">• {asig} asignado{asig !== 1 ? 's' : ''}</span>}
                                                                 </p>
                                                             </div>
-                                                            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-300 group-hover:text-brand-primary shrink-0"><polyline points="9 18 15 12 9 6" /></svg>
+                                                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-300 group-hover:text-brand-primary shrink-0"><polyline points="9 18 15 12 9 6" /></svg>
                                                         </div>
                                                     </button>
                                                 );
@@ -427,7 +427,7 @@ export default function CargaAcademicaManager() {
                                 <div>
                                     <div className="flex items-center gap-3 mb-6 bg-white p-2.5 rounded-2xl border border-slate-100 shadow-sm">
                                         <button onClick={() => setSelectedArea(null)} className="flex items-center justify-center w-9 h-9 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-brand-primary transition-colors cursor-pointer shrink-0">
-                                            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+                                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
                                         </button>
                                         <div className="flex-1 min-w-0">
                                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Estás viendo</p>

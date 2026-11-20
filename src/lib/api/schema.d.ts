@@ -1872,6 +1872,21 @@ export interface components {
              * @description Hora de fin del bloque (HH:MM)
              */
             hora_final?: string | null;
+            /**
+             * Is Recess
+             * @description True si este bloque es un recreo
+             */
+            is_recess?: boolean | null;
+            /**
+             * Despues De Bloque
+             * @description Numero de bloque despues del cual se inserta
+             */
+            despues_de_bloque?: number | null;
+            /**
+             * Duracion Minutos
+             * @description Duracion del bloque en minutos
+             */
+            duracion_minutos?: number | null;
         };
         /** CreateBloqueReservadoCompletoParam */
         CreateBloqueReservadoCompletoParam: {

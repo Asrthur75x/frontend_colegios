@@ -82,17 +82,17 @@ const ProfesorCard = ({ prof, sedesStr, cursosNombres, cantGrados, cantDispo, on
                     </p>
                     <div className="flex items-center gap-3 mt-2">
                         <div className="flex items-center gap-1 text-slate-400" title="Bloques de Disponibilidad Físicos">
-                            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
                             <span className="text-[10px] font-bold truncate">
                                 {cantDispo === 'Total' ? 'Dispo. Total' : `${cantDispo} Blq.`}
                             </span>
                         </div>
                         <div className="flex items-center gap-1 text-slate-400" title="Horas Mínimas">
-                            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                             <span className="text-[10px] font-bold">{prof.horas_minimas || 0} H. Mín.</span>
                         </div>
                         <div className="flex items-center gap-1 text-slate-400" title="Grados Permitidos">
-                            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 14l9-5-9-5-9 5 9 5z" /><path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" /></svg>
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 14l9-5-9-5-9 5 9 5z" /><path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" /></svg>
                             <span className="text-[10px] font-bold">{cantGrados} Grados</span>
                         </div>
                     </div>
@@ -128,14 +128,14 @@ const ProfesorCard = ({ prof, sedesStr, cursosNombres, cantGrados, cantDispo, on
                         onClick={(e) => { e.stopPropagation(); onEdit(prof); }}
                         className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-[var(--color-brand-primary)]/10 border border-[var(--color-brand-primary)] text-[var(--color-brand-primary)] text-[12px] font-bold rounded-full transition-colors shadow-sm cursor-pointer"
                     >
-                        <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                         Editar
                     </button>
                     <button
                         onClick={(e) => { e.stopPropagation(); onDelete(prof.id_profesor); }}
                         className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-red-50 border border-red-200 text-red-600 text-[12px] font-bold rounded-full transition-colors shadow-sm cursor-pointer"
                     >
-                        <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
                         Eliminar
                     </button>
                 </div>
@@ -990,9 +990,9 @@ export default function ProfesoresManager() {
                     }}
                 >
                     {toast.type === 'error' ? (
-                        <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>
                     ) : (
-                        <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><path d="M22 4L12 14.01l-3-3" /></svg>
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><path d="M22 4L12 14.01l-3-3" /></svg>
                     )}
                     {toast.message}
                 </div>
@@ -1152,7 +1152,7 @@ export default function ProfesoresManager() {
                                 {searchTerm ? (
                                     <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
                                 ) : (
-                                    <svg width="32" height="32" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /></svg>
+                                    <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /></svg>
                                 )}
                             </div>
                             <h3 className="text-xl font-black text-slate-800">{searchTerm ? 'No se encontraron resultados' : 'No hay docentes registrados'}</h3>
@@ -1194,7 +1194,7 @@ export default function ProfesoresManager() {
                             {totalPages > 1 && (
                                 <div className="flex items-center justify-center gap-2 mt-12 mb-4">
                                     <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="w-10 h-10 rounded-xl flex items-center justify-center border border-slate-200 text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 hover:text-brand-primary transition-colors cursor-pointer">
-                                        <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+                                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
                                     </button>
                                     <div className="flex items-center gap-1">
                                         {[...Array(totalPages)].map((_, i) => (
@@ -1202,7 +1202,7 @@ export default function ProfesoresManager() {
                                         ))}
                                     </div>
                                     <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages} className="w-10 h-10 rounded-xl flex items-center justify-center border border-slate-200 text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 hover:text-brand-primary transition-colors cursor-pointer">
-                                        <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
+                                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
                                     </button>
                                 </div>
                             )}
@@ -1360,7 +1360,7 @@ export default function ProfesoresManager() {
                                             <label className="text-[11px] font-black uppercase tracking-wider text-slate-500 block mb-2 ml-1">Nombre completo</label>
                                             <div className="relative">
                                                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center text-slate-400 pointer-events-none">
-                                                    <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="7" r="4"/><path d="M4 21v-2a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v2"/></svg>
+                                                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="7" r="4"/><path d="M4 21v-2a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v2"/></svg>
                                                 </div>
                                                 <input
                                                     type="text"
@@ -1409,11 +1409,11 @@ export default function ProfesoresManager() {
                                                         return (
                                                             <button key={s.id_sede} type="button" disabled={sedes.length === 1} onClick={() => toggleSede(s.id_sede)} className={`w-full p-3 rounded-xl border-2 transition-all flex items-center gap-3 text-left ${sedes.length === 1 ? 'cursor-default' : 'cursor-pointer'} ${activo ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)]/5' : 'border-slate-100 hover:border-slate-200'}`}>
                                                                 <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${activo ? 'bg-[var(--color-brand-primary)] text-white' : 'bg-slate-100 text-slate-400'}`}>
-                                                                    <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 9l9-7 9 7v11H3z"/></svg>
+                                                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 9l9-7 9 7v11H3z"/></svg>
                                                                 </div>
                                                                 <span className={`flex-1 text-xs font-extrabold truncate ${activo ? 'text-[var(--color-brand-dark)]' : 'text-slate-700'}`}>{s.nombre_sede}</span>
                                                                 <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${activo ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)]' : 'border-slate-200'}`}>
-                                                                    {activo && <svg width="10" height="10" fill="none" stroke="white" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>}
+                                                                    {activo && <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="white" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>}
                                                                 </div>
                                                             </button>
                                                         );

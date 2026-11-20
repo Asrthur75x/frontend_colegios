@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { sileo } from 'sileo';
 import ConfiguracionTiemposModal from './ConfiguracionTiemposModal';
 import ModuleSidebar from '../Shared/ModuleSidebar';
 import IAReportWidget from './IAReportWidget';
@@ -8,8 +9,48 @@ import * as XLSX from 'xlsx';
 import { subscribe, startGeneracion, clearResult, getGeneracionState, LOADING_MESSAGES } from './generacionGlobal';
 import { clearDiagnostico, startDiagnostico } from './diagnosticoGlobal.jsx';
 import { hasPermission } from '../../lib/auth/session';
-import { getHorarioData, getHorarioActivo, listHorarioBloques, adaptBloques } from '../../services/horarios';
-const API_BASE = 'http://localhost:8000/api';
+import {
+    getHorarioData,
+    getHorarioActivo,
+    listHorarioBloques,
+    adaptBloques,
+    validateHorarioMove,
+    applyHorarioMove,
+    saveHorarioEdits,
+    listSnapshots,
+    updateSnapshot,
+    restoreSnapshot,
+    deleteBloque,
+} from '../../services/horarios';
+
+const showToast = (msg, type = 'success') => {
+    const baseOptions = {
+        description: msg,
+        duration: 3000,
+        position: 'top-center',
+    };
+    if (type === 'error') {
+        sileo.error({
+            ...baseOptions,
+            fill: '#DC2626',
+            styles: {
+                description: '!text-white font-bold !text-center flex-1',
+                badge: '!bg-red-800 !text-white',
+                button: '!bg-red-800 hover:!bg-red-900 !text-white',
+            },
+        });
+    } else {
+        sileo.success({
+            ...baseOptions,
+            fill: '#10B981',
+            styles: {
+                description: '!text-white font-bold !text-center flex-1',
+                badge: '!bg-emerald-700 !text-white',
+                button: '!bg-emerald-700 hover:!bg-emerald-800 !text-white',
+            },
+        });
+    }
+};
 
 // Colores consistentes con CursosManager: borde sólido + fondo pastel
 const CURSO_COLORS = [
@@ -76,6 +117,7 @@ export default function HorariosManager({ isEditPage = false }) {
     const generationResultRef = useRef(null);
     const canView = sessionReady && hasPermission('horarios:horario:view');
     const canGenerate = sessionReady && hasPermission('horarios:horario:add');
+    const canEdit = sessionReady && hasPermission('horarios:horario:edit');
     useEffect(() => { setSessionReady(true); }, []);
     const [errorMsg, setErrorMsg] = useState(null);
     const [maxBloquesDia, setMaxBloquesDia] = useState(6);
@@ -115,6 +157,9 @@ export default function HorariosManager({ isEditPage = false }) {
     const [originalAsignaciones, setOriginalAsignaciones] = useState(null);
     const [isSavingEdits, setIsSavingEdits] = useState(false);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+    const [saveVersionModalOpen, setSaveVersionModalOpen] = useState(false);
+    const [versionName, setVersionName] = useState('');
+    const [versionDesc, setVersionDesc] = useState('');
 
     // UI States
     const [activeView] = useState('horario'); // Estadísticas ocultas temporalmente.
@@ -450,14 +495,14 @@ export default function HorariosManager({ isEditPage = false }) {
         try {
             const bloquesTurno = bloques.filter(b => b.id_turno === idTurno);
             for (const bloque of bloquesTurno) {
-                const response = await fetch(`${API_BASE}/bloques/${bloque.id_bloque}`, { method: 'DELETE' });
-                if (!response.ok) throw new Error('No se pudo eliminar la configuración.');
+                await deleteBloque(bloque.id_bloque);
             }
             setBloques(prev => prev.filter(b => b.id_turno !== idTurno));
             setDeleteTurnoConfigId(null);
             setConfigNotice('');
         } catch (error) {
             console.error(error);
+            showToast(error?.message || 'No se pudo eliminar la configuración.', 'error');
         } finally {
             setIsDeletingTurnoConfig(false);
         }
@@ -481,10 +526,14 @@ export default function HorariosManager({ isEditPage = false }) {
 
     const handleDragStart = (e, asignacion) => {
         if (!isEditMode) return;
+        const cursoIdRaw = String(asignacion.curso_id ?? '');
+        const resolvedCursoId = cursoIdRaw === 'TUT1'
+            ? (cursos.find(c => c.nombre_curso?.includes('Tutoría'))?.id_curso ?? 0)
+            : parseInt(cursoIdRaw.replace('CUR_', ''), 10);
         const data = {
-            seccion_id: parseInt(String(asignacion.seccion_id).replace('SEC_', '')),
-            curso_id: parseInt(String(asignacion.curso_id).replace('CUR_', '')),
-            profesor_id: parseInt(String(asignacion.profesor_id).replace('PROF_', '')),
+            seccion_id: parseInt(String(asignacion.seccion_id).replace('SEC_', ''), 10),
+            curso_id: Number.isNaN(resolvedCursoId) ? 0 : resolvedCursoId,
+            profesor_id: parseInt(String(asignacion.profesor_id).replace('PROF_', ''), 10),
             dia_origen: asignacion.dia,
             slot_inicio_origen: asignacion.slot_inicio,
             horas_origen: asignacion.horas,
@@ -520,7 +569,8 @@ export default function HorariosManager({ isEditPage = false }) {
         if (!diaOrigenObj) return;
 
         const turnosSeccion = seccionTurnos.filter(st => st.id_seccion === dragData.seccion_id).map(st => st.id_turno);
-        const idTurno = turnosSeccion.length > 0 ? turnosSeccion[0] : (turnos.length > 0 ? turnos[0].id_turno : 1);
+        const idTurno = turnos.find(t => normalize(t.nombre) === normalize(dragData.turno_origen))?.id_turno
+            ?? (turnosSeccion.length > 0 ? turnosSeccion[0] : (turnos.length > 0 ? turnos[0].id_turno : 1));
 
         const payload = {
             seccion_id: dragData.seccion_id,
@@ -537,10 +587,7 @@ export default function HorariosManager({ isEditPage = false }) {
         };
 
         try {
-            const valRes = await fetch(`${API_BASE}/horario-final/validate-move`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-            });
-            const valData = await valRes.json();
+            const valData = await validateHorarioMove(payload);
 
             if (!valData.valid) {
                 setMoveConflicts({ conflicts: valData.conflicts || [], warnings: valData.warnings || [] });
@@ -548,28 +595,26 @@ export default function HorariosManager({ isEditPage = false }) {
                 return;
             }
 
-            if (valData.isSwap && valData.swapInfo) {
-                setSwapConfirm({ payload, swapInfo: valData.swapInfo, warnings: valData.warnings || [] });
+            if (valData.is_swap && valData.swap_info) {
+                setSwapConfirm({ payload, swapInfo: valData.swap_info, warnings: valData.warnings || [] });
                 setDragData(null);
                 return;
             }
 
-            // Direct move - apply immediately
             if (valData.warnings && valData.warnings.length > 0) {
-                // Show warnings but still apply
                 console.warn('Move warnings:', valData.warnings);
             }
 
-            const applyRes = await fetch(`${API_BASE}/horario-final/apply-move`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-            });
-            if (applyRes.ok) {
-                setHasUnsavedChanges(true);
+            const applied = await applyHorarioMove({ ...payload, is_swap: false, swap_info: null });
+            setHasUnsavedChanges(true);
+            if (Array.isArray(applied?.asignaciones)) {
+                setAsignaciones(applied.asignaciones);
+            } else {
                 await reloadAsignaciones();
             }
         } catch (err) {
             console.error('Move error:', err);
-            setMoveConflicts({ conflicts: ['Error de conexión con el servidor'], warnings: [] });
+            setMoveConflicts({ conflicts: [err?.message || 'Error al mover el bloque'], warnings: [] });
         }
         setDragData(null);
     };
@@ -577,29 +622,75 @@ export default function HorariosManager({ isEditPage = false }) {
     const confirmSwap = async () => {
         if (!swapConfirm) return;
         try {
-            const res = await fetch(`${API_BASE}/horario-final/apply-move`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(swapConfirm.payload)
+            const applied = await applyHorarioMove({
+                ...swapConfirm.payload,
+                is_swap: true,
+                swap_info: swapConfirm.swapInfo,
             });
-            if (res.ok) {
-                setHasUnsavedChanges(true);
+            setHasUnsavedChanges(true);
+            if (Array.isArray(applied?.asignaciones)) {
+                setAsignaciones(applied.asignaciones);
+            } else {
                 await reloadAsignaciones();
             }
-        } catch (err) { console.error(err); }
+        } catch (err) {
+            console.error(err);
+            setMoveConflicts({ conflicts: [err?.message || 'No se pudo aplicar el intercambio'], warnings: [] });
+        }
         setSwapConfirm(null);
     };
 
-    const handleSaveEdits = async () => {
+    const openSaveVersionModal = () => {
+        setVersionName('');
+        setVersionDesc('');
+        setSaveVersionModalOpen(true);
+    };
+
+    const handleSaveEdits = async (e) => {
+        if (e) e.preventDefault();
         setIsSavingEdits(true);
         try {
-            await fetch(`${API_BASE}/horario-final/save-edits`, { method: 'POST' });
+            const res = await saveHorarioEdits();
+            if (!res?.success) {
+                throw new Error('No se pudo guardar la versión del horario.');
+            }
+            const snapshotId = res.snapshot?.version;
+            const trimmedName = versionName.trim();
+            const trimmedDesc = versionDesc.trim();
+            if (snapshotId && (trimmedName || trimmedDesc)) {
+                await updateSnapshot(snapshotId, {
+                    nombre: trimmedName || undefined,
+                    descripcion: trimmedDesc || null,
+                });
+            }
+            setSaveVersionModalOpen(false);
+            setVersionName('');
+            setVersionDesc('');
             setOriginalAsignaciones(null);
             setIsEditMode(false);
             setHasUnsavedChanges(false);
-        } catch (err) { console.error(err); }
-        setIsSavingEdits(false);
+            if (Array.isArray(res.snapshot?.asignaciones)) {
+                setAsignaciones(res.snapshot.asignaciones);
+            }
+            showToast(`Versión "${trimmedName || res.snapshot?.nombre || 'nueva'}" guardada correctamente`);
+        } catch (err) {
+            console.error(err);
+            showToast(err?.message || 'Error al guardar la versión', 'error');
+        } finally {
+            setIsSavingEdits(false);
+        }
     };
 
     const handleCancelEdit = async () => {
+        if (hasUnsavedChanges) {
+            try {
+                const snaps = await listSnapshots();
+                const active = snaps.find(s => s.is_active);
+                if (active) await restoreSnapshot(active.id);
+            } catch (err) {
+                console.error('Error restoring active snapshot on cancel:', err);
+            }
+        }
         if (originalAsignaciones) setAsignaciones(originalAsignaciones);
         setOriginalAsignaciones(null);
         setIsEditMode(false);
@@ -832,6 +923,13 @@ export default function HorariosManager({ isEditPage = false }) {
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M8 2v4M16 2v4M3 9h18M8 13h3M13 13h3M8 17h3M13 17h3" /></svg>
                     Ver horario actualizado
                 </button>
+                <a
+                    href="/horarios/versiones"
+                    className="col-span-2 min-h-[42px] px-3 py-2 rounded-xl border border-brand-primary/30 bg-transparent text-slate-600 hover:bg-white/50 hover:border-brand-primary/60 font-black text-[11px] flex items-center justify-center gap-2 transition-all"
+                >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><path d="M1 4v6h6" /><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" /><path d="M12 7v5l4 2" /></svg>
+                    Historial de versiones
+                </a>
             </div>
         </div>
     ) : null;
@@ -1164,10 +1262,9 @@ export default function HorariosManager({ isEditPage = false }) {
                                         initialTurnoId={editingTurnoId}
                                         disabledTurnoIds={turnosConConfiguracion.map(turno => turno.id_turno)}
                                         onSave={() => {
-                                            return fetch(`${API_BASE}/bloques`)
-                                                .then(r => r.json())
+                                            return listHorarioBloques()
                                                 .then(b => {
-                                                    setBloques(b.sort((x, y) => x.numero_bloque - y.numero_bloque));
+                                                    setBloques(adaptBloques(b));
                                                     setConfigNotice('');
                                                     setEditPanelView('list');
                                                 })
@@ -1296,16 +1393,26 @@ export default function HorariosManager({ isEditPage = false }) {
                                                 </div>
 
                                                 {isEditPage && (
-                                                    <div className="flex items-center gap-2 shrink-0">
-                                                        {!isEditMode ? (
-                                                            <button
-                                                                onClick={toggleEditMode}
-                                                                title="Activar el cambio de horarios (Arrastrar y Soltar)"
-                                                                className="h-[42px] px-3.5 flex items-center gap-2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl hover:bg-indigo-100 font-black text-[12px] transition-all cursor-pointer"
-                                                            >
-                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                                                                Activar Edición
-                                                            </button>
+                                                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                                                        {canEdit && (!isEditMode ? (
+                                                            <>
+                                                                <button
+                                                                    onClick={toggleEditMode}
+                                                                    title="Activar el cambio de horarios (Arrastrar y Soltar)"
+                                                                    className="h-[42px] px-3.5 flex items-center gap-2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl hover:bg-indigo-100 font-black text-[12px] transition-all cursor-pointer"
+                                                                >
+                                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                                                    Activar Edición
+                                                                </button>
+                                                                <button
+                                                                    onClick={openSaveVersionModal}
+                                                                    title="Guardar el horario actual como una versión en el historial"
+                                                                    className="h-[42px] px-3.5 flex items-center gap-2 bg-[var(--color-brand-primary)] text-white border border-transparent rounded-xl hover:brightness-90 font-black text-[12px] transition-all shadow-sm cursor-pointer"
+                                                                >
+                                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" /></svg>
+                                                                    Guardar versión
+                                                                </button>
+                                                            </>
                                                         ) : (
                                                             <>
                                                                 <button
@@ -1317,9 +1424,9 @@ export default function HorariosManager({ isEditPage = false }) {
                                                                     Cancelar
                                                                 </button>
                                                                 <button
-                                                                    onClick={handleSaveEdits}
+                                                                    onClick={openSaveVersionModal}
                                                                     disabled={isSavingEdits || !hasUnsavedChanges}
-                                                                    title="Guardar el nuevo horario editado"
+                                                                    title="Guardar el nuevo horario editado como versión"
                                                                     className={`h-[42px] px-3.5 flex items-center gap-2 bg-[var(--color-brand-primary)] text-white border border-transparent rounded-xl font-black text-[12px] transition-all shadow-md ${(isSavingEdits || !hasUnsavedChanges) ? 'opacity-50 cursor-not-allowed' : 'hover:brightness-90 cursor-pointer'}`}
                                                                 >
                                                                     {isSavingEdits ? (
@@ -1330,9 +1437,9 @@ export default function HorariosManager({ isEditPage = false }) {
                                                                     {isSavingEdits ? 'Guardando...' : 'Guardar'}
                                                                 </button>
                                                             </>
-                                                        )}
+                                                        ))}
 
-                                                        <div className="w-px h-6 bg-slate-200 mx-1"></div>
+                                                        {canEdit && <div className="w-px h-6 bg-slate-200 mx-1"></div>}
 
                                                         <button
                                                             onClick={handleDownloadExcel}
@@ -1672,6 +1779,65 @@ export default function HorariosManager({ isEditPage = false }) {
                             </button>
                         </div>
                     </div>
+                </div>
+            )}
+
+            {/* Modal de Guardar Versión */}
+            {saveVersionModalOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+                    <form onSubmit={handleSaveEdits} className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
+                        <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 flex items-center gap-3">
+                            <div className="w-10 h-10 bg-[var(--color-brand-primary)]/10 text-[var(--color-brand-primary)] rounded-xl flex items-center justify-center">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" /></svg>
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-black text-slate-800">Guardar versión</h3>
+                                <p className="text-[12px] text-slate-500 font-medium">Crea una versión en el historial con el horario actual.</p>
+                            </div>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-[11px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Nombre de la versión (opcional)</label>
+                                <input
+                                    type="text"
+                                    value={versionName}
+                                    onChange={(e) => setVersionName(e.target.value)}
+                                    placeholder="Ej: Ajuste Primaria, Versión aprobada..."
+                                    className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none focus:border-[var(--color-brand-primary)] focus:ring-2 focus:ring-[var(--color-brand-primary)]/20 transition-all"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[11px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Descripción (opcional)</label>
+                                <textarea
+                                    rows={3}
+                                    value={versionDesc}
+                                    onChange={(e) => setVersionDesc(e.target.value)}
+                                    placeholder="Notas sobre los cambios realizados..."
+                                    className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-700 outline-none focus:border-[var(--color-brand-primary)] focus:ring-2 focus:ring-[var(--color-brand-primary)]/20 transition-all resize-none"
+                                />
+                            </div>
+                        </div>
+                        <div className="p-4 border-t border-slate-100 flex justify-end gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setSaveVersionModalOpen(false)}
+                                disabled={isSavingEdits}
+                                className="px-5 py-2.5 text-slate-500 hover:text-slate-700 font-bold text-[13px] transition-colors cursor-pointer"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={isSavingEdits}
+                                className="px-5 py-2.5 bg-[var(--color-brand-primary)] hover:brightness-90 text-white font-black text-[13px] rounded-xl shadow-md transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+                            >
+                                {isSavingEdits ? (
+                                    <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                ) : null}
+                                {isSavingEdits ? 'Guardando...' : 'Guardar versión'}
+                            </button>
+                        </div>
+                    </form>
                 </div>
             )}
 

@@ -437,7 +437,7 @@ export default function CursosManager() {
                     {/* Error */}
                     {error && (
                         <div className="bg-amber-50 border border-amber-200 text-amber-800 px-6 py-4 rounded-2xl flex items-center gap-3">
-                            <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+                            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
                             <p className="text-sm font-medium">{error}</p>
                         </div>
                     )}
@@ -533,7 +533,7 @@ export default function CursosManager() {
                                     {cursosFiltrados.length === 0 ? (
                                         <div className="bg-slate-50 border-2 border-slate-200 border-dashed rounded-[32px] p-16 text-center">
                                             <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
-                                                <svg width="32" height="32" fill="none" stroke="#cbd5e1" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                                                <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="#cbd5e1" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
                                             </div>
                                             <h3 className="text-xl font-black text-slate-800">No se encontraron cursos</h3>
                                             <p className="text-slate-500 text-sm mt-2 max-w-md mx-auto">
@@ -720,7 +720,7 @@ export default function CursosManager() {
                                                                     <div key={c.nombre} className={`group flex items-center justify-between gap-3 px-3 py-2.5 rounded-[14px] border border-slate-200 transition-all animate-fade-in hover:border-slate-300 hover:shadow-sm bg-white ${c.requiere_espacio_unico ? 'ring-2 ring-[var(--color-brand-primary)]/20' : ''}`}>
                                                                         <div className="flex items-center gap-3 min-w-0">
                                                                             <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${c.requiere_espacio_unico ? 'bg-[var(--color-brand-light)] text-[var(--color-brand-primary)]' : 'bg-slate-100 text-slate-400'}`}>
-                                                                                <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                                                                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
                                                                             </div>
                                                                             <div className="flex flex-col min-w-0">
                                                                                 <span className="text-[13px] font-extrabold text-slate-800 truncate leading-tight">{c.nombre}</span>

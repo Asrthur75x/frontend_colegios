@@ -766,7 +766,7 @@ export default function AreasManager() {
                     {/* Error */}
                     {error && (
                         <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-2xl flex items-center gap-3">
-                            <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>
+                            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>
                             <p className="text-sm font-medium">No se pudo conectar al servidor: {error}</p>
                             <button onClick={fetchAreas} className="ml-auto text-xs font-bold text-red-600 hover:underline cursor-pointer">Reintentar</button>
                         </div>
@@ -843,7 +843,7 @@ export default function AreasManager() {
                                     {areas.length === 0 ? (
                                         <div className="bg-slate-50 border-2 border-slate-200 border-dashed rounded-[24px] p-16 text-center flex-1 flex flex-col items-center justify-center animate-fade-in">
                                             <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
-                                                <svg width="32" height="32" fill="none" stroke="#94a3b8" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                                                <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="#94a3b8" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
                                             </div>
                                             <h3 className="text-xl font-black text-slate-800">No hay áreas registradas</h3>
                                             <p className="text-slate-500 text-sm mt-2 max-w-md mx-auto">Comienza creando tu primera área académica usando el botón de la izquierda.</p>
@@ -851,7 +851,7 @@ export default function AreasManager() {
                                     ) : filteredAreas.length === 0 ? (
                                         <div className="bg-slate-50 border-2 border-slate-200 border-dashed rounded-[24px] p-16 text-center flex-1 flex flex-col items-center justify-center animate-fade-in">
                                             <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
-                                                <svg width="32" height="32" fill="none" stroke="#94a3b8" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                                                <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="#94a3b8" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                                             </div>
                                             <h3 className="text-xl font-black text-slate-800">No se encontraron áreas</h3>
                                             <p className="text-slate-500 text-sm mt-2 max-w-md mx-auto">No hay ningún resultado que coincida con tu búsqueda.</p>
